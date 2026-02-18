@@ -140,4 +140,45 @@ export class PrismaRecipeRepository implements RecipeRepository {
       ingredients: recipe.ingredients.map(toIngredient),
     };
   }
+
+  async update(id: number, input: CreateRecipeInput): Promise<Recipe | null> {
+    const prisma = await getPrisma();
+
+    const existingRecipe = await prisma.recipe.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existingRecipe) {
+      return null;
+    }
+
+    const recipe = await prisma.recipe.update({
+      where: { id },
+      data: {
+        title: input.title,
+        description: input.description,
+        stepsMarkdown: input.stepsMarkdown,
+        ingredients: {
+          deleteMany: {},
+          create: toCreateIngredientData(input.ingredients),
+        },
+      },
+      include: {
+        ingredients: {
+          orderBy: { position: "asc" },
+        },
+      },
+    });
+
+    return {
+      id: recipe.id,
+      title: recipe.title,
+      description: recipe.description,
+      stepsMarkdown: recipe.stepsMarkdown,
+      createdAt: recipe.createdAt,
+      updatedAt: recipe.updatedAt,
+      ingredients: recipe.ingredients.map(toIngredient),
+    };
+  }
 }

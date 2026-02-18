@@ -5,6 +5,7 @@ export type RecipeUseCases = {
   listRecipes: () => Promise<RecipeListItem[]>;
   getRecipeById: (id: number) => Promise<Recipe | null>;
   createRecipe: (input: CreateRecipeInput) => Promise<Recipe>;
+  updateRecipe: (id: number, input: CreateRecipeInput) => Promise<Recipe | null>;
 };
 
 export function makeRecipeUseCases(recipeRepository: RecipeRepository): RecipeUseCases {
@@ -19,6 +20,10 @@ export function makeRecipeUseCases(recipeRepository: RecipeRepository): RecipeUs
 
     async createRecipe(input: CreateRecipeInput) {
       return recipeRepository.create(input);
+    },
+
+    async updateRecipe(id: number, input: CreateRecipeInput) {
+      return recipeRepository.update(id, input);
     },
   };
 }

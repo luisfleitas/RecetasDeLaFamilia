@@ -79,9 +79,14 @@ export default async function RecipeDetailPage({ params }: Params) {
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{recipe.title}</h1>
-        <Link href="/" className="text-sm underline">
-          Back to list
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href={`/recipes/${recipe.id}/edit`} className="text-sm underline">
+            Edit
+          </Link>
+          <Link href="/" className="text-sm underline">
+            Back to list
+          </Link>
+        </div>
       </div>
 
       <p className="text-sm text-zinc-600">Created {new Date(recipe.createdAt).toLocaleString()}</p>
