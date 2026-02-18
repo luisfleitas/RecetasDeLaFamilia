@@ -1,0 +1,37 @@
+// Prisma data model for recipes and ingredients.
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Recipe {
+  id            Int          @id @default(autoincrement())
+  title         String
+  description   String?
+  stepsMarkdown String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  ingredients   Ingredient[]
+}
+
+model Ingredient {
+  id        Int      @id @default(autoincrement())
+  recipeId  Int
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  name      String
+  qtyNum    Int
+  qtyDen    Int      @default(1)
+  unit      String
+  notes     String?
+  position  Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([recipeId, position])
+}
