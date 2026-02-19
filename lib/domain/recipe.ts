@@ -1,6 +1,7 @@
 export type RecipeListItem = {
   id: number;
   title: string;
+  createdByUserId: number;
   createdAt: Date;
 };
 
@@ -20,6 +21,7 @@ export type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  createdByUserId: number;
   createdAt: Date;
   updatedAt: Date;
   ingredients: Ingredient[];

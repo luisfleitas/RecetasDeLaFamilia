@@ -45,9 +45,20 @@ export default async function HomePage() {
     <main className="mx-auto max-w-3xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Recipes</h1>
-        <Link href="/recipes/new" className="rounded bg-black px-3 py-2 text-sm text-white">
-          New Recipe
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/register" className="text-sm underline">
+            Register
+          </Link>
+          <Link href="/login" className="text-sm underline">
+            Login
+          </Link>
+          <Link href="/account/change-password" className="text-sm underline">
+            Change Password
+          </Link>
+          <Link href="/recipes/new" className="rounded bg-black px-3 py-2 text-sm text-white">
+            New Recipe
+          </Link>
+        </div>
       </div>
 
       {recipes.length === 0 ? (

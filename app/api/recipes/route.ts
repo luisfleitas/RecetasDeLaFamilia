@@ -1,5 +1,6 @@
 // API handlers for listing and creating recipes.
 import { parseCreateRecipeInput } from "@/lib/application/recipes/validation";
+import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { buildRecipeUseCases } from "@/lib/recipes/factory";
 import { NextResponse } from "next/server";
 
@@ -19,6 +20,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const authUser = getAuthUserFromRequest(request);
+
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let body: unknown;
 
   try {
@@ -36,7 +43,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const recipe = await recipeUseCases.createRecipe(input);
+    const recipe = await recipeUseCases.createRecipe(authUser.userId, input);
 
     return NextResponse.json({ recipe }, { status: 201 });
   } catch (error) {

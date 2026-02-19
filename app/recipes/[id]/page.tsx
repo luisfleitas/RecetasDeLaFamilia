@@ -3,6 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import DeleteRecipeButton from "@/app/recipes/[id]/_components/delete-recipe-button";
 
 type Ingredient = {
   id: number;
@@ -83,6 +84,7 @@ export default async function RecipeDetailPage({ params }: Params) {
           <Link href={`/recipes/${recipe.id}/edit`} className="text-sm underline">
             Edit
           </Link>
+          <DeleteRecipeButton recipeId={recipe.id} />
           <Link href="/" className="text-sm underline">
             Back to list
           </Link>

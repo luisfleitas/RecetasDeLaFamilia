@@ -17,6 +17,36 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Database setup
+
+Run Prisma migrations and seed data:
+
+```bash
+prisma migrate dev
+prisma db seed
+```
+
+Seeded credentials for MVP testing:
+
+- `alice` / `Password123!`
+- `bob` / `Password123!`
+
+Set `JWT_SECRET` in `.env` before using auth endpoints.
+
+## Auth smoke test
+
+Run the end-to-end auth/ownership smoke checks:
+
+```bash
+./scripts/auth-smoke-test.sh
+```
+
+Optional env overrides:
+
+```bash
+BASE_URL=http://localhost:3000 ALICE_PASSWORD='Password123!' BOB_PASSWORD='Password123!' ./scripts/auth-smoke-test.sh
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

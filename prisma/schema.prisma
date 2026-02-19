@@ -13,6 +13,8 @@ model Recipe {
   title         String
   description   String?
   stepsMarkdown String
+  createdByUserId Int        @map("created_by_user_id")
+  createdByUser  User        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   ingredients   Ingredient[]
@@ -34,4 +36,17 @@ model Ingredient {
   updatedAt DateTime @updatedAt
 
   @@index([recipeId, position])
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  email        String   @unique
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  recipes      Recipe[]
+
+  @@map("users")
 }

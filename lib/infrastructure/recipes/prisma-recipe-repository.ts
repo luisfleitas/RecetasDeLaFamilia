@@ -79,6 +79,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
       select: {
         id: true,
         title: true,
+        createdByUserId: true,
         createdAt: true,
       },
     });
@@ -105,13 +106,25 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
       ingredients: recipe.ingredients.map(toIngredient),
     };
   }
 
-  async create(input: CreateRecipeInput): Promise<Recipe> {
+  async getOwnerById(id: number): Promise<number | null> {
+    const prisma = await getPrisma();
+
+    const recipe = await prisma.recipe.findUnique({
+      where: { id },
+      select: { createdByUserId: true },
+    });
+
+    return recipe?.createdByUserId ?? null;
+  }
+
+  async create(input: CreateRecipeInput, createdByUserId: number): Promise<Recipe> {
     const prisma = await getPrisma();
 
     const recipe = await prisma.recipe.create({
@@ -119,6 +132,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
         title: input.title,
         description: input.description,
         stepsMarkdown: input.stepsMarkdown,
+        createdByUserId,
         ingredients: {
           create: toCreateIngredientData(input.ingredients),
         },
@@ -135,6 +149,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
       ingredients: recipe.ingredients.map(toIngredient),
@@ -176,9 +191,26 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
       ingredients: recipe.ingredients.map(toIngredient),
     };
+  }
+
+  async delete(id: number): Promise<boolean> {
+    const prisma = await getPrisma();
+
+    const existingRecipe = await prisma.recipe.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existingRecipe) {
+      return false;
+    }
+
+    await prisma.recipe.delete({ where: { id } });
+    return true;
   }
 }

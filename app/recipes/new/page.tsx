@@ -2,6 +2,7 @@
 // Client page for creating a recipe and ingredient rows.
 
 import Link from "next/link";
+import { getAccessToken } from "@/lib/auth/client-session";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
@@ -117,10 +118,12 @@ export default function NewRecipePage() {
     };
 
     try {
+      const accessToken = getAccessToken();
       const response = await fetch("/api/recipes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(payload),
       });
