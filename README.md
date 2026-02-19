@@ -47,6 +47,12 @@ Run protected-page redirect guard checks:
 ./scripts/route-guards-smoke-test.sh
 ```
 
+Run logout lifecycle checks:
+
+```bash
+./scripts/logout-smoke-test.sh
+```
+
 Optional env overrides:
 
 ```bash
