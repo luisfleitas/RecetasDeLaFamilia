@@ -59,6 +59,9 @@ jobs:
       - name: Run auth smoke test
         run: ./scripts/auth-smoke-test.sh
 
+      - name: Run route guard smoke test
+        run: ./scripts/route-guards-smoke-test.sh
+
       - name: Print app logs on failure
         if: failure()
         run: cat /tmp/next-dev.log

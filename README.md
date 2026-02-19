@@ -41,6 +41,12 @@ Run the end-to-end auth/ownership smoke checks:
 ./scripts/auth-smoke-test.sh
 ```
 
+Run protected-page redirect guard checks:
+
+```bash
+./scripts/route-guards-smoke-test.sh
+```
+
 Optional env overrides:
 
 ```bash

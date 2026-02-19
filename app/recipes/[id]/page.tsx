@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import DeleteRecipeButton from "@/app/recipes/[id]/_components/delete-recipe-button";
+import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 
 type Ingredient = {
   id: number;
@@ -19,6 +20,7 @@ type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  createdByUserId: number;
   createdAt: string;
   ingredients: Ingredient[];
 };
@@ -74,17 +76,25 @@ async function fetchRecipe(id: string) {
 
 export default async function RecipeDetailPage({ params }: Params) {
   const { id } = await params;
-  const recipe = await fetchRecipe(id);
+  const [recipe, authUser] = await Promise.all([
+    fetchRecipe(id),
+    getOptionalAuthPageUser(),
+  ]);
+  const canManageRecipe = authUser?.user_id === recipe.createdByUserId;
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{recipe.title}</h1>
         <div className="flex items-center gap-4">
-          <Link href={`/recipes/${recipe.id}/edit`} className="text-sm underline">
-            Edit
-          </Link>
-          <DeleteRecipeButton recipeId={recipe.id} />
+          {canManageRecipe ? (
+            <>
+              <Link href={`/recipes/${recipe.id}/edit`} className="text-sm underline">
+                Edit
+              </Link>
+              <DeleteRecipeButton recipeId={recipe.id} />
+            </>
+          ) : null}
           <Link href="/" className="text-sm underline">
             Back to list
           </Link>

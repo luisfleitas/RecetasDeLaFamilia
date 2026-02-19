@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import EditRecipeForm from "@/app/recipes/[id]/edit/edit-recipe-form";
+import { requireAuthPage } from "@/lib/auth/require-auth-page";
 
 type Ingredient = {
   id: number;
@@ -66,6 +67,8 @@ async function fetchRecipe(id: string) {
 }
 
 export default async function EditRecipePage({ params }: Params) {
+  await requireAuthPage();
+
   const { id } = await params;
   const recipe = await fetchRecipe(id);
 

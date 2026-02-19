@@ -1,6 +1,7 @@
 import { AuthConflictError } from "@/lib/application/auth/use-cases";
 import { parseRegisterInput } from "@/lib/application/auth/validation";
 import { buildAuthUseCases } from "@/lib/auth/factory";
+import { ACCESS_TOKEN_COOKIE, getAccessTokenCookieConfig } from "@/lib/auth/session-cookie";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -27,7 +28,14 @@ export async function POST(request: Request) {
 
   try {
     const user = await authUseCases.register(input);
-    return NextResponse.json({ user }, { status: 201 });
+    const { accessToken } = await authUseCases.login({
+      username: input.username,
+      password: input.password,
+    });
+
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, getAccessTokenCookieConfig());
+    return response;
   } catch (error) {
     if (error instanceof AuthConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 });

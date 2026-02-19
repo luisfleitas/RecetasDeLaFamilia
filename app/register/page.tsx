@@ -45,7 +45,8 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push("/login");
+      router.push("/");
+      router.refresh();
     } catch {
       setError("Failed to register");
     } finally {

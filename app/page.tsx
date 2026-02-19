@@ -1,6 +1,8 @@
 // Home page that lists recipes from the API.
 import Link from "next/link";
 import { headers } from "next/headers";
+import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
+import LogoutButton from "@/app/_components/logout-button";
 
 type RecipeListItem = {
   id: number;
@@ -39,19 +41,29 @@ async function fetchRecipes() {
 }
 
 export default async function HomePage() {
-  const { recipes } = await fetchRecipes();
+  const [recipesResponse, authUser] = await Promise.all([
+    fetchRecipes(),
+    getOptionalAuthPageUser(),
+  ]);
+  const { recipes } = recipesResponse;
 
   return (
     <main className="mx-auto max-w-3xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Recipes</h1>
         <div className="flex items-center gap-3">
-          <Link href="/register" className="text-sm underline">
-            Register
-          </Link>
-          <Link href="/login" className="text-sm underline">
-            Login
-          </Link>
+          {!authUser ? (
+            <>
+              <Link href="/register" className="text-sm underline">
+                Register
+              </Link>
+              <Link href="/login" className="text-sm underline">
+                Login
+              </Link>
+            </>
+          ) : (
+            <LogoutButton />
+          )}
           <Link href="/account/change-password" className="text-sm underline">
             Change Password
           </Link>
