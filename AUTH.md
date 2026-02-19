@@ -38,6 +38,9 @@ UI visibility rules on recipe detail page:
 - `POST /api/auth/logout`
   - Clears session cookie.
   - Returns `200`.
+- `GET /api/auth/me`
+  - Returns current authenticated user (`user_id`, `username`) when session is valid.
+  - Returns `401` when unauthenticated.
 - `POST /api/auth/change-password`
   - Requires auth.
   - Requires `current_password`, `new_password` (`>= 8`).

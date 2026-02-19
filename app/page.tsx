@@ -52,6 +52,7 @@ export default async function HomePage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Recipes</h1>
         <div className="flex items-center gap-3">
+          {authUser ? <p className="text-sm text-zinc-600">Signed in as {authUser.username}</p> : null}
           {!authUser ? (
             <>
               <Link href="/register" className="text-sm underline">

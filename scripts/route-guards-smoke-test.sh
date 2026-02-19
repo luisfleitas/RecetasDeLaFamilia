@@ -60,9 +60,14 @@ assert_home_shows_auth_links() {
     echo "Expected unauthenticated home to show /register and /login links"
     exit 1
   fi
+
+  if [[ "$html" == *"Signed in as"* ]]; then
+    echo "Expected unauthenticated home to not show signed-in label"
+    exit 1
+  fi
 }
 
-assert_home_hides_auth_links() {
+assert_home_authenticated_header() {
   local cookie_jar="$1"
   local html
   html=$(curl -s -b "$cookie_jar" "$BASE_URL/")
@@ -76,24 +81,33 @@ assert_home_hides_auth_links() {
     echo "Expected authenticated home to show Logout button"
     exit 1
   fi
+
+  if [[ "$html" != *"Signed in as"* ]]; then
+    echo "Expected authenticated home to show signed-in label"
+    exit 1
+  fi
 }
 
-echo "[1/8] Unauthenticated home shows Register/Login links"
+echo "[1/10] Unauthenticated home shows Register/Login links"
 assert_home_shows_auth_links
 
-echo "[2/8] Get sample recipe id"
+echo "[2/10] /api/auth/me returns 401 when unauthenticated"
+ME_401_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/auth/me")
+[[ "$ME_401_CODE" == "401" ]] || { echo "Expected 401 for unauthenticated /api/auth/me, got $ME_401_CODE"; exit 1; }
+
+echo "[3/10] Get sample recipe id"
 RECIPE_ID=$(curl -s "$BASE_URL/api/recipes" | jq -r '.recipes[0].id')
 if [[ -z "$RECIPE_ID" || "$RECIPE_ID" == "null" ]]; then
   echo "Could not resolve recipe id"
   exit 1
 fi
 
-echo "[3/8] Unauthenticated users are redirected from protected pages"
+echo "[4/10] Unauthenticated users are redirected from protected pages"
 assert_redirect_to_login "/recipes/new"
 assert_redirect_to_login "/account/change-password"
 assert_redirect_to_login "/recipes/$RECIPE_ID/edit"
 
-echo "[4/8] Login as alice and capture cookie"
+echo "[5/10] Login as alice and capture cookie"
 COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
@@ -106,16 +120,24 @@ if [[ "$LOGIN_CODE" != "200" ]]; then
   exit 1
 fi
 
-echo "[5/8] Authenticated home hides Register/Login links"
-assert_home_hides_auth_links "$COOKIE_JAR"
+echo "[6/10] /api/auth/me returns current user for authenticated session"
+ME_RESPONSE=$(curl -s -b "$COOKIE_JAR" "$BASE_URL/api/auth/me")
+ME_USERNAME=$(printf '%s' "$ME_RESPONSE" | jq -r '.user.username')
+if [[ "$ME_USERNAME" != "alice" ]]; then
+  echo "Expected /api/auth/me username alice, got $ME_USERNAME"
+  exit 1
+fi
 
-echo "[6/8] Authenticated user can open /recipes/new"
+echo "[7/10] Authenticated home hides Register/Login links and shows identity"
+assert_home_authenticated_header "$COOKIE_JAR"
+
+echo "[8/10] Authenticated user can open /recipes/new"
 assert_ok_with_cookie "$COOKIE_JAR" "/recipes/new"
 
-echo "[7/8] Authenticated user can open /account/change-password"
+echo "[9/10] Authenticated user can open /account/change-password"
 assert_ok_with_cookie "$COOKIE_JAR" "/account/change-password"
 
-echo "[8/8] Authenticated user can open /recipes/{id}/edit"
+echo "[10/10] Authenticated user can open /recipes/{id}/edit"
 assert_ok_with_cookie "$COOKIE_JAR" "/recipes/$RECIPE_ID/edit"
 
 echo "Route guard smoke checks passed."
