@@ -1,6 +1,5 @@
 "use client";
 
-import { getAccessToken } from "@/lib/auth/client-session";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -23,12 +22,8 @@ export default function DeleteRecipeButton({ recipeId }: { recipeId: number }) {
     setIsDeleting(true);
 
     try {
-      const accessToken = getAccessToken();
       const response = await fetch(`/api/recipes/${recipeId}`, {
         method: "DELETE",
-        headers: {
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
       });
 
       if (!response.ok) {

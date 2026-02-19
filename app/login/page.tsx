@@ -1,26 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearAccessToken, getAccessToken, saveAccessToken } from "@/lib/auth/client-session";
 
-type LoginResponse = {
-  access_token?: string;
+type ApiResponse = {
   error?: string;
 };
 
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasToken, setHasToken] = useState<boolean>(() => Boolean(getAccessToken()));
-
-  const loggedInLabel = useMemo(() => (hasToken ? "Token is stored in this browser." : null), [hasToken]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setMessage(null);
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
@@ -39,15 +36,14 @@ export default function LoginPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json()) as LoginResponse;
+      const data = (await response.json()) as ApiResponse;
 
-      if (!response.ok || !data.access_token) {
+      if (!response.ok) {
         setError(data.error ?? "Failed to login");
         return;
       }
 
-      saveAccessToken(data.access_token);
-      setHasToken(true);
+      setMessage("Session active.");
       router.push("/");
       router.refresh();
     } catch {
@@ -57,9 +53,17 @@ export default function LoginPage() {
     }
   }
 
-  function handleLogout() {
-    clearAccessToken();
-    setHasToken(false);
+  async function handleLogout() {
+    setError(null);
+    setMessage(null);
+
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setMessage("Session cleared.");
+      router.refresh();
+    } catch {
+      setError("Failed to logout");
+    }
   }
 
   return (
@@ -87,14 +91,14 @@ export default function LoginPage() {
         </div>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {loggedInLabel ? <p className="text-sm text-green-700">{loggedInLabel}</p> : null}
+        {message ? <p className="text-sm text-green-700">{message}</p> : null}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={isSubmitting} className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-60">
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
           <button type="button" onClick={handleLogout} className="rounded border border-zinc-300 px-4 py-2 text-sm">
-            Clear token
+            Logout
           </button>
         </div>
       </form>

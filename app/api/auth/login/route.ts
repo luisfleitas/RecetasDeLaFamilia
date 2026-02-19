@@ -1,6 +1,7 @@
 import { AuthInvalidCredentialsError } from "@/lib/application/auth/use-cases";
 import { parseLoginInput } from "@/lib/application/auth/validation";
 import { buildAuthUseCases } from "@/lib/auth/factory";
+import { ACCESS_TOKEN_COOKIE, getAccessTokenCookieConfig } from "@/lib/auth/session-cookie";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -26,7 +27,9 @@ export async function POST(request: Request) {
 
   try {
     const { accessToken } = await authUseCases.login(input);
-    return NextResponse.json({ access_token: accessToken });
+    const response = NextResponse.json({ access_token: accessToken });
+    response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, getAccessTokenCookieConfig());
+    return response;
   } catch (error) {
     if (error instanceof AuthInvalidCredentialsError) {
       return NextResponse.json({ error: "Invalid username or password" }, { status: 401 });

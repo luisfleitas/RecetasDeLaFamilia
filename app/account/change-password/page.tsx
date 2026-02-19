@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { getAccessToken } from "@/lib/auth/client-session";
 
 type ChangePasswordResponse = {
   ok?: boolean;
@@ -20,12 +19,6 @@ export default function ChangePasswordPage() {
     setError(null);
     setSuccess(null);
 
-    const token = getAccessToken();
-    if (!token) {
-      setError("Please login first.");
-      return;
-    }
-
     const formData = new FormData(event.currentTarget);
 
     const payload = {
@@ -39,7 +32,6 @@ export default function ChangePasswordPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });

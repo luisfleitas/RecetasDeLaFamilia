@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAccessToken } from "@/lib/auth/client-session";
 
 type Ingredient = {
   id: number;
@@ -139,12 +138,10 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
     setIsSubmitting(true);
     try {
-      const accessToken = getAccessToken();
       const response = await fetch(`/api/recipes/${recipe.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(payload),
       });
