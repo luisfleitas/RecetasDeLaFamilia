@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 
 export type AccessTokenPayload = {
   user_id: number;
@@ -15,6 +15,19 @@ function getJwtSecret(): string {
   return secret;
 }
 
+function getJwtExpiresIn(): SignOptions["expiresIn"] {
+  const raw = process.env.JWT_EXPIRES_IN?.trim();
+  if (!raw) {
+    return "7d";
+  }
+
+  if (/^\d+$/.test(raw)) {
+    return Number(raw);
+  }
+
+  return raw as SignOptions["expiresIn"];
+}
+
 export function signAccessToken(input: { userId: number; username: string }): string {
   return jwt.sign(
     {
@@ -23,7 +36,7 @@ export function signAccessToken(input: { userId: number; username: string }): st
     },
     getJwtSecret(),
     {
-      expiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
+      expiresIn: getJwtExpiresIn(),
     },
   );
 }

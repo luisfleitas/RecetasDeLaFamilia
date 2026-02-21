@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type RegisterResponse = {
   user?: { id: number };
@@ -55,56 +56,58 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Register</h1>
-        <Link href="/" className="text-sm underline">
-          Back to recipes
-        </Link>
+    <main className="app-shell max-w-xl space-y-6">
+      <div className="surface-panel space-y-6 p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Invite Family Member</h1>
+          <Link href="/" className="text-link text-sm">
+            Back to recipes
+          </Link>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="first_name" className="mb-1 block text-sm font-medium">
+              First name
+            </label>
+            <input id="first_name" name="first_name" required className="input-base" />
+          </div>
+
+          <div>
+            <label htmlFor="last_name" className="mb-1 block text-sm font-medium">
+              Last name
+            </label>
+            <input id="last_name" name="last_name" required className="input-base" />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="mb-1 block text-sm font-medium">
+              Email
+            </label>
+            <input id="email" name="email" type="email" required className="input-base" />
+          </div>
+
+          <div>
+            <label htmlFor="username" className="mb-1 block text-sm font-medium">
+              Username
+            </label>
+            <input id="username" name="username" required className="input-base" />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="mb-1 block text-sm font-medium">
+              Password
+            </label>
+            <input id="password" name="password" type="password" minLength={8} required className="input-base" />
+          </div>
+
+          {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+
+          <button type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
+            {isSubmitting ? "Creating account..." : "Create account"}
+          </button>
+        </form>
       </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="first_name" className="mb-1 block text-sm font-medium">
-            First name
-          </label>
-          <input id="first_name" name="first_name" required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        <div>
-          <label htmlFor="last_name" className="mb-1 block text-sm font-medium">
-            Last name
-          </label>
-          <input id="last_name" name="last_name" required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium">
-            Email
-          </label>
-          <input id="email" name="email" type="email" required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        <div>
-          <label htmlFor="username" className="mb-1 block text-sm font-medium">
-            Username
-          </label>
-          <input id="username" name="username" required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium">
-            Password
-          </label>
-          <input id="password" name="password" type="password" minLength={8} required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        <button type="submit" disabled={isSubmitting} className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-60">
-          {isSubmitting ? "Creating account..." : "Create account"}
-        </button>
-      </form>
     </main>
   );
 }
