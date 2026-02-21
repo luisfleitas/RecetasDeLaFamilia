@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type ChangePasswordResponse = {
   ok?: boolean;
@@ -53,36 +54,38 @@ export default function ChangePasswordForm() {
   }
 
   return (
-    <main className="mx-auto max-w-md space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Change Password</h1>
-        <Link href="/" className="text-sm underline">
-          Back to recipes
-        </Link>
+    <main className="app-shell max-w-xl space-y-6">
+      <div className="surface-panel space-y-6 p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Manage Family Access</h1>
+          <Link href="/" className="text-link text-sm">
+            Back to recipes
+          </Link>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="current_password" className="mb-1 block text-sm font-medium">
+              Current password
+            </label>
+            <input id="current_password" name="current_password" type="password" required className="input-base" />
+          </div>
+
+          <div>
+            <label htmlFor="new_password" className="mb-1 block text-sm font-medium">
+              New password
+            </label>
+            <input id="new_password" name="new_password" type="password" minLength={8} required className="input-base" />
+          </div>
+
+          {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+          {success ? <p className="text-sm text-[var(--color-primary)]">{success}</p> : null}
+
+          <button type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
+            {isSubmitting ? "Updating..." : "Update password"}
+          </button>
+        </form>
       </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="current_password" className="mb-1 block text-sm font-medium">
-            Current password
-          </label>
-          <input id="current_password" name="current_password" type="password" required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        <div>
-          <label htmlFor="new_password" className="mb-1 block text-sm font-medium">
-            New password
-          </label>
-          <input id="new_password" name="new_password" type="password" minLength={8} required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {success ? <p className="text-sm text-green-700">{success}</p> : null}
-
-        <button type="submit" disabled={isSubmitting} className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-60">
-          {isSubmitting ? "Updating..." : "Update password"}
-        </button>
-      </form>
     </main>
   );
 }

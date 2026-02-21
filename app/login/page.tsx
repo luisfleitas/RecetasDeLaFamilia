@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type ApiResponse = {
   error?: string;
@@ -67,41 +68,43 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Login</h1>
-        <Link href="/" className="text-sm underline">
-          Back to recipes
-        </Link>
+    <main className="app-shell max-w-xl space-y-6">
+      <div className="surface-panel space-y-6 p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Family Log In</h1>
+          <Link href="/" className="text-link text-sm">
+            Back to recipes
+          </Link>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="username" className="mb-1 block text-sm font-medium">
+              Username
+            </label>
+            <input id="username" name="username" required className="input-base" />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="mb-1 block text-sm font-medium">
+              Password
+            </label>
+            <input id="password" name="password" type="password" required className="input-base" />
+          </div>
+
+          {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+          {message ? <p className="text-sm text-[var(--color-primary)]">{message}</p> : null}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
+              {isSubmitting ? "Signing in..." : "Sign in"}
+            </button>
+            <button type="button" onClick={handleLogout} className={buttonClassName("secondary")}>
+              Logout
+            </button>
+          </div>
+        </form>
       </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="username" className="mb-1 block text-sm font-medium">
-            Username
-          </label>
-          <input id="username" name="username" required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium">
-            Password
-          </label>
-          <input id="password" name="password" type="password" required className="w-full rounded border border-zinc-300 p-2" />
-        </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {message ? <p className="text-sm text-green-700">{message}</p> : null}
-
-        <div className="flex items-center gap-3">
-          <button type="submit" disabled={isSubmitting} className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-60">
-            {isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
-          <button type="button" onClick={handleLogout} className="rounded border border-zinc-300 px-4 py-2 text-sm">
-            Logout
-          </button>
-        </div>
-      </form>
     </main>
   );
 }

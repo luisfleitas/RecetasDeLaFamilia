@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import EditRecipeForm from "@/app/recipes/[id]/edit/edit-recipe-form";
 import { requireAuthPage } from "@/lib/auth/require-auth-page";
+import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type Ingredient = {
   id: number;
@@ -73,15 +74,17 @@ export default async function EditRecipePage({ params }: Params) {
   const recipe = await fetchRecipe(id);
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Edit Recipe</h1>
-        <Link href={`/recipes/${recipe.id}`} className="text-sm underline">
-          Back to recipe
-        </Link>
-      </div>
+    <main className="app-shell max-w-5xl space-y-6">
+      <div className="surface-panel space-y-6 p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Edit Recipe</h1>
+          <Link href={`/recipes/${recipe.id}`} className={buttonClassName("secondary")}>
+            Back to recipe
+          </Link>
+        </div>
 
-      <EditRecipeForm recipe={recipe} />
+        <EditRecipeForm recipe={recipe} />
+      </div>
     </main>
   );
 }
