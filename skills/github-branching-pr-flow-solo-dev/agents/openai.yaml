@@ -1,0 +1,4 @@
+schema_version: v1
+display_name: GitHub PR Flow (Solo)
+short_description: Enforce feature -> pre-main -> main with strict branch guardrails.
+default_prompt: Apply the defined solo-dev branching strategy for this repo and keep all changes within the required PR flow.
