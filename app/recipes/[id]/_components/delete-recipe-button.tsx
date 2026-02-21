@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type DeleteRecipeResponse = {
   error?: string;
@@ -47,11 +48,11 @@ export default function DeleteRecipeButton({ recipeId }: { recipeId: number }) {
         type="button"
         onClick={handleDelete}
         disabled={isDeleting}
-        className="rounded border border-red-500 px-3 py-1 text-sm text-red-600 disabled:opacity-60"
+        className={buttonClassName("danger")}
       >
         {isDeleting ? "Deleting..." : "Delete"}
       </button>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-[var(--color-danger)]">{error}</p> : null}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type Ingredient = {
   id: number;
@@ -52,17 +53,13 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   const [title, setTitle] = useState(recipe.title);
   const [description, setDescription] = useState(recipe.description ?? "");
   const [stepsMarkdown, setStepsMarkdown] = useState(recipe.stepsMarkdown);
-  const [ingredients, setIngredients] = useState<IngredientDraft[]>(
-    toIngredientDrafts(recipe.ingredients),
-  );
+  const [ingredients, setIngredients] = useState<IngredientDraft[]>(toIngredientDrafts(recipe.ingredients));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
-      current.map((ingredient) =>
-        ingredient.rowId === rowId ? { ...ingredient, [field]: value } : ingredient,
-      ),
+      current.map((ingredient) => (ingredient.rowId === rowId ? { ...ingredient, [field]: value } : ingredient)),
     );
   }
 
@@ -112,7 +109,6 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       position: index + 1,
     }));
 
-    // Validation check: require name/unit, positive qty, and valid ordering for every row.
     const hasInvalidIngredient = payloadIngredients.some(
       (ingredient) =>
         ingredient.name.length === 0 ||
@@ -123,9 +119,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     );
 
     if (hasInvalidIngredient) {
-      setError(
-        "Check ingredients: qty must be a positive decimal number and required fields must be filled.",
-      );
+      setError("Check ingredients: qty must be a positive decimal number and required fields must be filled.");
       return;
     }
 
@@ -174,7 +168,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
           required
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="w-full rounded border border-zinc-300 p-2"
+          className="input-base"
         />
       </div>
 
@@ -188,7 +182,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
           rows={2}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          className="w-full rounded border border-zinc-300 p-2"
+          className="input-base"
         />
       </div>
 
@@ -203,32 +197,28 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
           required
           value={stepsMarkdown}
           onChange={(event) => setStepsMarkdown(event.target.value)}
-          className="w-full rounded border border-zinc-300 p-2"
+          className="input-base"
         />
       </div>
 
-      <div className="rounded border border-zinc-200 p-4">
+      <div className="surface-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium">Ingredients</p>
-          <button
-            type="button"
-            onClick={addIngredientRow}
-            className="rounded border border-zinc-300 px-2 py-1 text-sm"
-          >
+          <button type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
             Add Ingredient
           </button>
         </div>
 
         <div className="space-y-4">
           {ingredients.map((ingredient, index) => (
-            <div key={ingredient.rowId} className="rounded border border-zinc-200 p-3">
+            <div key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium">Row {index + 1}</p>
                 <button
                   type="button"
                   onClick={() => removeIngredientRow(ingredient.rowId)}
                   disabled={ingredients.length === 1}
-                  className="rounded border border-zinc-300 px-2 py-1 text-sm disabled:opacity-50"
+                  className={buttonClassName("secondary")}
                 >
                   Remove
                 </button>
@@ -244,7 +234,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     required
                     value={ingredient.name}
                     onChange={(event) => updateIngredient(ingredient.rowId, "name", event.target.value)}
-                    className="w-full rounded border border-zinc-300 p-2"
+                    className="input-base"
                   />
                 </div>
 
@@ -260,7 +250,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     required
                     value={ingredient.qty}
                     onChange={(event) => updateIngredient(ingredient.rowId, "qty", event.target.value)}
-                    className="w-full rounded border border-zinc-300 p-2"
+                    className="input-base"
                   />
                 </div>
 
@@ -273,7 +263,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     required
                     value={ingredient.unit}
                     onChange={(event) => updateIngredient(ingredient.rowId, "unit", event.target.value)}
-                    className="w-full rounded border border-zinc-300 p-2"
+                    className="input-base"
                   />
                 </div>
 
@@ -285,7 +275,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     id={`notes-${ingredient.rowId}`}
                     value={ingredient.notes}
                     onChange={(event) => updateIngredient(ingredient.rowId, "notes", event.target.value)}
-                    className="w-full rounded border border-zinc-300 p-2"
+                    className="input-base"
                   />
                 </div>
               </div>
@@ -294,13 +284,9 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         </div>
       </div>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
-      >
+      <button type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
         {isSubmitting ? "Saving..." : "Save Changes"}
       </button>
     </form>

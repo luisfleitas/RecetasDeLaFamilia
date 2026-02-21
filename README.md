@@ -33,6 +33,29 @@ Seeded credentials for MVP testing:
 
 Set `JWT_SECRET` in `.env` before using auth endpoints.
 
+## Design system architecture
+
+Global theme and visual tokens live in `app/globals.css`.
+
+- Switch palette across all pages by changing `data-theme` on `<html>` in `app/layout.tsx`.
+- Available presets:
+  - `warm`
+  - `classic`
+- Use semantic tokens only (for example `--color-primary`, `--color-border`, `--color-surface`) instead of hardcoded page-level colors.
+
+Shared button styles live in:
+
+- `app/_components/ui/button-styles.ts`
+- `app/_components/ui/button.tsx`
+
+Supported variants and states:
+
+- `primary`: default, hover, active, disabled
+- `secondary`: default, hover, active, disabled
+- `danger`: default, hover, active, disabled
+
+Use `buttonClassName(\"primary\" | \"secondary\" | \"danger\")` for links and buttons to keep interactions consistent across pages.
+
 ## Auth smoke test
 
 Run the end-to-end auth/ownership smoke checks:
