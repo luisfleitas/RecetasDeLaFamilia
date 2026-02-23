@@ -16,6 +16,11 @@ type Ingredient = {
   position: number;
 };
 
+type RecipeImage = {
+  id: number;
+  isPrimary: boolean;
+};
+
 type Recipe = {
   id: number;
   title: string;
@@ -24,6 +29,8 @@ type Recipe = {
   createdByUserId: number;
   createdAt: string;
   ingredients: Ingredient[];
+  images?: RecipeImage[];
+  primaryImage?: { id: number; fullUrl: string; thumbnailUrl: string } | null;
 };
 
 type RecipeResponse = {
@@ -54,9 +61,12 @@ async function fetchRecipe(id: string) {
   const requestHeaders = await headers();
   const baseUrl = getBaseUrl(requestHeaders);
 
-  const response = await fetch(`${baseUrl}/api/recipes/${id}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${baseUrl}/api/recipes/${id}?includePrimaryImage=true&includeImages=true`,
+    {
+      cache: "no-store",
+    },
+  );
 
   if (response.status === 404) {
     notFound();
@@ -102,8 +112,33 @@ export default async function RecipeDetailPage({ params }: Params) {
 
         <p className="text-sm text-[var(--color-text-muted)]">Created {new Date(recipe.createdAt).toLocaleString()}</p>
 
+        {recipe.primaryImage ? (
+          <img
+            src={recipe.primaryImage.fullUrl}
+            alt={recipe.title}
+            className="h-72 w-full rounded-[var(--radius-md)] object-cover"
+          />
+        ) : null}
+
         {recipe.description ? <p className="text-[var(--color-text)]">{recipe.description}</p> : null}
       </section>
+
+      {recipe.images && recipe.images.length > 0 ? (
+        <section className="surface-card p-5">
+          <h2 className="mb-3 text-lg font-semibold">Gallery</h2>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {recipe.images.map((image) => (
+              <li key={image.id}>
+                <img
+                  src={`/api/recipe-images/${image.id}/file?variant=thumb`}
+                  alt={image.isPrimary ? "Primary recipe image" : "Recipe image"}
+                  className="h-28 w-full rounded-[var(--radius-sm)] object-cover"
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="surface-card p-5">
         <h2 className="mb-3 text-lg font-semibold">Ingredients</h2>

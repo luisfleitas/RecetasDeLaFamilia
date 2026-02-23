@@ -22,8 +22,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 Run Prisma migrations and seed data:
 
 ```bash
-prisma migrate dev
-prisma db seed
+npx prisma migrate deploy --config prisma.config.ts
+npx prisma db seed --config prisma.config.ts
 ```
 
 Seeded credentials for MVP testing:
@@ -32,6 +32,98 @@ Seeded credentials for MVP testing:
 - `bob` / `Password123!`
 
 Set `JWT_SECRET` in `.env` before using auth endpoints.
+
+## Image upload configuration
+
+Recipe image upload/storage uses a pluggable storage backend.
+
+Environment variables:
+
+- `IMAGE_STORAGE_DRIVER`:
+  - `local` (default, implemented)
+  - `s3` (reserved for future provider implementation)
+- `IMAGE_STORAGE_LOCAL_ROOT`:
+  - local filesystem root for image objects
+  - defaults to `<repo>/uploads`
+
+Current image constraints:
+
+- Max `8` images per recipe.
+- Max `10MB` per image.
+- Accepted upload source types: `image/jpeg`, `image/png`, `image/webp`.
+- Canonical output variants:
+  - full: `1200x800` JPEG
+  - thumbnail: `400x267` JPEG
+
+## Image APIs
+
+### List recipes with principal image
+
+```bash
+curl -s "http://localhost:3000/api/recipes?includePrimaryImage=true"
+```
+
+### Get recipe with principal image and full image list
+
+```bash
+curl -s "http://localhost:3000/api/recipes/1?includePrimaryImage=true&includeImages=true"
+```
+
+### Create recipe with images (multipart)
+
+```bash
+curl -X POST "http://localhost:3000/api/recipes" \
+  -b /tmp/recetas.cookies \
+  -F "title=Recipe" \
+  -F "description=Desc" \
+  -F "stepsMarkdown=Step 1" \
+  -F 'ingredients=[{"name":"Salt","qty":1,"unit":"tsp","notes":"","position":1}]' \
+  -F "primaryImageIndex=0" \
+  -F "images=@/absolute/path/a.jpg;type=image/jpeg" \
+  -F "images=@/absolute/path/b.png;type=image/png"
+```
+
+### Update recipe with new images (multipart)
+
+```bash
+curl -X PUT "http://localhost:3000/api/recipes/1" \
+  -b /tmp/recetas.cookies \
+  -F "title=Recipe Updated" \
+  -F "description=Desc" \
+  -F "stepsMarkdown=Step 1" \
+  -F 'ingredients=[{"name":"Salt","qty":1,"unit":"tsp","notes":"","position":1}]' \
+  -F "primaryImageId=10" \
+  -F "newImages=@/absolute/path/c.webp;type=image/webp"
+```
+
+### Delete image from recipe
+
+```bash
+curl -X DELETE "http://localhost:3000/api/recipes/1/images/10" \
+  -b /tmp/recetas.cookies
+```
+
+### Fetch image assets
+
+```bash
+curl -o /tmp/full.jpg "http://localhost:3000/api/recipe-images/10/file?variant=full"
+curl -o /tmp/thumb.jpg "http://localhost:3000/api/recipe-images/10/file?variant=thumb"
+```
+
+## Storage provider extension (future S3)
+
+Current provider wiring:
+
+- Interface: `lib/infrastructure/images/image-storage-provider.ts`
+- Local provider: `lib/infrastructure/images/local-file-storage-provider.ts`
+- Factory/env selection: `lib/infrastructure/images/storage-factory.ts`
+
+To add S3 later:
+
+1. Implement an `S3` provider that satisfies `ImageStorageProvider`.
+2. Return it from `buildImageStorageProvider()` when `IMAGE_STORAGE_DRIVER=s3`.
+3. Keep DB keys backend-agnostic (already in place as `storageKey`/`thumbnailKey`).
+4. No domain/use-case/API contract changes required.
 
 ## Design system architecture
 
@@ -80,6 +172,20 @@ Optional env overrides:
 
 ```bash
 BASE_URL=http://localhost:3000 ALICE_PASSWORD='Password123!' BOB_PASSWORD='Password123!' ./scripts/auth-smoke-test.sh
+```
+
+Run phased image checks:
+
+```bash
+npm run test:phase0
+npm run test:phase1
+npm run test:phase2
+```
+
+Run end-to-end curl smoke for image flows (auto-generates sample images if not provided):
+
+```bash
+./scripts/phase1-curl-smoke-test.sh
 ```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.

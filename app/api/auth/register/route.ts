@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   try {
     const user = await authUseCases.register(input);
     const { accessToken } = await authUseCases.login({
-      username: input.username,
+      usernameOrEmail: input.username,
       password: input.password,
     });
 

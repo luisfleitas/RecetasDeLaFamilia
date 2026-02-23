@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:phase0": "./scripts/phase0-checks.sh",
+    "test:phase1": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase1-use-cases.test.ts",
+    "test:phase2": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase2-use-cases.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.0",

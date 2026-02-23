@@ -8,6 +8,8 @@ type IncomingRegisterInput = {
 
 type IncomingLoginInput = {
   username?: unknown;
+  email?: unknown;
+  username_or_email?: unknown;
   password?: unknown;
 };
 
@@ -32,7 +34,7 @@ export type RegisterInput = {
 };
 
 export type LoginInput = {
-  username: string;
+  usernameOrEmail: string;
   password: string;
 };
 
@@ -65,9 +67,11 @@ export function parseRegisterInput(input: unknown): RegisterInput {
 
 export function parseLoginInput(input: unknown): LoginInput {
   const body = input as IncomingLoginInput;
+  const usernameOrEmailRaw =
+    body.username_or_email ?? body.username ?? body.email;
 
   return {
-    username: requireString(body.username, "username").toLowerCase(),
+    usernameOrEmail: requireString(usernameOrEmailRaw, "username_or_email").toLowerCase(),
     password: requireString(body.password, "password"),
   };
 }
