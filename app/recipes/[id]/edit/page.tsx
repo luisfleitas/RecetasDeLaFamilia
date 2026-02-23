@@ -14,12 +14,20 @@ type Ingredient = {
   position: number;
 };
 
+type RecipeImage = {
+  id: number;
+  isPrimary: boolean;
+  position: number;
+};
+
 type Recipe = {
   id: number;
   title: string;
   description: string | null;
   stepsMarkdown: string;
   ingredients: Ingredient[];
+  images?: RecipeImage[];
+  primaryImage?: { id: number } | null;
 };
 
 type RecipeResponse = {
@@ -46,9 +54,12 @@ async function fetchRecipe(id: string) {
   const requestHeaders = await headers();
   const baseUrl = getBaseUrl(requestHeaders);
 
-  const response = await fetch(`${baseUrl}/api/recipes/${id}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${baseUrl}/api/recipes/${id}?includeImages=true&includePrimaryImage=true`,
+    {
+      cache: "no-store",
+    },
+  );
 
   if (response.status === 404) {
     notFound();

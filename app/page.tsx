@@ -5,11 +5,20 @@ import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 import LogoutButton from "@/app/_components/logout-button";
 import HomeCanvas from "@/app/_components/home-canvas";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import RecipeCardCarousel from "@/app/_components/recipe-card-carousel";
+
+type PrimaryImageRef = {
+  id: number;
+  thumbnailUrl: string;
+  fullUrl: string;
+};
 
 type RecipeListItem = {
   id: number;
   title: string;
   createdAt: string;
+  primaryImage?: PrimaryImageRef | null;
+  images?: PrimaryImageRef[];
 };
 
 type RecipesResponse = {
@@ -31,7 +40,7 @@ async function fetchRecipes() {
   const requestHeaders = await headers();
   const baseUrl = getBaseUrl(requestHeaders);
 
-  const response = await fetch(`${baseUrl}/api/recipes`, {
+  const response = await fetch(`${baseUrl}/api/recipes?includePrimaryImage=true&includeImages=true`, {
     cache: "no-store",
   });
 
@@ -112,13 +121,24 @@ export default async function HomePage() {
               {recipes.map((recipe) => (
                 <li
                   key={recipe.id}
-                  className="surface-card p-4 transition-transform hover:-translate-y-0.5"
+                  className="surface-card overflow-hidden p-0 transition-transform hover:-translate-y-0.5"
                 >
-                  <Link href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
-                    {recipe.title}
-                  </Link>
-                  <p className="mt-2 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Added on</p>
-                  <p className="text-sm text-[var(--color-text-muted)]">{new Date(recipe.createdAt).toLocaleString()}</p>
+                  {recipe.images && recipe.images.length > 0 ? (
+                    <RecipeCardCarousel recipeId={recipe.id} title={recipe.title} images={recipe.images} />
+                  ) : recipe.primaryImage ? (
+                    <img
+                      src={recipe.primaryImage.thumbnailUrl}
+                      alt={recipe.title}
+                      className="h-36 w-full object-cover"
+                    />
+                  ) : null}
+                  <div className="p-4">
+                    <Link href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
+                      {recipe.title}
+                    </Link>
+                    <p className="mt-2 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Added on</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">{new Date(recipe.createdAt).toLocaleString()}</p>
+                  </div>
                 </li>
               ))}
             </ul>

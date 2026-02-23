@@ -24,7 +24,7 @@ export default function LoginPage() {
     const formData = new FormData(event.currentTarget);
 
     const payload = {
-      username: String(formData.get("username") ?? "").trim(),
+      username_or_email: String(formData.get("username_or_email") ?? "").trim(),
       password: String(formData.get("password") ?? ""),
     };
 
@@ -79,10 +79,10 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="username" className="mb-1 block text-sm font-medium">
-              Username
+            <label htmlFor="username_or_email" className="mb-1 block text-sm font-medium">
+              Username or email
             </label>
-            <input id="username" name="username" required className="input-base" />
+            <input id="username_or_email" name="username_or_email" required className="input-base" />
           </div>
 
           <div>

@@ -23,6 +23,12 @@ type IngredientDraft = {
   notes: string;
 };
 
+type NewImageDraft = {
+  id: number;
+  file: File;
+  previewUrl: string;
+};
+
 const EMPTY_INGREDIENT: IngredientDraft = {
   rowId: 1,
   name: "",
@@ -31,11 +37,18 @@ const EMPTY_INGREDIENT: IngredientDraft = {
   notes: "",
 };
 
+const MAX_IMAGES = 8;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 export default function NewRecipeForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([EMPTY_INGREDIENT]);
+  const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
+  const [nextImageId, setNextImageId] = useState(1);
+  const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -67,6 +80,64 @@ export default function NewRecipeForm() {
         return current;
       }
       return current.filter((ingredient) => ingredient.rowId !== rowId);
+    });
+  }
+
+  function removeNewImage(imageId: number) {
+    setNewImages((current) => {
+      const image = current.find((item) => item.id === imageId);
+      if (image) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+
+      const next = current.filter((item) => item.id !== imageId);
+      if (primaryNewImageId === imageId) {
+        setPrimaryNewImageId(next[0]?.id ?? null);
+      }
+
+      return next;
+    });
+  }
+
+  function handleImageSelection(files: FileList | null) {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const selected = Array.from(files);
+    const nextTotal = newImages.length + selected.length;
+    if (nextTotal > MAX_IMAGES) {
+      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      return;
+    }
+
+    for (const file of selected) {
+      if (!ALLOWED_MIME_TYPES.has(file.type)) {
+        setError("Only JPEG, PNG, and WEBP images are allowed.");
+        return;
+      }
+
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError("Each image must be 10MB or smaller.");
+        return;
+      }
+    }
+
+    setError(null);
+
+    const drafted = selected.map((file, index): NewImageDraft => ({
+      id: nextImageId + index,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setNextImageId((current) => current + drafted.length);
+    setNewImages((current) => {
+      const combined = [...current, ...drafted];
+      if (primaryNewImageId == null && combined.length > 0) {
+        setPrimaryNewImageId(combined[0].id);
+      }
+      return combined;
     });
   }
 
@@ -110,20 +181,33 @@ export default function NewRecipeForm() {
       return;
     }
 
-    const payload = {
-      title,
-      description,
-      stepsMarkdown,
-      ingredients: payloadIngredients,
-    };
+    if (newImages.length > MAX_IMAGES) {
+      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const recipeFormData = new FormData();
+    recipeFormData.append("title", title);
+    recipeFormData.append("description", description);
+    recipeFormData.append("stepsMarkdown", stepsMarkdown);
+    recipeFormData.append("ingredients", JSON.stringify(payloadIngredients));
+
+    for (const image of newImages) {
+      recipeFormData.append("images", image.file);
+    }
+
+    if (primaryNewImageId != null) {
+      const primaryIndex = newImages.findIndex((image) => image.id === primaryNewImageId);
+      if (primaryIndex >= 0) {
+        recipeFormData.append("primaryImageIndex", String(primaryIndex));
+      }
+    }
 
     try {
       const response = await fetch("/api/recipes", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: recipeFormData,
       });
 
       const data = (await response.json()) as CreateRecipeResponse;
@@ -171,6 +255,68 @@ export default function NewRecipeForm() {
               Steps (Markdown)
             </label>
             <textarea id="stepsMarkdown" name="stepsMarkdown" rows={6} required className="input-base" />
+          </div>
+
+          <div className="surface-card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-medium">Recipe Images</p>
+              <span className="text-xs text-[var(--color-text-muted)]">{newImages.length}/{MAX_IMAGES}</span>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={(event) => handleImageSelection(event.target.files)}
+                className="input-base"
+              />
+
+              {newImages.length > 0 ? (
+                <div className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+                  <p className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Selected files</p>
+                  <div className="space-y-1">
+                    {newImages.map((image) => (
+                      <p key={image.id} className="truncate text-xs text-[var(--color-text-muted)]">
+                        {image.file.name}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {newImages.length > 0 ? (
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {newImages.map((image) => (
+                    <li key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+                      <img src={image.previewUrl} alt={image.file.name} className="h-36 w-full rounded-[var(--radius-sm)] object-cover" />
+                      <p className="mt-2 truncate text-xs text-[var(--color-text-muted)]">{image.file.name}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <label className="text-xs">
+                          <input
+                            type="radio"
+                            name="primaryNewImage"
+                            checked={primaryNewImageId === image.id}
+                            onChange={() => setPrimaryNewImageId(image.id)}
+                            className="mr-1"
+                          />
+                          Principal
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeNewImage(image.id)}
+                          className={buttonClassName("secondary")}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-[var(--color-text-muted)]">No images selected yet.</p>
+              )}
+            </div>
           </div>
 
           <div className="surface-card p-4">

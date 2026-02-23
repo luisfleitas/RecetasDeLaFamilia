@@ -12,7 +12,7 @@ type RegisterInput = {
 };
 
 type LoginInput = {
-  username: string;
+  usernameOrEmail: string;
   password: string;
 };
 
@@ -79,7 +79,12 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
     },
 
     async login(input: LoginInput) {
-      const user = await userRepository.getByUsername(input.username);
+      const lookup = input.usernameOrEmail;
+      const user =
+        (lookup.includes("@")
+          ? await userRepository.getByEmail(lookup)
+          : await userRepository.getByUsername(lookup)) ??
+        null;
       if (!user) {
         throw new AuthInvalidCredentialsError("invalid credentials");
       }

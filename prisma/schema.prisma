@@ -9,15 +9,16 @@ datasource db {
 }
 
 model Recipe {
-  id            Int          @id @default(autoincrement())
-  title         String
-  description   String?
-  stepsMarkdown String
+  id              Int           @id @default(autoincrement())
+  title           String
+  description     String?
+  stepsMarkdown   String
   createdByUserId Int        @map("created_by_user_id")
   createdByUser  User        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  ingredients   Ingredient[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  ingredients     Ingredient[]
+  images          RecipeImage[]
 }
 
 model Ingredient {
@@ -49,4 +50,24 @@ model User {
   recipes      Recipe[]
 
   @@map("users")
+}
+
+model RecipeImage {
+  id               Int      @id @default(autoincrement())
+  recipeId         Int
+  recipe           Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  storageKey       String
+  thumbnailKey     String
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  width            Int
+  height           Int
+  position         Int
+  isPrimary        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([recipeId, position])
+  @@index([recipeId, isPrimary])
 }
