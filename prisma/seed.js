@@ -3,7 +3,8 @@ require("dotenv/config");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
 const bcrypt = require("bcryptjs");
-const { copyFile, mkdir } = require("node:fs/promises");
+const { access, copyFile, mkdir, writeFile } = require("node:fs/promises");
+const { constants } = require("node:fs");
 const { dirname, join } = require("node:path");
 
 const adapter = new PrismaBetterSqlite3({
@@ -28,7 +29,16 @@ async function copyImageAsset(sourceKey, targetKey) {
   const targetPath = join(uploadsRoot, targetKey);
 
   await mkdir(dirname(targetPath), { recursive: true });
-  await copyFile(sourcePath, targetPath);
+  try {
+    await access(sourcePath, constants.F_OK);
+    await copyFile(sourcePath, targetPath);
+    return;
+  } catch {
+    // CI does not have local uploads from developer machines; create a tiny placeholder JPEG.
+    const tinyJpegBase64 =
+      "/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxAQEBUQEBAVFRUVFRUVFRUVFRUVFRUVFRUWFhUVFRUYHSggGBolGxUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OGhAQGi0fHyUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAAEAAQMBIgACEQEDEQH/xAAXAAADAQAAAAAAAAAAAAAAAAAAAQID/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEAMQAAAB6gAAAAAAAAAAAP/EABQQAQAAAAAAAAAAAAAAAAAAACD/2gAIAQEAAT8Aqf/EABQRAQAAAAAAAAAAAAAAAAAAACD/2gAIAQIBAT8Aqf/EABQRAQAAAAAAAAAAAAAAAAAAACD/2gAIAQMBAT8Aqf/Z";
+    await writeFile(targetPath, Buffer.from(tinyJpegBase64, "base64"));
+  }
 }
 
 async function createRecipeWithSeededImages(createdByUserId, recipeSeed) {
