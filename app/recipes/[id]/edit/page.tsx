@@ -85,11 +85,11 @@ export default async function EditRecipePage({ params }: Params) {
   const recipe = await fetchRecipe(id);
 
   return (
-    <main className="app-shell max-w-5xl space-y-6">
-      <div className="surface-panel space-y-6 p-6 sm:p-8">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Edit Recipe</h1>
-          <Link href={`/recipes/${recipe.id}`} className={buttonClassName("secondary")}>
+    <main id="edit-recipe-main" className="app-shell max-w-5xl space-y-6">
+      <div id="edit-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
+        <div id="edit-recipe-header" className="flex items-center justify-between gap-3">
+          <h1 id="edit-recipe-title" className="text-2xl font-semibold">Edit Recipe</h1>
+          <Link id="edit-recipe-back-link" href={`/recipes/${recipe.id}`} className={buttonClassName("secondary")}>
             Back to recipe
           </Link>
         </div>
