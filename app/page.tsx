@@ -56,42 +56,42 @@ export default async function HomePage() {
   const { recipes } = recipesResponse;
 
   return (
-    <main id="home-page-main" className="relative min-h-screen overflow-hidden py-8 sm:py-12">
+    <main id="home-page-main" className="relative min-h-screen overflow-hidden py-6 sm:py-10">
       <HomeCanvas />
 
-      <div id="home-app-shell" className="app-shell space-y-8 sm:space-y-10">
-        <header id="home-page-header" className="surface-panel p-7 sm:p-10">
-          <div id="home-header-content" className="space-y-6">
-            <div id="home-hero-actions" className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end">
+      <div id="home-app-shell" className="app-shell space-y-6 sm:space-y-8">
+        <header id="home-page-header" className="surface-panel p-6 sm:p-8">
+          <div id="home-header-content" className="space-y-5">
+            <div id="home-hero-actions" className="flex w-full flex-wrap items-center justify-end gap-2">
               {!authUser ? (
                 <>
-                  <Link id="home-create-account-link" href="/register" className={buttonClassName("secondary", "max-sm:w-full max-sm:justify-center")}>
+                  <Link id="home-create-account-link" href="/register" className={buttonClassName("secondary")}>
                     Create Account
                   </Link>
-                  <Link id="home-login-link" href="/login" className={buttonClassName("secondary", "max-sm:w-full max-sm:justify-center")}>
+                  <Link id="home-login-link" href="/login" className={buttonClassName("secondary")}>
                     Log In
                   </Link>
                 </>
               ) : (
                 <>
-                  <LogoutButton className="max-sm:w-full max-sm:justify-center" />
-                  <Link id="home-manage-account-link" href="/account/change-password" className={buttonClassName("secondary", "max-sm:w-full max-sm:justify-center")}>
+                  <LogoutButton />
+                  <Link id="home-manage-account-link" href="/account/change-password" className={buttonClassName("secondary")}>
                     Manage your Account
                   </Link>
                 </>
               )}
 
-              <Link id="home-add-recipe-link" href="/recipes/new" className={buttonClassName("primary", "max-sm:w-full max-sm:justify-center")}>
+              <Link id="home-add-recipe-link" href="/recipes/new" className={buttonClassName("primary")}>
                 + Add Family Recipe
               </Link>
             </div>
 
             <div id="home-hero-copy" className="max-w-3xl">
               <p id="home-hero-eyebrow" className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Family Recipe Archive</p>
-              <h1 id="home-hero-title" className="mt-2 text-4xl font-semibold tracking-tight sm:text-6xl">
+              <h1 id="home-hero-title" className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">
                 Keep family recipes alive across every distance
               </h1>
-              <p id="home-hero-description" className="mt-4 max-w-2xl text-base text-[var(--color-text-muted)] sm:text-lg">
+              <p id="home-hero-description" className="mt-3 max-w-2xl text-sm text-[var(--color-text-muted)] sm:text-lg">
                 A shared kitchen archive for families living in different cities and countries, so each recipe carries stories,
                 notes, and tradition into the next generation.
               </p>
@@ -99,7 +99,7 @@ export default async function HomePage() {
 
           </div>
 
-          <div id="home-status-pills" className="mt-6 flex flex-wrap gap-3">
+          <div id="home-status-pills" className="mt-5 flex flex-wrap gap-2">
             <span id="home-recipe-count-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
               {recipes.length} Heritage Recipe{recipes.length === 1 ? "" : "s"}
             </span>
@@ -109,36 +109,16 @@ export default async function HomePage() {
           </div>
         </header>
 
-        <section id="home-content-section" className="grid gap-5 lg:grid-cols-[1.7fr_1fr]">
+        <section id="home-content-section" className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
           {recipes.length === 0 ? (
             <article id="home-empty-state-card" className="surface-card p-10 text-center">
-              <div id="home-empty-state-icon-wrap" className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
-                <svg
-                  id="home-empty-state-icon"
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-7 w-7 text-[var(--color-primary)]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                >
-                  <path d="M6 4h8l4 4v12H6z" />
-                  <path d="M14 4v4h4" />
-                  <path d="M9 13h6M9 17h6" />
-                </svg>
-              </div>
               <h2 id="home-empty-state-title" className="text-xl font-semibold">Start your family recipe archive</h2>
-              <p id="home-empty-state-description" className="mx-auto mt-3 max-w-lg text-base text-[var(--color-text-muted)]">
+              <p id="home-empty-state-description" className="mx-auto mt-3 max-w-lg text-sm text-[var(--color-text-muted)]">
                 Add your first recipe with notes about who taught it and where it came from, so your family can keep it for generations.
               </p>
-              <div id="home-empty-state-actions" className="mt-5 flex justify-center">
-                <Link id="home-empty-state-cta" href={authUser ? "/recipes/new" : "/register"} className={buttonClassName("primary")}>
-                  {authUser ? "Add your first recipe" : "Create your account"}
-                </Link>
-              </div>
             </article>
           ) : (
-            <ul id="home-recipe-list" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <ul id="home-recipe-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {recipes.map((recipe) => (
                 <li
                   id={`home-recipe-card-${recipe.id}`}
@@ -155,7 +135,7 @@ export default async function HomePage() {
                       className="h-36 w-full object-cover"
                     />
                   ) : null}
-                  <div id={`home-recipe-content-${recipe.id}`} className="p-5">
+                  <div id={`home-recipe-content-${recipe.id}`} className="p-4">
                     <Link id={`home-recipe-link-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
                       {recipe.title}
                     </Link>
@@ -167,7 +147,7 @@ export default async function HomePage() {
             </ul>
           )}
 
-          <aside id="home-preservation-aside" className="surface-card p-6">
+          <aside id="home-preservation-aside" className="surface-card p-5">
             <h2 id="home-preservation-title" className="text-lg font-semibold">Preservation Features</h2>
             <div id="home-preservation-features" className="mt-4 space-y-3 text-sm text-[var(--color-text-muted)]">
               <article id="home-feature-story-layer" className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">

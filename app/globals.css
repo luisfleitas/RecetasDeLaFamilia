@@ -2,42 +2,42 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg: #f3f6f3;
-  --color-surface: #fbfdfb;
-  --color-surface-soft: #f1f6f1;
-  --color-surface-muted: #e7efe9;
-  --color-text: #1f2922;
-  --color-text-muted: #5d6c61;
-  --color-border: #c9d8cc;
-  --color-border-strong: #a9c0b1;
-  --color-primary: #3f6b4f;
-  --color-primary-hover: #345942;
-  --color-primary-active: #294b37;
-  --color-primary-contrast: #f6fbf7;
-  --color-focus: #46795b;
+  --color-bg: #fdf3e3;
+  --color-surface: #fffaf2;
+  --color-surface-soft: #fff5e8;
+  --color-surface-muted: #f8e7d1;
+  --color-text: #2b1f16;
+  --color-text-muted: #7a6350;
+  --color-border: #e7c9a8;
+  --color-border-strong: #c6a17b;
+  --color-primary: #8f4721;
+  --color-primary-hover: #7e3f1d;
+  --color-primary-active: #6b3417;
+  --color-primary-contrast: #fffaf3;
+  --color-focus: #d07a2f;
   --color-danger: #b42318;
   --color-danger-soft: #fce4e2;
   --radius-sm: 0.625rem;
   --radius-md: 0.875rem;
   --radius-lg: 1.25rem;
-  --shadow-panel: 0 18px 40px rgba(31, 57, 41, 0.11);
-  --shadow-card: 0 8px 22px rgba(31, 57, 41, 0.09);
+  --shadow-panel: 0 18px 40px rgba(74, 42, 22, 0.12);
+  --shadow-card: 0 8px 22px rgba(74, 42, 22, 0.09);
 }
 
 [data-theme="warm"] {
-  --color-bg: #f3f6f3;
-  --color-surface: #fbfdfb;
-  --color-surface-soft: #f1f6f1;
-  --color-surface-muted: #e7efe9;
-  --color-text: #1f2922;
-  --color-text-muted: #5d6c61;
-  --color-border: #c9d8cc;
-  --color-border-strong: #a9c0b1;
-  --color-primary: #3f6b4f;
-  --color-primary-hover: #345942;
-  --color-primary-active: #294b37;
-  --color-primary-contrast: #f6fbf7;
-  --color-focus: #46795b;
+  --color-bg: #fdf3e3;
+  --color-surface: #fffaf2;
+  --color-surface-soft: #fff5e8;
+  --color-surface-muted: #f8e7d1;
+  --color-text: #2b1f16;
+  --color-text-muted: #7a6350;
+  --color-border: #e7c9a8;
+  --color-border-strong: #c6a17b;
+  --color-primary: #8f4721;
+  --color-primary-hover: #7e3f1d;
+  --color-primary-active: #6b3417;
+  --color-primary-contrast: #fffaf3;
+  --color-focus: #d07a2f;
   --color-danger: #b42318;
   --color-danger-soft: #fce4e2;
 }
@@ -64,32 +64,15 @@
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text);
   --font-sans: "Avenir Next", "Segoe UI", sans-serif;
-  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
   --font-mono: "SFMono-Regular", "Menlo", "Monaco", "Courier New", monospace;
 }
 
 body {
-  background: radial-gradient(circle at 15% 6%, rgba(104, 151, 120, 0.2), transparent 34%),
-    radial-gradient(circle at 88% 5%, rgba(142, 183, 157, 0.18), transparent 30%),
+  background: radial-gradient(circle at 15% 6%, rgba(217, 120, 51, 0.22), transparent 34%),
+    radial-gradient(circle at 88% 5%, rgba(234, 172, 78, 0.2), transparent 30%),
     var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-geist-sans), "Avenir Next", "Segoe UI", sans-serif;
-  font-size: 16.5px;
-  line-height: 1.55;
-  text-rendering: optimizeLegibility;
-}
-
-h1,
-h2,
-h3 {
-  color: var(--color-text);
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-h1 {
-  font-family: var(--font-display);
-  letter-spacing: -0.03em;
 }
 
 a {
@@ -100,8 +83,8 @@ a {
   margin-left: auto;
   margin-right: auto;
   width: 100%;
-  max-width: 72rem;
-  padding: 2rem 1.25rem;
+  max-width: 68rem;
+  padding: 1.5rem 1rem;
 }
 
 .surface-panel {
@@ -116,12 +99,6 @@ a {
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-surface) 92%, white 8%);
   box-shadow: var(--shadow-card);
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
-}
-
-.surface-card:hover {
-  border-color: color-mix(in srgb, var(--color-border-strong) 70%, var(--color-border) 30%);
-  box-shadow: 0 12px 26px rgba(31, 57, 41, 0.12);
 }
 
 .input-base {
@@ -130,17 +107,11 @@ a {
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
-  padding: 0.68rem 0.82rem;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
-}
-
-.input-base:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border-strong) 55%);
+  padding: 0.55rem 0.7rem;
 }
 
 .input-base:focus-visible {
   outline: none;
-  border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-focus);
 }
 
