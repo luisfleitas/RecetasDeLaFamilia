@@ -66,19 +66,20 @@ export default async function HomePage() {
               {!authUser ? (
                 <>
                   <Link href="/register" className={buttonClassName("secondary")}>
-                    Invite Family
+                    Create Account
                   </Link>
                   <Link href="/login" className={buttonClassName("secondary")}>
-                    Family Log In
+                    Log In
                   </Link>
                 </>
               ) : (
-                <LogoutButton />
+                <>
+                  <LogoutButton />
+                  <Link href="/account/change-password" className={buttonClassName("secondary")}>
+                    Manage your Account
+                  </Link>
+                </>
               )}
-
-              <Link href="/account/change-password" className={buttonClassName("secondary")}>
-                Manage Family Access
-              </Link>
 
               <Link href="/recipes/new" className={buttonClassName("primary")}>
                 + Add Family Recipe

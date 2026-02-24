@@ -71,7 +71,7 @@ export default function LoginPage() {
     <main className="app-shell max-w-xl space-y-6">
       <div className="surface-panel space-y-6 p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Family Log In</h1>
+          <h1 className="text-2xl font-semibold">Log In</h1>
           <Link href="/" className="text-link text-sm">
             Back to recipes
           </Link>
