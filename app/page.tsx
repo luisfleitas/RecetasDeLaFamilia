@@ -78,6 +78,9 @@ export default async function HomePage() {
                   <Link id="home-manage-account-link" href="/account/change-password" className={buttonClassName("secondary")}>
                     Manage your Account
                   </Link>
+                  <Link id="home-my-families-link" href="/account/families" className={buttonClassName("secondary")}>
+                    My Families
+                  </Link>
                 </>
               )}
 

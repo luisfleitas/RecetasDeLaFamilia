@@ -48,6 +48,11 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
   recipes      Recipe[]
+  createdFamilies Family[] @relation("FamilyCreator")
+  familyMemberships FamilyMembership[]
+  createdFamilyInvites FamilyInvite[] @relation("FamilyInviteCreator")
+  consumedFamilyInvites FamilyInvite[] @relation("FamilyInviteConsumer")
+  familyInviteDecisions FamilyInviteDecision[]
 
   @@map("users")
 }
@@ -70,4 +75,86 @@ model RecipeImage {
 
   @@index([recipeId, position])
   @@index([recipeId, isPrimary])
+}
+
+enum FamilyRole {
+  admin
+  member
+}
+
+enum FamilyInviteDecisionStatus {
+  pending
+  declined
+  accepted
+}
+
+model Family {
+  id              Int      @id @default(autoincrement())
+  name            String
+  description     String?
+  pictureStorageKey String? @map("picture_storage_key")
+  createdByUserId Int      @map("created_by_user_id")
+  createdByUser   User     @relation("FamilyCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  memberships     FamilyMembership[]
+  invites         FamilyInvite[]
+
+  @@index([createdByUserId])
+}
+
+model FamilyMembership {
+  id        Int        @id @default(autoincrement())
+  familyId  Int        @map("family_id")
+  userId    Int        @map("user_id")
+  role      FamilyRole
+  joinedAt  DateTime   @default(now()) @map("joined_at")
+
+  family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  @@index([userId])
+  @@index([familyId, role])
+}
+
+model FamilyInvite {
+  id               Int      @id @default(autoincrement())
+  familyId         Int      @map("family_id")
+  tokenHash        String   @unique @map("token_hash")
+  createdByUserId  Int      @map("created_by_user_id")
+  expiresAt        DateTime @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  consumedAt       DateTime? @map("consumed_at")
+  consumedByUserId Int?     @map("consumed_by_user_id")
+  maxUses          Int      @default(1) @map("max_uses")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  family           Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdByUser    User     @relation("FamilyInviteCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  consumedByUser   User?    @relation("FamilyInviteConsumer", fields: [consumedByUserId], references: [id], onDelete: SetNull)
+  decisions        FamilyInviteDecision[]
+
+  @@index([familyId])
+  @@index([familyId, expiresAt])
+}
+
+model FamilyInviteDecision {
+  id            Int                        @id @default(autoincrement())
+  inviteId      Int                        @map("invite_id")
+  userId        Int                        @map("user_id")
+  status        FamilyInviteDecisionStatus @default(pending)
+  firstOpenedAt DateTime                   @default(now()) @map("first_opened_at")
+  lastOpenedAt  DateTime                   @default(now()) @map("last_opened_at")
+  decidedAt     DateTime?                  @map("decided_at")
+  createdAt     DateTime                   @default(now()) @map("created_at")
+  updatedAt     DateTime                   @updatedAt @map("updated_at")
+
+  invite        FamilyInvite               @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  user          User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([inviteId, userId])
+  @@index([userId, status])
 }

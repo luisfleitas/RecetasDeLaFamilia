@@ -3,6 +3,7 @@ require("dotenv/config");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
 const bcrypt = require("bcryptjs");
+const { createHash } = require("node:crypto");
 const { access, copyFile, mkdir, writeFile } = require("node:fs/promises");
 const { constants } = require("node:fs");
 const { dirname, join } = require("node:path");
@@ -87,6 +88,10 @@ async function main() {
   await prisma.ingredient.deleteMany();
   await prisma.recipeImage.deleteMany();
   await prisma.recipe.deleteMany();
+  await prisma.familyInviteDecision.deleteMany();
+  await prisma.familyInvite.deleteMany();
+  await prisma.familyMembership.deleteMany();
+  await prisma.family.deleteMany();
   await prisma.user.deleteMany({
     where: {
       email: {
@@ -126,6 +131,66 @@ async function main() {
       email: "bob@example.com",
       username: "bob",
       passwordHash: bobPasswordHash,
+    },
+  });
+
+  const family = await prisma.family.create({
+    data: {
+      name: "Baker-Cook Family",
+      description: "Core household recipes for weeknight cooking.",
+      pictureStorageKey: null,
+      createdByUserId: alice.id,
+    },
+  });
+
+  await prisma.familyMembership.createMany({
+    data: [
+      {
+        familyId: family.id,
+        userId: alice.id,
+        role: "admin",
+      },
+      {
+        familyId: family.id,
+        userId: bob.id,
+        role: "member",
+      },
+    ],
+  });
+
+  const activeInviteToken = "seed-active-family-invite-token";
+  const declinedInviteToken = "seed-declined-family-invite-token";
+  const activeInvite = await prisma.familyInvite.create({
+    data: {
+      familyId: family.id,
+      tokenHash: createHash("sha256").update(activeInviteToken).digest("hex"),
+      createdByUserId: alice.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+  const declinedInvite = await prisma.familyInvite.create({
+    data: {
+      familyId: family.id,
+      tokenHash: createHash("sha256").update(declinedInviteToken).digest("hex"),
+      createdByUserId: alice.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  await prisma.familyInviteDecision.create({
+    data: {
+      inviteId: activeInvite.id,
+      userId: alice.id,
+      status: "pending",
+    },
+  });
+
+  await prisma.familyInviteDecision.create({
+    data: {
+      inviteId: declinedInvite.id,
+      userId: alice.id,
+      status: "declined",
+      decidedAt: new Date(),
     },
   });
 
