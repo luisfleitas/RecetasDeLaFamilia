@@ -293,9 +293,9 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="title" className="mb-1 block text-sm font-medium">
+    <form id="edit-recipe-form" onSubmit={handleSubmit} className="space-y-4">
+      <div id="edit-recipe-title-field">
+        <label id="edit-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
           Title
         </label>
         <input
@@ -308,8 +308,8 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         />
       </div>
 
-      <div>
-        <label htmlFor="description" className="mb-1 block text-sm font-medium">
+      <div id="edit-recipe-description-field">
+        <label id="edit-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
           Description
         </label>
         <textarea
@@ -322,8 +322,8 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         />
       </div>
 
-      <div>
-        <label htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
+      <div id="edit-recipe-steps-field">
+        <label id="edit-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
           Steps (Markdown)
         </label>
         <textarea
@@ -337,24 +337,26 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         />
       </div>
 
-      <div className="surface-card space-y-3 p-4">
-        <div className="mb-1 flex items-center justify-between">
-          <p className="text-sm font-medium">Recipe Images</p>
-          <span className="text-xs text-[var(--color-text-muted)]">{totalImageCount()}/{MAX_IMAGES}</span>
+      <div id="edit-recipe-images-section" className="surface-card space-y-3 p-4">
+        <div id="edit-recipe-images-header" className="mb-1 flex items-center justify-between">
+          <p id="edit-recipe-images-title" className="text-sm font-medium">Recipe Images</p>
+          <span id="edit-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{totalImageCount()}/{MAX_IMAGES}</span>
         </div>
 
         {existingImages.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ul id="edit-recipe-existing-images-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {existingImages.map((image) => (
-              <li key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+              <li id={`edit-recipe-existing-image-item-${image.id}`} key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
                 <img
+                  id={`edit-recipe-existing-image-${image.id}`}
                   src={`/api/recipe-images/${image.id}/file?variant=thumb`}
                   alt="Recipe"
                   className="h-36 w-full rounded-[var(--radius-sm)] object-cover"
                 />
-                <div className="mt-2 flex items-center gap-2">
-                  <label className="text-xs">
+                <div id={`edit-recipe-existing-image-actions-${image.id}`} className="mt-2 flex items-center gap-2">
+                  <label id={`edit-recipe-existing-image-primary-label-${image.id}`} className="text-xs">
                     <input
+                      id={`edit-recipe-existing-image-primary-${image.id}`}
                       type="radio"
                       name="primaryImage"
                       checked={primaryExistingImageId === image.id}
@@ -367,6 +369,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     Principal
                   </label>
                   <button
+                    id={`edit-recipe-existing-image-remove-${image.id}`}
                     type="button"
                     onClick={() => removeExistingImage(image.id)}
                     disabled={isRemovingImageId === image.id}
@@ -379,10 +382,11 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-[var(--color-text-muted)]">No saved images yet.</p>
+          <p id="edit-recipe-no-existing-images" className="text-sm text-[var(--color-text-muted)]">No saved images yet.</p>
         )}
 
         <input
+          id="edit-recipe-new-images-input"
           type="file"
           accept="image/jpeg,image/png,image/webp"
           multiple
@@ -391,11 +395,11 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         />
 
         {newImages.length > 0 ? (
-          <div className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
-            <p className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Selected files</p>
-            <div className="space-y-1">
+          <div id="edit-recipe-new-selected-files-box" className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+            <p id="edit-recipe-new-selected-files-title" className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Selected files</p>
+            <div id="edit-recipe-new-selected-files-list" className="space-y-1">
               {newImages.map((image) => (
-                <p key={image.id} className="truncate text-xs text-[var(--color-text-muted)]">
+                <p id={`edit-recipe-new-selected-file-${image.id}`} key={image.id} className="truncate text-xs text-[var(--color-text-muted)]">
                   {image.file.name}
                 </p>
               ))}
@@ -404,14 +408,15 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         ) : null}
 
         {newImages.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ul id="edit-recipe-new-image-preview-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {newImages.map((image) => (
-              <li key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-                <img src={image.previewUrl} alt={image.file.name} className="h-36 w-full rounded-[var(--radius-sm)] object-cover" />
-                <p className="mt-2 truncate text-xs text-[var(--color-text-muted)]">{image.file.name}</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <label className="text-xs">
+              <li id={`edit-recipe-new-image-preview-item-${image.id}`} key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+                <img id={`edit-recipe-new-image-preview-${image.id}`} src={image.previewUrl} alt={image.file.name} className="h-36 w-full rounded-[var(--radius-sm)] object-cover" />
+                <p id={`edit-recipe-new-image-name-${image.id}`} className="mt-2 truncate text-xs text-[var(--color-text-muted)]">{image.file.name}</p>
+                <div id={`edit-recipe-new-image-actions-${image.id}`} className="mt-2 flex items-center gap-2">
+                  <label id={`edit-recipe-new-image-primary-label-${image.id}`} className="text-xs">
                     <input
+                      id={`edit-recipe-new-image-primary-${image.id}`}
                       type="radio"
                       name="primaryImage"
                       checked={primaryNewImageId === image.id}
@@ -424,6 +429,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     Principal
                   </label>
                   <button
+                    id={`edit-recipe-new-image-remove-${image.id}`}
                     type="button"
                     onClick={() => removeNewImage(image.id)}
                     className={buttonClassName("secondary")}
@@ -437,20 +443,21 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         ) : null}
       </div>
 
-      <div className="surface-card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-medium">Ingredients</p>
-          <button type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
+      <div id="edit-recipe-ingredients-section" className="surface-card p-4">
+        <div id="edit-recipe-ingredients-header" className="mb-3 flex items-center justify-between">
+          <p id="edit-recipe-ingredients-title" className="text-sm font-medium">Ingredients</p>
+          <button id="edit-recipe-add-ingredient" type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
             Add Ingredient
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div id="edit-recipe-ingredients-list" className="space-y-4">
           {ingredients.map((ingredient, index) => (
-            <div key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium">Row {index + 1}</p>
+            <div id={`edit-recipe-ingredient-row-${ingredient.rowId}`} key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+              <div id={`edit-recipe-ingredient-row-header-${ingredient.rowId}`} className="mb-2 flex items-center justify-between">
+                <p id={`edit-recipe-ingredient-row-title-${ingredient.rowId}`} className="text-sm font-medium">Row {index + 1}</p>
                 <button
+                  id={`edit-recipe-ingredient-remove-${ingredient.rowId}`}
                   type="button"
                   onClick={() => removeIngredientRow(ingredient.rowId)}
                   disabled={ingredients.length === 1}
@@ -460,9 +467,9 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                 </button>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label htmlFor={`ingredientName-${ingredient.rowId}`} className="mb-1 block text-sm">
+              <div id={`edit-recipe-ingredient-fields-${ingredient.rowId}`} className="grid gap-3 sm:grid-cols-2">
+                <div id={`edit-recipe-ingredient-name-field-${ingredient.rowId}`} className="sm:col-span-2">
+                  <label id={`edit-recipe-ingredient-name-label-${ingredient.rowId}`} htmlFor={`ingredientName-${ingredient.rowId}`} className="mb-1 block text-sm">
                     Name
                   </label>
                   <input
@@ -474,8 +481,8 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                   />
                 </div>
 
-                <div>
-                  <label htmlFor={`qty-${ingredient.rowId}`} className="mb-1 block text-sm">
+                <div id={`edit-recipe-ingredient-qty-field-${ingredient.rowId}`}>
+                  <label id={`edit-recipe-ingredient-qty-label-${ingredient.rowId}`} htmlFor={`qty-${ingredient.rowId}`} className="mb-1 block text-sm">
                     Quantity
                   </label>
                   <input
@@ -490,8 +497,8 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                   />
                 </div>
 
-                <div>
-                  <label htmlFor={`unit-${ingredient.rowId}`} className="mb-1 block text-sm">
+                <div id={`edit-recipe-ingredient-unit-field-${ingredient.rowId}`}>
+                  <label id={`edit-recipe-ingredient-unit-label-${ingredient.rowId}`} htmlFor={`unit-${ingredient.rowId}`} className="mb-1 block text-sm">
                     Unit
                   </label>
                   <input
@@ -503,8 +510,8 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                   />
                 </div>
 
-                <div>
-                  <label htmlFor={`notes-${ingredient.rowId}`} className="mb-1 block text-sm">
+                <div id={`edit-recipe-ingredient-notes-field-${ingredient.rowId}`}>
+                  <label id={`edit-recipe-ingredient-notes-label-${ingredient.rowId}`} htmlFor={`notes-${ingredient.rowId}`} className="mb-1 block text-sm">
                     Notes
                   </label>
                   <input
@@ -520,9 +527,9 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         </div>
       </div>
 
-      {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+      {error ? <p id="edit-recipe-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
 
-      <button type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
+      <button id="edit-recipe-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
         {isSubmitting ? "Saving..." : "Save Changes"}
       </button>
     </form>

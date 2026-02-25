@@ -43,8 +43,9 @@ export default function DeleteRecipeButton({ recipeId }: { recipeId: number }) {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div id="recipe-delete-action-group" className="flex flex-col items-end gap-1">
       <button
+        id={`recipe-delete-button-${recipeId}`}
         type="button"
         onClick={handleDelete}
         disabled={isDeleting}
@@ -52,7 +53,7 @@ export default function DeleteRecipeButton({ recipeId }: { recipeId: number }) {
       >
         {isDeleting ? "Deleting..." : "Delete"}
       </button>
-      {error ? <p className="text-xs text-[var(--color-danger)]">{error}</p> : null}
+      {error ? <p id={`recipe-delete-error-${recipeId}`} className="text-xs text-[var(--color-danger)]">{error}</p> : null}
     </div>
   );
 }

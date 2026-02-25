@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import { useId, type ButtonHTMLAttributes } from "react";
 import { buttonClassName, type ButtonVariant } from "@/app/_components/ui/button-styles";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -7,9 +7,12 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export default function Button({
   variant = "primary",
+  id,
   className,
   type,
   ...props
 }: ButtonProps) {
-  return <button type={type ?? "button"} className={buttonClassName(variant, className)} {...props} />;
+  const generatedId = useId();
+
+  return <button id={id ?? `button-${generatedId}`} type={type ?? "button"} className={buttonClassName(variant, className)} {...props} />;
 }
