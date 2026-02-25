@@ -31,13 +31,13 @@ jobs:
         run: npm ci
 
       - name: Generate Prisma client
-        run: npx prisma generate
+        run: npx prisma generate --config prisma.config.ts
 
       - name: Apply migrations
-        run: npx prisma migrate deploy
+        run: npx prisma migrate deploy --config prisma.config.ts
 
       - name: Seed database
-        run: npx prisma db seed
+        run: npx prisma db seed --config prisma.config.ts
 
       - name: Start app
         run: |
@@ -53,7 +53,11 @@ jobs:
             sleep 2
           done
           echo "App did not become ready in time"
-          cat /tmp/next-dev.log
+          if [ -f /tmp/next-dev.log ]; then
+            cat /tmp/next-dev.log
+          else
+            echo "No /tmp/next-dev.log found"
+          fi
           exit 1
 
       - name: Run auth smoke test
@@ -67,7 +71,12 @@ jobs:
 
       - name: Print app logs on failure
         if: failure()
-        run: cat /tmp/next-dev.log
+        run: |
+          if [ -f /tmp/next-dev.log ]; then
+            cat /tmp/next-dev.log
+          else
+            echo "No /tmp/next-dev.log found"
+          fi
 
       - name: Stop app
         if: always()

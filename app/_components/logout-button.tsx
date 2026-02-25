@@ -24,6 +24,7 @@ export default function LogoutButton({ className }: LogoutButtonProps) {
 
   return (
     <button
+      id="global-logout-button"
       type="button"
       onClick={handleLogout}
       disabled={isSubmitting}

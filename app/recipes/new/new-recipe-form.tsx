@@ -23,6 +23,12 @@ type IngredientDraft = {
   notes: string;
 };
 
+type NewImageDraft = {
+  id: number;
+  file: File;
+  previewUrl: string;
+};
+
 const EMPTY_INGREDIENT: IngredientDraft = {
   rowId: 1,
   name: "",
@@ -31,11 +37,18 @@ const EMPTY_INGREDIENT: IngredientDraft = {
   notes: "",
 };
 
+const MAX_IMAGES = 8;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 export default function NewRecipeForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([EMPTY_INGREDIENT]);
+  const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
+  const [nextImageId, setNextImageId] = useState(1);
+  const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -67,6 +80,64 @@ export default function NewRecipeForm() {
         return current;
       }
       return current.filter((ingredient) => ingredient.rowId !== rowId);
+    });
+  }
+
+  function removeNewImage(imageId: number) {
+    setNewImages((current) => {
+      const image = current.find((item) => item.id === imageId);
+      if (image) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+
+      const next = current.filter((item) => item.id !== imageId);
+      if (primaryNewImageId === imageId) {
+        setPrimaryNewImageId(next[0]?.id ?? null);
+      }
+
+      return next;
+    });
+  }
+
+  function handleImageSelection(files: FileList | null) {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const selected = Array.from(files);
+    const nextTotal = newImages.length + selected.length;
+    if (nextTotal > MAX_IMAGES) {
+      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      return;
+    }
+
+    for (const file of selected) {
+      if (!ALLOWED_MIME_TYPES.has(file.type)) {
+        setError("Only JPEG, PNG, and WEBP images are allowed.");
+        return;
+      }
+
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError("Each image must be 10MB or smaller.");
+        return;
+      }
+    }
+
+    setError(null);
+
+    const drafted = selected.map((file, index): NewImageDraft => ({
+      id: nextImageId + index,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setNextImageId((current) => current + drafted.length);
+    setNewImages((current) => {
+      const combined = [...current, ...drafted];
+      if (primaryNewImageId == null && combined.length > 0) {
+        setPrimaryNewImageId(combined[0].id);
+      }
+      return combined;
     });
   }
 
@@ -110,20 +181,33 @@ export default function NewRecipeForm() {
       return;
     }
 
-    const payload = {
-      title,
-      description,
-      stepsMarkdown,
-      ingredients: payloadIngredients,
-    };
+    if (newImages.length > MAX_IMAGES) {
+      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const recipeFormData = new FormData();
+    recipeFormData.append("title", title);
+    recipeFormData.append("description", description);
+    recipeFormData.append("stepsMarkdown", stepsMarkdown);
+    recipeFormData.append("ingredients", JSON.stringify(payloadIngredients));
+
+    for (const image of newImages) {
+      recipeFormData.append("images", image.file);
+    }
+
+    if (primaryNewImageId != null) {
+      const primaryIndex = newImages.findIndex((image) => image.id === primaryNewImageId);
+      if (primaryIndex >= 0) {
+        recipeFormData.append("primaryImageIndex", String(primaryIndex));
+      }
+    }
 
     try {
       const response = await fetch("/api/recipes", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: recipeFormData,
       });
 
       const data = (await response.json()) as CreateRecipeResponse;
@@ -142,51 +226,117 @@ export default function NewRecipeForm() {
   }
 
   return (
-    <main className="app-shell max-w-5xl">
-      <div className="surface-panel space-y-6 p-6 sm:p-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Add Family Recipe</h1>
-          <Link href="/" className="text-link text-sm">
+    <main id="new-recipe-main" className="app-shell max-w-5xl">
+      <div id="new-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
+        <div id="new-recipe-header" className="flex items-center justify-between">
+          <h1 id="new-recipe-title" className="text-2xl font-semibold">Add Family Recipe</h1>
+          <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
             Back to list
           </Link>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="title" className="mb-1 block text-sm font-medium">
+        <form id="new-recipe-form" onSubmit={handleSubmit} className="space-y-4">
+          <div id="new-recipe-title-field">
+            <label id="new-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
               Title
             </label>
             <input id="title" name="title" required className="input-base" />
           </div>
 
-          <div>
-            <label htmlFor="description" className="mb-1 block text-sm font-medium">
+          <div id="new-recipe-description-field">
+            <label id="new-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
               Description
             </label>
             <textarea id="description" name="description" rows={2} className="input-base" />
           </div>
 
-          <div>
-            <label htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
+          <div id="new-recipe-steps-field">
+            <label id="new-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
               Steps (Markdown)
             </label>
             <textarea id="stepsMarkdown" name="stepsMarkdown" rows={6} required className="input-base" />
           </div>
 
-          <div className="surface-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-medium">Ingredients</p>
-              <button type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
+          <div id="new-recipe-images-section" className="surface-card p-4">
+            <div id="new-recipe-images-header" className="mb-3 flex items-center justify-between">
+              <p id="new-recipe-images-title" className="text-sm font-medium">Recipe Images</p>
+              <span id="new-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{newImages.length}/{MAX_IMAGES}</span>
+            </div>
+
+            <div id="new-recipe-images-content" className="space-y-3">
+              <input
+                id="new-recipe-images-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={(event) => handleImageSelection(event.target.files)}
+                className="input-base"
+              />
+
+              {newImages.length > 0 ? (
+                <div id="new-recipe-selected-files-box" className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+                  <p id="new-recipe-selected-files-title" className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Selected files</p>
+                  <div id="new-recipe-selected-files-list" className="space-y-1">
+                    {newImages.map((image) => (
+                      <p id={`new-recipe-selected-file-${image.id}`} key={image.id} className="truncate text-xs text-[var(--color-text-muted)]">
+                        {image.file.name}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {newImages.length > 0 ? (
+                <ul id="new-recipe-image-preview-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {newImages.map((image) => (
+                    <li id={`new-recipe-image-preview-item-${image.id}`} key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+                      <img id={`new-recipe-image-preview-${image.id}`} src={image.previewUrl} alt={image.file.name} className="h-36 w-full rounded-[var(--radius-sm)] object-cover" />
+                      <p id={`new-recipe-image-name-${image.id}`} className="mt-2 truncate text-xs text-[var(--color-text-muted)]">{image.file.name}</p>
+                      <div id={`new-recipe-image-actions-${image.id}`} className="mt-2 flex items-center gap-2">
+                        <label id={`new-recipe-image-primary-label-${image.id}`} className="text-xs">
+                          <input
+                            id={`new-recipe-image-primary-${image.id}`}
+                            type="radio"
+                            name="primaryNewImage"
+                            checked={primaryNewImageId === image.id}
+                            onChange={() => setPrimaryNewImageId(image.id)}
+                            className="mr-1"
+                          />
+                          Principal
+                        </label>
+                        <button
+                          id={`new-recipe-image-remove-${image.id}`}
+                          type="button"
+                          onClick={() => removeNewImage(image.id)}
+                          className={buttonClassName("secondary")}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p id="new-recipe-no-images" className="text-sm text-[var(--color-text-muted)]">No images selected yet.</p>
+              )}
+            </div>
+          </div>
+
+          <div id="new-recipe-ingredients-section" className="surface-card p-4">
+            <div id="new-recipe-ingredients-header" className="mb-3 flex items-center justify-between">
+              <p id="new-recipe-ingredients-title" className="text-sm font-medium">Ingredients</p>
+              <button id="new-recipe-add-ingredient" type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
                 Add Ingredient
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div id="new-recipe-ingredients-list" className="space-y-4">
               {ingredients.map((ingredient, index) => (
-                <div key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-sm font-medium">Row {index + 1}</p>
+                <div id={`new-recipe-ingredient-row-${ingredient.rowId}`} key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+                  <div id={`new-recipe-ingredient-row-header-${ingredient.rowId}`} className="mb-2 flex items-center justify-between">
+                    <p id={`new-recipe-ingredient-row-title-${ingredient.rowId}`} className="text-sm font-medium">Row {index + 1}</p>
                     <button
+                      id={`new-recipe-ingredient-remove-${ingredient.rowId}`}
                       type="button"
                       onClick={() => removeIngredientRow(ingredient.rowId)}
                       disabled={ingredients.length === 1}
@@ -196,9 +346,9 @@ export default function NewRecipeForm() {
                     </button>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label htmlFor={`ingredientName-${ingredient.rowId}`} className="mb-1 block text-sm">
+                  <div id={`new-recipe-ingredient-fields-${ingredient.rowId}`} className="grid gap-3 sm:grid-cols-2">
+                    <div id={`new-recipe-ingredient-name-field-${ingredient.rowId}`} className="sm:col-span-2">
+                      <label id={`new-recipe-ingredient-name-label-${ingredient.rowId}`} htmlFor={`ingredientName-${ingredient.rowId}`} className="mb-1 block text-sm">
                         Name
                       </label>
                       <input
@@ -210,8 +360,8 @@ export default function NewRecipeForm() {
                       />
                     </div>
 
-                    <div>
-                      <label htmlFor={`qty-${ingredient.rowId}`} className="mb-1 block text-sm">
+                    <div id={`new-recipe-ingredient-qty-field-${ingredient.rowId}`}>
+                      <label id={`new-recipe-ingredient-qty-label-${ingredient.rowId}`} htmlFor={`qty-${ingredient.rowId}`} className="mb-1 block text-sm">
                         Quantity
                       </label>
                       <input
@@ -226,8 +376,8 @@ export default function NewRecipeForm() {
                       />
                     </div>
 
-                    <div>
-                      <label htmlFor={`unit-${ingredient.rowId}`} className="mb-1 block text-sm">
+                    <div id={`new-recipe-ingredient-unit-field-${ingredient.rowId}`}>
+                      <label id={`new-recipe-ingredient-unit-label-${ingredient.rowId}`} htmlFor={`unit-${ingredient.rowId}`} className="mb-1 block text-sm">
                         Unit
                       </label>
                       <input
@@ -239,8 +389,8 @@ export default function NewRecipeForm() {
                       />
                     </div>
 
-                    <div>
-                      <label htmlFor={`notes-${ingredient.rowId}`} className="mb-1 block text-sm">
+                    <div id={`new-recipe-ingredient-notes-field-${ingredient.rowId}`}>
+                      <label id={`new-recipe-ingredient-notes-label-${ingredient.rowId}`} htmlFor={`notes-${ingredient.rowId}`} className="mb-1 block text-sm">
                         Notes
                       </label>
                       <input
@@ -256,9 +406,9 @@ export default function NewRecipeForm() {
             </div>
           </div>
 
-          {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+          {error ? <p id="new-recipe-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
 
-          <button type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
+          <button id="new-recipe-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
             {isSubmitting ? "Creating..." : "Create Recipe"}
           </button>
         </form>

@@ -24,7 +24,7 @@ export default function LoginPage() {
     const formData = new FormData(event.currentTarget);
 
     const payload = {
-      username: String(formData.get("username") ?? "").trim(),
+      username_or_email: String(formData.get("username_or_email") ?? "").trim(),
       password: String(formData.get("password") ?? ""),
     };
 
@@ -68,38 +68,38 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="app-shell max-w-xl space-y-6">
-      <div className="surface-panel space-y-6 p-6 sm:p-8">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Family Log In</h1>
-          <Link href="/" className="text-link text-sm">
+    <main id="login-page-main" className="app-shell max-w-xl space-y-6">
+      <div id="login-page-panel" className="surface-panel space-y-6 p-6 sm:p-8">
+        <div id="login-page-header" className="flex items-center justify-between gap-3">
+          <h1 id="login-page-title" className="text-2xl font-semibold">Log In</h1>
+          <Link id="login-page-back-link" href="/" className="text-link text-sm">
             Back to recipes
           </Link>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="username" className="mb-1 block text-sm font-medium">
-              Username
+        <form id="login-page-form" onSubmit={handleSubmit} className="space-y-4">
+          <div id="login-page-username-field">
+            <label id="login-page-username-label" htmlFor="username_or_email" className="mb-1 block text-sm font-medium">
+              Username or email
             </label>
-            <input id="username" name="username" required className="input-base" />
+            <input id="username_or_email" name="username_or_email" required className="input-base" />
           </div>
 
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium">
+          <div id="login-page-password-field">
+            <label id="login-page-password-label" htmlFor="password" className="mb-1 block text-sm font-medium">
               Password
             </label>
             <input id="password" name="password" type="password" required className="input-base" />
           </div>
 
-          {error ? <p className="text-sm text-[var(--color-danger)]">{error}</p> : null}
-          {message ? <p className="text-sm text-[var(--color-primary)]">{message}</p> : null}
+          {error ? <p id="login-page-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
+          {message ? <p id="login-page-message" className="text-sm text-[var(--color-primary)]">{message}</p> : null}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
+          <div id="login-page-actions" className="flex flex-wrap items-center gap-3">
+            <button id="login-page-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
               {isSubmitting ? "Signing in..." : "Sign in"}
             </button>
-            <button type="button" onClick={handleLogout} className={buttonClassName("secondary")}>
+            <button id="login-page-logout" type="button" onClick={handleLogout} className={buttonClassName("secondary")}>
               Logout
             </button>
           </div>

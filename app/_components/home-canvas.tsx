@@ -29,9 +29,9 @@ export default function HomeCanvas() {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const orbs: Orb[] = [
-      { x: 0.2, y: 0.22, radius: 220, vx: 0.00022, vy: 0.00016, color: "rgba(201, 111, 51, 0.18)" },
-      { x: 0.8, y: 0.18, radius: 210, vx: -0.00016, vy: 0.0002, color: "rgba(232, 167, 78, 0.17)" },
-      { x: 0.55, y: 0.85, radius: 260, vx: 0.00013, vy: -0.00016, color: "rgba(156, 86, 49, 0.12)" },
+      { x: 0.2, y: 0.22, radius: 220, vx: 0.00022, vy: 0.00016, color: "rgba(110, 157, 126, 0.18)" },
+      { x: 0.8, y: 0.18, radius: 210, vx: -0.00016, vy: 0.0002, color: "rgba(150, 189, 165, 0.17)" },
+      { x: 0.55, y: 0.85, radius: 260, vx: 0.00013, vy: -0.00016, color: "rgba(77, 128, 96, 0.12)" },
     ];
 
     let width = 0;
@@ -97,5 +97,5 @@ export default function HomeCanvas() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 -z-10" aria-hidden="true" />;
+  return <canvas id="home-background-canvas" ref={canvasRef} className="pointer-events-none fixed inset-0 -z-10" aria-hidden="true" />;
 }

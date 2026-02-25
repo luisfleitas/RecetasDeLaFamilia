@@ -14,12 +14,20 @@ type Ingredient = {
   position: number;
 };
 
+type RecipeImage = {
+  id: number;
+  isPrimary: boolean;
+  position: number;
+};
+
 type Recipe = {
   id: number;
   title: string;
   description: string | null;
   stepsMarkdown: string;
   ingredients: Ingredient[];
+  images?: RecipeImage[];
+  primaryImage?: { id: number } | null;
 };
 
 type RecipeResponse = {
@@ -46,9 +54,12 @@ async function fetchRecipe(id: string) {
   const requestHeaders = await headers();
   const baseUrl = getBaseUrl(requestHeaders);
 
-  const response = await fetch(`${baseUrl}/api/recipes/${id}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${baseUrl}/api/recipes/${id}?includeImages=true&includePrimaryImage=true`,
+    {
+      cache: "no-store",
+    },
+  );
 
   if (response.status === 404) {
     notFound();
@@ -74,11 +85,11 @@ export default async function EditRecipePage({ params }: Params) {
   const recipe = await fetchRecipe(id);
 
   return (
-    <main className="app-shell max-w-5xl space-y-6">
-      <div className="surface-panel space-y-6 p-6 sm:p-8">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Edit Recipe</h1>
-          <Link href={`/recipes/${recipe.id}`} className={buttonClassName("secondary")}>
+    <main id="edit-recipe-main" className="app-shell max-w-5xl space-y-6">
+      <div id="edit-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
+        <div id="edit-recipe-header" className="flex items-center justify-between gap-3">
+          <h1 id="edit-recipe-title" className="text-2xl font-semibold">Edit Recipe</h1>
+          <Link id="edit-recipe-back-link" href={`/recipes/${recipe.id}`} className={buttonClassName("secondary")}>
             Back to recipe
           </Link>
         </div>
