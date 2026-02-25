@@ -59,7 +59,7 @@ export default async function HomePage() {
     <main id="home-page-main" className="relative min-h-screen overflow-hidden py-6 sm:py-10">
       <HomeCanvas />
 
-      <div id="home-app-shell" className="app-shell space-y-6 sm:space-y-8">
+      <div id="home-app-shell" className="app-shell space-y-6">
         <header id="home-page-header" className="surface-panel p-6 sm:p-8">
           <div id="home-header-content" className="space-y-5">
             <div id="home-hero-actions" className="flex w-full flex-wrap items-center justify-end gap-2">
@@ -88,10 +88,14 @@ export default async function HomePage() {
 
             <div id="home-hero-copy" className="max-w-3xl">
               <p id="home-hero-eyebrow" className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Family Recipe Archive</p>
-              <h1 id="home-hero-title" className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">
+              <h1
+                id="home-hero-title"
+                className="mt-2 text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl"
+                style={{ fontFamily: '"Iowan Old Style", "Palatino Linotype", serif' }}
+              >
                 Keep family recipes alive across every distance
               </h1>
-              <p id="home-hero-description" className="mt-3 max-w-2xl text-sm text-[var(--color-text-muted)] sm:text-lg">
+              <p id="home-hero-description" className="mt-3 max-w-2xl text-base leading-relaxed text-[var(--color-text-muted)] sm:text-lg">
                 A shared kitchen archive for families living in different cities and countries, so each recipe carries stories,
                 notes, and tradition into the next generation.
               </p>
@@ -99,7 +103,7 @@ export default async function HomePage() {
 
           </div>
 
-          <div id="home-status-pills" className="mt-5 flex flex-wrap gap-2">
+          <div id="home-status-pills" className="mt-5 flex flex-wrap gap-2.5">
             <span id="home-recipe-count-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
               {recipes.length} Heritage Recipe{recipes.length === 1 ? "" : "s"}
             </span>
@@ -109,7 +113,7 @@ export default async function HomePage() {
           </div>
         </header>
 
-        <section id="home-content-section" className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+        <section id="home-content-section" className="grid gap-[18px] lg:grid-cols-[1.7fr_1fr]">
           {recipes.length === 0 ? (
             <article id="home-empty-state-card" className="surface-card p-10 text-center">
               <h2 id="home-empty-state-title" className="text-xl font-semibold">Start your family recipe archive</h2>
@@ -118,7 +122,7 @@ export default async function HomePage() {
               </p>
             </article>
           ) : (
-            <ul id="home-recipe-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ul id="home-recipe-list" className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
               {recipes.map((recipe) => (
                 <li
                   id={`home-recipe-card-${recipe.id}`}
@@ -136,7 +140,7 @@ export default async function HomePage() {
                     />
                   ) : null}
                   <div id={`home-recipe-content-${recipe.id}`} className="p-4">
-                    <Link id={`home-recipe-link-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
+                    <Link id={`home-recipe-link-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-lg font-semibold hover:underline">
                       {recipe.title}
                     </Link>
                     <p id={`home-recipe-added-label-${recipe.id}`} className="mt-2 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Added on</p>

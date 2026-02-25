@@ -48,7 +48,7 @@ export default function RecipeCardCarousel({ recipeId, title, images }: Props) {
         <div
           id={`home-recipe-carousel-controls-${recipeId}`}
           className="pointer-events-auto flex items-center gap-1 rounded-full px-2 py-1 shadow-sm"
-          style={{ backgroundColor: "rgba(255, 245, 224, 0.95)" }}
+          style={{ backgroundColor: "rgba(241, 246, 241, 0.95)" }}
         >
           <button
             id={`home-recipe-carousel-prev-${recipeId}`}
@@ -56,11 +56,11 @@ export default function RecipeCardCarousel({ recipeId, title, images }: Props) {
             aria-label="Previous image"
             onClick={prev}
             disabled={images.length <= 1}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-white/90 text-sm leading-none text-black disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] bg-white/90 text-sm leading-none text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             ‹
           </button>
-          <div id={`home-recipe-carousel-counter-${recipeId}`} className="px-1 text-[10px] text-[#2a2a2a]">
+          <div id={`home-recipe-carousel-counter-${recipeId}`} className="px-1 text-[10px] text-[var(--color-text)]">
             {index + 1}/{images.length}
           </div>
           <button
@@ -69,7 +69,7 @@ export default function RecipeCardCarousel({ recipeId, title, images }: Props) {
             aria-label="Next image"
             onClick={next}
             disabled={images.length <= 1}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-white/90 text-sm leading-none text-black disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] bg-white/90 text-sm leading-none text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             ›
           </button>
