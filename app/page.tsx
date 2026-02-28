@@ -84,6 +84,9 @@ export default async function HomePage() {
               <Link id="home-add-recipe-link" href="/recipes/new" className={buttonClassName("primary")}>
                 + Add Family Recipe
               </Link>
+              <Link id="home-import-recipe-link" href="/recipes/import" className={buttonClassName("secondary")}>
+                Import Recipe Text
+              </Link>
             </div>
 
             <div id="home-hero-copy" className="max-w-3xl">
