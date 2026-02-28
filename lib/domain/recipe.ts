@@ -1,8 +1,17 @@
+export type RecipeVisibility = "public" | "private" | "family";
+
+export type RecipeFamilyRef = {
+  id: number;
+  name: string;
+};
+
 export type RecipeListItem = {
   id: number;
   title: string;
   createdByUserId: number;
   createdAt: Date;
+  visibility: RecipeVisibility;
+  families?: RecipeFamilyRef[];
   primaryImage?: PrimaryImageRef | null;
   images?: PrimaryImageRef[];
 };
@@ -45,6 +54,8 @@ export type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  visibility: RecipeVisibility;
+  families: RecipeFamilyRef[];
   createdByUserId: number;
   createdAt: Date;
   updatedAt: Date;
@@ -65,6 +76,8 @@ export type CreateRecipeInput = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  visibility: RecipeVisibility;
+  familyIds: number[];
   ingredients: CreateIngredientInput[];
 };
 

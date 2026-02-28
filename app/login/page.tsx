@@ -45,7 +45,9 @@ export default function LoginPage() {
       }
 
       setMessage("Session active.");
-      router.push("/");
+      const next = new URLSearchParams(window.location.search).get("next");
+      const redirectTo = next && next.startsWith("/") ? next : "/";
+      router.push(redirectTo);
       router.refresh();
     } catch {
       setError("Failed to login");

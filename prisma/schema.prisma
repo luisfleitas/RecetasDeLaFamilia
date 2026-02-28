@@ -13,12 +13,14 @@ model Recipe {
   title           String
   description     String?
   stepsMarkdown   String
+  visibility      RecipeVisibility @default(public)
   createdByUserId Int        @map("created_by_user_id")
   createdByUser  User        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   ingredients     Ingredient[]
   images          RecipeImage[]
+  familyLinks     RecipeFamilyLink[]
 }
 
 model Ingredient {
@@ -48,6 +50,15 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
   recipes      Recipe[]
+  createdFamilies Family[] @relation("FamilyCreator")
+  familyMemberships FamilyMembership[]
+  createdFamilyInvites FamilyInvite[] @relation("FamilyInviteCreator")
+  consumedFamilyInvites FamilyInvite[] @relation("FamilyInviteConsumer")
+  familyInviteDecisions FamilyInviteDecision[]
+  initiatedFamilyDeletionRequests FamilyDeletionRequest[] @relation("FamilyDeletionInitiator")
+  familyDeletionVotes FamilyDeletionVote[]
+  familyAuditEvents FamilyAuditEvent[] @relation("FamilyAuditActor")
+  metricEvents MetricEvent[] @relation("MetricActor")
 
   @@map("users")
 }
@@ -70,4 +81,204 @@ model RecipeImage {
 
   @@index([recipeId, position])
   @@index([recipeId, isPrimary])
+}
+
+enum FamilyRole {
+  admin
+  member
+}
+
+enum FamilyInviteDecisionStatus {
+  pending
+  declined
+  accepted
+}
+
+enum FamilyDeletionRequestStatus {
+  active
+  approved
+  denied
+  cancelled
+  expired
+}
+
+enum FamilyDeletionVoteValue {
+  approve
+  deny
+}
+
+enum RecipeVisibility {
+  public
+  private
+  family
+}
+
+model Family {
+  id              Int      @id @default(autoincrement())
+  name            String
+  description     String?
+  pictureStorageKey String? @map("picture_storage_key")
+  deletionCooldownUntil DateTime? @map("deletion_cooldown_until")
+  createdByUserId Int      @map("created_by_user_id")
+  createdByUser   User     @relation("FamilyCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  memberships     FamilyMembership[]
+  invites         FamilyInvite[]
+  deletionRequests FamilyDeletionRequest[]
+  recipeLinks     RecipeFamilyLink[]
+  auditEvents     FamilyAuditEvent[]
+  metricEvents    MetricEvent[]
+
+  @@index([createdByUserId])
+}
+
+model RecipeFamilyLink {
+  id        Int      @id @default(autoincrement())
+  recipeId  Int      @map("recipe_id")
+  familyId  Int      @map("family_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, familyId])
+  @@index([familyId])
+}
+
+model FamilyMembership {
+  id        Int        @id @default(autoincrement())
+  familyId  Int        @map("family_id")
+  userId    Int        @map("user_id")
+  role      FamilyRole
+  joinedAt  DateTime   @default(now()) @map("joined_at")
+
+  family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  @@index([userId])
+  @@index([familyId, role])
+}
+
+model FamilyInvite {
+  id               Int      @id @default(autoincrement())
+  familyId         Int      @map("family_id")
+  tokenHash        String   @unique @map("token_hash")
+  createdByUserId  Int      @map("created_by_user_id")
+  expiresAt        DateTime @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  consumedAt       DateTime? @map("consumed_at")
+  consumedByUserId Int?     @map("consumed_by_user_id")
+  maxUses          Int      @default(1) @map("max_uses")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  family           Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdByUser    User     @relation("FamilyInviteCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  consumedByUser   User?    @relation("FamilyInviteConsumer", fields: [consumedByUserId], references: [id], onDelete: SetNull)
+  decisions        FamilyInviteDecision[]
+  metricEvents     MetricEvent[]
+  auditEvents      FamilyAuditEvent[]
+
+  @@index([familyId])
+  @@index([familyId, expiresAt])
+}
+
+model FamilyInviteDecision {
+  id            Int                        @id @default(autoincrement())
+  inviteId      Int                        @map("invite_id")
+  userId        Int                        @map("user_id")
+  status        FamilyInviteDecisionStatus @default(pending)
+  firstOpenedAt DateTime                   @default(now()) @map("first_opened_at")
+  lastOpenedAt  DateTime                   @default(now()) @map("last_opened_at")
+  decidedAt     DateTime?                  @map("decided_at")
+  createdAt     DateTime                   @default(now()) @map("created_at")
+  updatedAt     DateTime                   @updatedAt @map("updated_at")
+
+  invite        FamilyInvite               @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  user          User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([inviteId, userId])
+  @@index([userId, status])
+}
+
+model FamilyDeletionRequest {
+  id                      Int                         @id @default(autoincrement())
+  familyId                Int                         @map("family_id")
+  initiatedByUserId       Int                         @map("initiated_by_user_id")
+  status                  FamilyDeletionRequestStatus @default(active)
+  eligibleAdminCount      Int                         @map("eligible_admin_count")
+  requiredApprovals       Int                         @map("required_approvals")
+  eligibleAdminUserIdsJson String                     @map("eligible_admin_user_ids_json")
+  approveCount            Int                         @default(0) @map("approve_count")
+  denyCount               Int                         @default(0) @map("deny_count")
+  expiresAt               DateTime                    @map("expires_at")
+  resolvedAt              DateTime?                   @map("resolved_at")
+  resolveReason           String?                     @map("resolve_reason")
+  createdAt               DateTime                    @default(now()) @map("created_at")
+  updatedAt               DateTime                    @updatedAt @map("updated_at")
+
+  family                  Family                      @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  initiatedByUser         User                        @relation("FamilyDeletionInitiator", fields: [initiatedByUserId], references: [id], onDelete: Restrict)
+  votes                   FamilyDeletionVote[]
+
+  @@index([familyId, status])
+  @@index([status, expiresAt])
+}
+
+model FamilyDeletionVote {
+  id                Int                    @id @default(autoincrement())
+  deletionRequestId Int                    @map("deletion_request_id")
+  userId            Int                    @map("user_id")
+  vote              FamilyDeletionVoteValue
+  votedAt           DateTime               @default(now()) @map("voted_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+
+  deletionRequest   FamilyDeletionRequest  @relation(fields: [deletionRequestId], references: [id], onDelete: Cascade)
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([deletionRequestId, userId])
+  @@index([userId])
+}
+
+model FamilyAuditEvent {
+  id           Int      @id @default(autoincrement())
+  eventType    String   @map("event_type")
+  requestId    String   @map("request_id")
+  actorUserId  Int?     @map("actor_user_id")
+  familyId     Int?     @map("family_id")
+  targetUserId Int?     @map("target_user_id")
+  inviteId     Int?     @map("invite_id")
+  oldRole      FamilyRole? @map("old_role")
+  newRole      FamilyRole? @map("new_role")
+  metadataJson String?  @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  actorUser    User?    @relation("FamilyAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  family       Family?  @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  invite       FamilyInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model MetricEvent {
+  id             Int      @id @default(autoincrement())
+  metricName     String   @map("metric_name")
+  requestId      String   @map("request_id")
+  actorUserId    Int?     @map("actor_user_id")
+  familyId       Int?     @map("family_id")
+  inviteId       Int?     @map("invite_id")
+  statusCode     Int?     @map("status_code")
+  metadataJson   String?  @map("metadata_json")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  actorUser      User?    @relation("MetricActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  family         Family?  @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  invite         FamilyInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@index([metricName, createdAt])
+  @@index([createdAt])
 }

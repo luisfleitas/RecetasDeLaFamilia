@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 
@@ -24,6 +24,8 @@ type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  visibility: "public" | "private" | "family";
+  families: Array<{ id: number; name: string }>;
   ingredients: Ingredient[];
   images?: RecipeImage[];
   primaryImage?: { id: number } | null;
@@ -50,6 +52,11 @@ type ExistingImageDraft = {
 type UpdateRecipeResponse = {
   recipe?: { id: number };
   error?: string;
+};
+
+type FamilyOption = {
+  id: number;
+  name: string;
 };
 
 const MAX_IMAGES = 8;
@@ -86,9 +93,37 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   const [nextImageId, setNextImageId] = useState(1);
   const [primaryExistingImageId, setPrimaryExistingImageId] = useState<number | null>(recipe.primaryImage?.id ?? null);
   const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
+  const [visibility, setVisibility] = useState<"public" | "private" | "family">(recipe.visibility);
+  const [familyOptions, setFamilyOptions] = useState<FamilyOption[]>([]);
+  const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>(recipe.families.map((family) => family.id));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRemovingImageId, setIsRemovingImageId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadFamilies() {
+      try {
+        const response = await fetch("/api/families", { cache: "no-store" });
+        const data = (await response.json()) as {
+          families?: Array<{ id: number; name: string }>;
+        };
+
+        if (!response.ok || !data.families) {
+          return;
+        }
+
+        const nextFamilyOptions = data.families.map((family) => ({ id: family.id, name: family.name }));
+        const familyIdSet = new Set(nextFamilyOptions.map((family) => family.id));
+
+        setFamilyOptions(nextFamilyOptions);
+        setSelectedFamilyIds((current) => current.filter((familyId) => familyIdSet.has(familyId)));
+      } catch {
+        // Keep options empty if unavailable.
+      }
+    }
+
+    loadFamilies();
+  }, []);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -201,6 +236,12 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     });
   }
 
+  function toggleSelectedFamily(familyId: number) {
+    setSelectedFamilyIds((current) =>
+      current.includes(familyId) ? current.filter((id) => id !== familyId) : [...current, familyId],
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -225,6 +266,10 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
     if (totalImageCount() > MAX_IMAGES) {
       setError(`You can upload up to ${MAX_IMAGES} images.`);
+      return;
+    }
+    if (visibility === "family" && selectedFamilyIds.length === 0) {
+      setError("Choose at least one family when sharing is set to Family.");
       return;
     }
 
@@ -254,7 +299,13 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     formData.append("title", trimmedTitle);
     formData.append("description", description.trim());
     formData.append("stepsMarkdown", trimmedSteps);
+    formData.append("visibility", visibility);
     formData.append("ingredients", JSON.stringify(payloadIngredients));
+    if (visibility === "family") {
+      for (const familyId of selectedFamilyIds) {
+        formData.append("familyIds", String(familyId));
+      }
+    }
 
     for (const image of newImages) {
       formData.append("newImages", image.file);
@@ -335,6 +386,75 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
           onChange={(event) => setStepsMarkdown(event.target.value)}
           className="input-base"
         />
+      </div>
+
+      <div id="edit-recipe-sharing-section" className="surface-card space-y-3 p-4">
+        <p id="edit-recipe-sharing-title" className="text-sm font-medium">Sharing</p>
+        <div id="edit-recipe-sharing-visibility-group" className="flex flex-wrap gap-4">
+          <label id="edit-recipe-sharing-public-label" className="text-sm">
+            <input
+              id="edit-recipe-sharing-public-input"
+              type="radio"
+              name="editRecipeVisibility"
+              checked={visibility === "public"}
+              onChange={() => setVisibility("public")}
+              className="mr-2"
+            />
+            Public (everyone)
+          </label>
+          <label id="edit-recipe-sharing-private-label" className="text-sm">
+            <input
+              id="edit-recipe-sharing-private-input"
+              type="radio"
+              name="editRecipeVisibility"
+              checked={visibility === "private"}
+              onChange={() => setVisibility("private")}
+              className="mr-2"
+            />
+            Private (only you)
+          </label>
+          <label id="edit-recipe-sharing-family-label" className="text-sm">
+            <input
+              id="edit-recipe-sharing-family-input"
+              type="radio"
+              name="editRecipeVisibility"
+              checked={visibility === "family"}
+              onChange={() => setVisibility("family")}
+              className="mr-2"
+            />
+            Family
+          </label>
+        </div>
+
+        {visibility === "family" ? (
+          <div id="edit-recipe-sharing-families-section" className="space-y-2">
+            <p id="edit-recipe-sharing-families-title" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+              Select families
+            </p>
+            {familyOptions.length > 0 ? (
+              <ul id="edit-recipe-sharing-families-list" className="space-y-2">
+                {familyOptions.map((family) => (
+                  <li id={`edit-recipe-sharing-family-item-${family.id}`} key={family.id}>
+                    <label id={`edit-recipe-sharing-family-label-${family.id}`} className="text-sm">
+                      <input
+                        id={`edit-recipe-sharing-family-input-${family.id}`}
+                        type="checkbox"
+                        checked={selectedFamilyIds.includes(family.id)}
+                        onChange={() => toggleSelectedFamily(family.id)}
+                        className="mr-2"
+                      />
+                      {family.name}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p id="edit-recipe-sharing-families-empty" className="text-sm text-[var(--color-text-muted)]">
+                You are not a member of any families yet.
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div id="edit-recipe-images-section" className="surface-card space-y-3 p-4">
