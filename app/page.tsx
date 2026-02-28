@@ -5,7 +5,7 @@ import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 import LogoutButton from "@/app/_components/logout-button";
 import HomeCanvas from "@/app/_components/home-canvas";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
-import RecipeCardCarousel from "@/app/_components/recipe-card-carousel";
+import RecipeVisibilityTabs, { type RecipeVisibilityTabGroup } from "@/app/_components/recipe-visibility-tabs";
 
 type PrimaryImageRef = {
   id: number;
@@ -23,9 +23,7 @@ type RecipeListItem = {
   images?: PrimaryImageRef[];
 };
 
-type RecipesResponse = {
-  recipes: RecipeListItem[];
-};
+type RecipesResponse = { recipes: RecipeListItem[] };
 
 function getBaseUrl(requestHeaders: Headers) {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
@@ -58,6 +56,53 @@ async function fetchRecipes() {
 export default async function HomePage() {
   const [recipesResponse, authUser] = await Promise.all([fetchRecipes(), getOptionalAuthPageUser()]);
   const { recipes } = recipesResponse;
+  const publicRecipes = recipes.filter((recipe) => recipe.visibility === "public");
+  const privateRecipes = recipes.filter((recipe) => recipe.visibility === "private");
+  const familyGroupsMap = new Map<string, RecipeVisibilityTabGroup>();
+
+  for (const recipe of recipes) {
+    if (recipe.visibility !== "family") {
+      continue;
+    }
+
+    if (recipe.families.length === 0) {
+      const unassignedGroupId = "family-unassigned";
+      const existingGroup = familyGroupsMap.get(unassignedGroupId);
+      if (existingGroup) {
+        existingGroup.recipes.push(recipe);
+      } else {
+        familyGroupsMap.set(unassignedGroupId, {
+          id: unassignedGroupId,
+          label: "Family: Unassigned",
+          type: "family",
+          recipes: [recipe],
+        });
+      }
+      continue;
+    }
+
+    for (const family of recipe.families) {
+      const familyGroupId = `family-${family.id}`;
+      const existingGroup = familyGroupsMap.get(familyGroupId);
+      if (existingGroup) {
+        existingGroup.recipes.push(recipe);
+      } else {
+        familyGroupsMap.set(familyGroupId, {
+          id: familyGroupId,
+          label: `Family: ${family.name}`,
+          type: "family",
+          recipes: [recipe],
+        });
+      }
+    }
+  }
+
+  const familyGroups = Array.from(familyGroupsMap.values()).sort((a, b) => a.label.localeCompare(b.label));
+  const visibilityTabGroups: RecipeVisibilityTabGroup[] = [
+    { id: "public", label: "Public", type: "public", recipes: publicRecipes },
+    ...familyGroups,
+    { id: "private", label: "Private", type: "private", recipes: privateRecipes },
+  ];
 
   return (
     <main id="home-page-main" className="relative min-h-screen overflow-hidden py-6 sm:py-10">
@@ -128,42 +173,7 @@ export default async function HomePage() {
                 Add your first recipe with notes about who taught it and where it came from, so your family can keep it for generations.
               </p>
             </article>
-          ) : (
-            <ul id="home-recipe-list" className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
-              {recipes.map((recipe) => (
-                <li
-                  id={`home-recipe-card-${recipe.id}`}
-                  key={recipe.id}
-                  className="surface-card overflow-hidden p-0 transition-transform hover:-translate-y-0.5"
-                >
-                  {recipe.images && recipe.images.length > 0 ? (
-                    <RecipeCardCarousel recipeId={recipe.id} title={recipe.title} images={recipe.images} />
-                  ) : recipe.primaryImage ? (
-                    <img
-                      id={`home-recipe-image-${recipe.id}`}
-                      src={recipe.primaryImage.thumbnailUrl}
-                      alt={recipe.title}
-                      className="h-36 w-full object-cover"
-                    />
-                  ) : null}
-                  <div id={`home-recipe-content-${recipe.id}`} className="p-4">
-                    <Link id={`home-recipe-link-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-lg font-semibold hover:underline">
-                      {recipe.title}
-                    </Link>
-                    <p id={`home-recipe-added-label-${recipe.id}`} className="mt-2 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Added on</p>
-                    <p id={`home-recipe-created-at-${recipe.id}`} className="text-sm text-[var(--color-text-muted)]">{new Date(recipe.createdAt).toLocaleString()}</p>
-                    <p id={`home-recipe-visibility-${recipe.id}`} className="mt-2 text-xs uppercase tracking-wide text-[var(--color-primary)]">
-                      {recipe.visibility === "family"
-                        ? `Shared with ${recipe.families.length} ${recipe.families.length === 1 ? "family" : "families"}`
-                        : recipe.visibility === "private"
-                          ? "Private"
-                          : "Public"}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          ) : <RecipeVisibilityTabs groups={visibilityTabGroups} />}
 
           <aside id="home-preservation-aside" className="surface-card p-5">
             <h2 id="home-preservation-title" className="text-lg font-semibold">Preservation Features</h2>

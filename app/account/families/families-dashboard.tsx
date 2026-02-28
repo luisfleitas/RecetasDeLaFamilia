@@ -77,6 +77,8 @@ type FamilyInviteLink = {
   revokedAt: string | null;
   consumedAt: string | null;
   consumedByUserId: number | null;
+  maxUses: number;
+  usageType: "single_use" | "multi_use";
   state: "active" | "revoked" | "consumed" | "expired";
 };
 
@@ -106,6 +108,7 @@ type RevokeFamilyInviteResponse = {
 };
 
 type ManageFamilyTabId = "members" | "inviteCodes" | "deletion";
+type InviteUsageType = "single_use" | "multi_use";
 
 export default function FamiliesDashboard() {
   const [families, setFamilies] = useState<Family[]>([]);
@@ -121,6 +124,7 @@ export default function FamiliesDashboard() {
   const [familyCooldownById, setFamilyCooldownById] = useState<Record<number, string | null>>({});
   const [familyInviteLinksById, setFamilyInviteLinksById] = useState<Record<number, FamilyInviteLink[]>>({});
   const [latestInviteUrlByFamilyId, setLatestInviteUrlByFamilyId] = useState<Record<number, string | null>>({});
+  const [inviteUsageTypeByFamilyId, setInviteUsageTypeByFamilyId] = useState<Record<number, InviteUsageType>>({});
   const [manageTabByFamilyId, setManageTabByFamilyId] = useState<Record<number, ManageFamilyTabId>>({});
   const [familyMessageById, setFamilyMessageById] = useState<Record<number, string | null>>({});
   const [familyErrorById, setFamilyErrorById] = useState<Record<number, string | null>>({});
@@ -437,9 +441,14 @@ export default function FamiliesDashboard() {
     setFamilyMessageById((current) => ({ ...current, [familyId]: null }));
     setFamilyErrorById((current) => ({ ...current, [familyId]: null }));
 
+    const usageType = inviteUsageTypeByFamilyId[familyId] ?? "single_use";
     try {
       const response = await fetch(`/api/families/${familyId}/invite-links`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ usageType }),
       });
       const data = (await response.json()) as CreateFamilyInviteResponse;
 
@@ -458,7 +467,7 @@ export default function FamiliesDashboard() {
       await loadFamilyContext(familyId);
       setFamilyMessageById((current) => ({
         ...current,
-        [familyId]: "Invite link created.",
+        [familyId]: usageType === "single_use" ? "Single-use invite link created." : "Multi-use invite link created.",
       }));
     } catch {
       setFamilyErrorById((current) => ({
@@ -585,6 +594,7 @@ export default function FamiliesDashboard() {
               const familyMessage = familyMessageById[family.id];
               const inviteLinks = familyInviteLinksById[family.id] ?? [];
               const latestInviteUrl = latestInviteUrlByFamilyId[family.id];
+              const inviteUsageType = inviteUsageTypeByFamilyId[family.id] ?? "single_use";
               const currentUserVote =
                 detail && deletionRequest
                   ? deletionRequest.votes.find((vote) => vote.userId === detail.currentUserId) ?? null
@@ -784,6 +794,40 @@ export default function FamiliesDashboard() {
                                 </button>
                               </div>
 
+                              <fieldset id={`families-dashboard-list-item-invites-usage-fieldset-${family.id}`} className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                                <legend id={`families-dashboard-list-item-invites-usage-legend-${family.id}`} className="px-1 text-sm font-medium">
+                                  How should this invite link be used?
+                                </legend>
+                                <div id={`families-dashboard-list-item-invites-usage-options-${family.id}`} className="flex flex-wrap gap-3">
+                                  <label id={`families-dashboard-list-item-invites-usage-single-label-${family.id}`} htmlFor={`families-dashboard-list-item-invites-usage-single-input-${family.id}`} className="flex items-center gap-2 text-sm">
+                                    <input
+                                      id={`families-dashboard-list-item-invites-usage-single-input-${family.id}`}
+                                      type="radio"
+                                      name={`invite-usage-type-${family.id}`}
+                                      value="single_use"
+                                      checked={inviteUsageType === "single_use"}
+                                      onChange={() => {
+                                        setInviteUsageTypeByFamilyId((current) => ({ ...current, [family.id]: "single_use" }));
+                                      }}
+                                    />
+                                    One-time use
+                                  </label>
+                                  <label id={`families-dashboard-list-item-invites-usage-multi-label-${family.id}`} htmlFor={`families-dashboard-list-item-invites-usage-multi-input-${family.id}`} className="flex items-center gap-2 text-sm">
+                                    <input
+                                      id={`families-dashboard-list-item-invites-usage-multi-input-${family.id}`}
+                                      type="radio"
+                                      name={`invite-usage-type-${family.id}`}
+                                      value="multi_use"
+                                      checked={inviteUsageType === "multi_use"}
+                                      onChange={() => {
+                                        setInviteUsageTypeByFamilyId((current) => ({ ...current, [family.id]: "multi_use" }));
+                                      }}
+                                    />
+                                    Multiple uses
+                                  </label>
+                                </div>
+                              </fieldset>
+
                               {latestInviteUrl ? (
                                 <div id={`families-dashboard-list-item-invites-latest-url-${family.id}`} className="space-y-2">
                                   <label id={`families-dashboard-list-item-invites-latest-url-label-${family.id}`} htmlFor={`families-dashboard-list-item-invites-latest-url-input-${family.id}`} className="block text-sm font-medium">
@@ -831,6 +875,9 @@ export default function FamiliesDashboard() {
                                         </p>
                                         <p id={`families-dashboard-list-item-invites-item-created-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
                                           Created: {new Date(inviteLink.createdAt).toLocaleString()}
+                                        </p>
+                                        <p id={`families-dashboard-list-item-invites-item-usage-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
+                                          Usage: {inviteLink.usageType === "single_use" ? "One-time use" : "Multiple uses"}
                                         </p>
                                         <p id={`families-dashboard-list-item-invites-item-expires-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
                                           Expires: {new Date(inviteLink.expiresAt).toLocaleString()}

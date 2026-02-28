@@ -1,11 +1,14 @@
-import { parsePositiveInt } from "@/lib/application/families/validation";
+import { parseCreateFamilyInviteInput, parsePositiveInt } from "@/lib/application/families/validation";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import {
   createFamilyInviteToken,
   getInviteExpiryDate,
   getInviteState,
+  getInviteUsageType,
   hashFamilyInviteToken,
   isFamilyAdmin,
+  MULTI_USE_INVITE_MAX_USES,
+  SINGLE_USE_INVITE_MAX_USES,
 } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
 import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
@@ -70,6 +73,8 @@ export async function GET(request: Request, { params }: Params) {
         revokedAt: invite.revokedAt,
         consumedAt: invite.consumedAt,
         consumedByUserId: invite.consumedByUserId,
+        maxUses: invite.maxUses,
+        usageType: getInviteUsageType(invite.maxUses),
         state: getInviteState(invite),
       })),
     }), requestId);
@@ -100,6 +105,30 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
+  let usageType: "single_use" | "multi_use" = "single_use";
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return withRequestId(
+        NextResponse.json({ error: "Invalid JSON body", code: "VALIDATION_ERROR" }, { status: 400 }),
+        requestId,
+      );
+    }
+
+    try {
+      usageType = parseCreateFamilyInviteInput(body).usageType;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid invite payload";
+      return withRequestId(
+        NextResponse.json({ error: message, code: "VALIDATION_ERROR" }, { status: 400 }),
+        requestId,
+      );
+    }
+  }
+
   try {
     const prisma = await getPrisma();
     const admin = await isFamilyAdmin(prisma, familyId, authUser.userId);
@@ -126,6 +155,7 @@ export async function POST(request: Request, { params }: Params) {
     const token = createFamilyInviteToken();
     const tokenHash = hashFamilyInviteToken(token);
     const expiresAt = getInviteExpiryDate();
+    const maxUses = usageType === "single_use" ? SINGLE_USE_INVITE_MAX_USES : MULTI_USE_INVITE_MAX_USES;
 
     const invite = await prisma.familyInvite.create({
       data: {
@@ -133,7 +163,7 @@ export async function POST(request: Request, { params }: Params) {
         tokenHash,
         createdByUserId: authUser.userId,
         expiresAt,
-        maxUses: 1,
+        maxUses,
       },
     });
 
@@ -158,6 +188,8 @@ export async function POST(request: Request, { params }: Params) {
           createdByUserId: invite.createdByUserId,
           createdAt: invite.createdAt,
           expiresAt: invite.expiresAt,
+          maxUses: invite.maxUses,
+          usageType: getInviteUsageType(invite.maxUses),
           state: getInviteState(invite),
           inviteUrl: `${origin}/invite/family/${token}`,
         },

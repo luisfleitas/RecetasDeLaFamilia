@@ -32,6 +32,8 @@
 7. `PATCH /api/families/:familyId` request body supports partial updates:
 8. `name?`, `description?`, `picture?`
 9. `picture` may be cleared with `null`
+10. `POST /api/families/:familyId/invite-links` accepts optional body:
+11. `usageType` (`single_use` | `multi_use`), default `single_use`
 
 ## Standard Error Codes
 Use stable machine-readable error codes with HTTP status.

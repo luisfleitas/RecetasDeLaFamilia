@@ -16,6 +16,10 @@ export type UpdateFamilyInput = {
   pictureStorageKey?: string | null;
 };
 
+export type CreateFamilyInviteInput = {
+  usageType: "single_use" | "multi_use";
+};
+
 function normalizeString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -127,4 +131,18 @@ export function parsePositiveInt(raw: string): number | null {
   }
 
   return parsed;
+}
+
+export function parseCreateFamilyInviteInput(body: unknown): CreateFamilyInviteInput {
+  if (!body || typeof body !== "object") {
+    throw new Error("Invalid invite payload");
+  }
+
+  const input = body as Record<string, unknown>;
+  const usageType = input.usageType;
+  if (usageType !== "single_use" && usageType !== "multi_use") {
+    throw new Error("Invite usage type must be single_use or multi_use");
+  }
+
+  return { usageType };
 }

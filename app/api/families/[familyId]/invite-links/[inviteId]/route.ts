@@ -1,6 +1,6 @@
 import { parsePositiveInt } from "@/lib/application/families/validation";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
-import { getInviteState, isFamilyAdmin } from "@/lib/families/utils";
+import { getInviteState, getInviteUsageType, isFamilyAdmin } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
 import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
@@ -87,6 +87,8 @@ export async function DELETE(request: Request, { params }: Params) {
         revokedAt: nextInvite.revokedAt,
         consumedAt: nextInvite.consumedAt,
         consumedByUserId: nextInvite.consumedByUserId,
+        maxUses: nextInvite.maxUses,
+        usageType: getInviteUsageType(nextInvite.maxUses),
         state: getInviteState(nextInvite),
       },
       idempotent: Boolean(invite.revokedAt),

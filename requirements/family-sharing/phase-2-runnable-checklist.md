@@ -9,8 +9,8 @@ Use this checklist to validate Phase 2 recipe sharing behavior (`private` vs `fa
 - Tools installed: `curl`, `jq`, `node`.
 
 ## Automated API Checklist
-- [ ] Run the script below.
-- [ ] Confirm it prints `Phase 2 API checklist passed.`
+- [x] Run the script below.
+- [x] Confirm it prints `Phase 2 API checklist passed.`
 
 ```bash
 #!/usr/bin/env bash
@@ -199,10 +199,10 @@ echo "Phase 2 API checklist passed."
 ```
 
 ## Manual UI Checklist
-- [ ] Open `/recipes/new` while logged in as a family member.
-- [ ] Verify sharing controls render with both options: `Private` and `Family`.
-- [ ] Set `Family`, select one or more families, create recipe, confirm success.
-- [ ] Open created recipe detail and verify sharing label shows linked family names.
-- [ ] Open home page and verify recipe card shows `Shared with N family/families`.
-- [ ] Edit recipe, switch from `Family` to `Private`, save.
-- [ ] Re-open as another former family member and verify recipe detail is not accessible.
+- [x] Open `/recipes/new` while logged in as a family member.
+- [x] Verify sharing controls render with both options: `Private` and `Family`.
+- [x] Set `Family`, select one or more families, create recipe, confirm success.
+- [x] Open created recipe detail and verify sharing label shows linked family names.
+- [x] Open home page and verify recipe card shows `Shared with N family/families`.
+- [x] Edit recipe, switch from `Family` to `Private`, save.
+- [x] Re-open as another former family member and verify recipe detail is not accessible.

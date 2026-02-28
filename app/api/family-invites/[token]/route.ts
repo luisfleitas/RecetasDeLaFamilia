@@ -2,6 +2,7 @@ import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import {
   buildFamilyPictureUrl,
   getInviteState,
+  getInviteUsageType,
   hashFamilyInviteToken,
 } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
@@ -126,6 +127,8 @@ export async function GET(request: Request, { params }: Params) {
         expiresAt: invite.expiresAt,
         revokedAt: invite.revokedAt,
         consumedAt: invite.consumedAt,
+        maxUses: invite.maxUses,
+        usageType: getInviteUsageType(invite.maxUses),
         family: {
           id: invite.family.id,
           name: invite.family.name,

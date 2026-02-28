@@ -3,6 +3,8 @@ import { FamilyRole, type PrismaClient } from "@prisma/client";
 
 const INVITE_TOKEN_BYTES = 32;
 const INVITE_TTL_DAYS = 7;
+export const SINGLE_USE_INVITE_MAX_USES = 1;
+export const MULTI_USE_INVITE_MAX_USES = 0;
 
 export function buildFamilyPictureUrl(pictureStorageKey: string | null): string | null {
   if (!pictureStorageKey) {
@@ -48,6 +50,10 @@ export function getInviteState(invite: {
   }
 
   return "active";
+}
+
+export function getInviteUsageType(maxUses: number): "single_use" | "multi_use" {
+  return maxUses === SINGLE_USE_INVITE_MAX_USES ? "single_use" : "multi_use";
 }
 
 export async function getFamilyMembership(prisma: PrismaClient, familyId: number, userId: number) {

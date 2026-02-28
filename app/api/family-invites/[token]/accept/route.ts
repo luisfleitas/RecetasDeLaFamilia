@@ -3,6 +3,7 @@ import {
   getInviteState,
   hashFamilyInviteToken,
   isInviteExpired,
+  SINGLE_USE_INVITE_MAX_USES,
 } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
 import { getRequestId, recordAuditEvent, recordMetric, withRequestId } from "@/lib/phase3/observability";
@@ -107,23 +108,35 @@ export async function POST(request: Request, { params }: Params) {
 
     try {
       await prisma.$transaction(async (tx) => {
-        const consumeResult = await tx.familyInvite.updateMany({
+        const inviteInTx = await tx.familyInvite.findUnique({
           where: {
             id: invite.id,
-            revokedAt: null,
-            consumedAt: null,
-            expiresAt: {
-              gt: now,
-            },
-          },
-          data: {
-            consumedAt: now,
-            consumedByUserId: authUser.userId,
           },
         });
 
-        if (consumeResult.count !== 1) {
+        if (!inviteInTx || inviteInTx.revokedAt || inviteInTx.consumedAt || isInviteExpired(inviteInTx.expiresAt, now)) {
           throw new Error("INVITE_NO_LONGER_ACTIVE");
+        }
+
+        if (inviteInTx.maxUses === SINGLE_USE_INVITE_MAX_USES) {
+          const consumeResult = await tx.familyInvite.updateMany({
+            where: {
+              id: invite.id,
+              revokedAt: null,
+              consumedAt: null,
+              expiresAt: {
+                gt: now,
+              },
+            },
+            data: {
+              consumedAt: now,
+              consumedByUserId: authUser.userId,
+            },
+          });
+
+          if (consumeResult.count !== 1) {
+            throw new Error("INVITE_NO_LONGER_ACTIVE");
+          }
         }
 
         await tx.familyMembership.create({
