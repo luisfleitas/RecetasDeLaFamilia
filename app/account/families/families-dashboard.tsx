@@ -68,6 +68,18 @@ type Invite = {
   };
 };
 
+type FamilyInviteLink = {
+  id: number;
+  familyId: number;
+  createdByUserId: number;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  consumedAt: string | null;
+  consumedByUserId: number | null;
+  state: "active" | "revoked" | "consumed" | "expired";
+};
+
 type FamiliesResponse = {
   families?: Family[];
   error?: string;
@@ -75,6 +87,21 @@ type FamiliesResponse = {
 
 type InvitesResponse = {
   invites?: Invite[];
+  error?: string;
+};
+
+type FamilyInviteLinksResponse = {
+  invites?: FamilyInviteLink[];
+  error?: string;
+};
+
+type CreateFamilyInviteResponse = {
+  invite?: FamilyInviteLink & { inviteUrl: string };
+  error?: string;
+};
+
+type RevokeFamilyInviteResponse = {
+  invite?: FamilyInviteLink;
   error?: string;
 };
 
@@ -90,6 +117,9 @@ export default function FamiliesDashboard() {
   const [familyDetailsById, setFamilyDetailsById] = useState<Record<number, FamilyDetail>>({});
   const [familyDeletionRequestById, setFamilyDeletionRequestById] = useState<Record<number, DeletionRequest | null>>({});
   const [familyCooldownById, setFamilyCooldownById] = useState<Record<number, string | null>>({});
+  const [familyInviteLinksById, setFamilyInviteLinksById] = useState<Record<number, FamilyInviteLink[]>>({});
+  const [latestInviteUrlByFamilyId, setLatestInviteUrlByFamilyId] = useState<Record<number, string | null>>({});
+  const [familyMessageById, setFamilyMessageById] = useState<Record<number, string | null>>({});
   const [familyErrorById, setFamilyErrorById] = useState<Record<number, string | null>>({});
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
 
@@ -144,13 +174,11 @@ export default function FamiliesDashboard() {
 
   async function loadFamilyContext(familyId: number) {
     setLoadingFamilyId(familyId);
+    setFamilyMessageById((current) => ({ ...current, [familyId]: null }));
     setFamilyErrorById((current) => ({ ...current, [familyId]: null }));
 
     try {
-      const [detailResponse, deletionResponse] = await Promise.all([
-        fetch(`/api/families/${familyId}`, { cache: "no-store" }),
-        fetch(`/api/families/${familyId}/deletion-requests/active`, { cache: "no-store" }),
-      ]);
+      const detailResponse = await fetch(`/api/families/${familyId}`, { cache: "no-store" });
 
       if (!detailResponse.ok) {
         const detailError = await readError(detailResponse, "Failed to load family details");
@@ -164,22 +192,56 @@ export default function FamiliesDashboard() {
       const detailData = (await detailResponse.json()) as { family: FamilyDetail };
       setFamilyDetailsById((current) => ({ ...current, [familyId]: detailData.family }));
 
-      if (!deletionResponse.ok) {
-        const deletionError = await readError(deletionResponse, "Failed to load deletion request state");
-        setFamilyErrorById((current) => ({
-          ...current,
-          [familyId]: deletionError,
-        }));
-        return;
+      const loadInviteLinks = detailData.family.currentUserRole === "admin"
+        ? fetch(`/api/families/${familyId}/invite-links`, { cache: "no-store" })
+        : null;
+      if (detailData.family.currentUserRole === "admin") {
+        const deletionResponse = await fetch(`/api/families/${familyId}/deletion-requests/active`, { cache: "no-store" });
+
+        if (!deletionResponse.ok) {
+          const deletionError = await readError(deletionResponse, "Failed to load deletion request state");
+          setFamilyErrorById((current) => ({
+            ...current,
+            [familyId]: deletionError,
+          }));
+          return;
+        }
+
+        const deletionData = (await deletionResponse.json()) as {
+          request: DeletionRequest | null;
+          cooldownUntil: string | null;
+        };
+
+        setFamilyDeletionRequestById((current) => ({ ...current, [familyId]: deletionData.request ?? null }));
+        setFamilyCooldownById((current) => ({ ...current, [familyId]: deletionData.cooldownUntil ?? null }));
+      } else {
+        setFamilyDeletionRequestById((current) => ({ ...current, [familyId]: null }));
+        setFamilyCooldownById((current) => ({ ...current, [familyId]: null }));
       }
 
-      const deletionData = (await deletionResponse.json()) as {
-        request: DeletionRequest | null;
-        cooldownUntil: string | null;
-      };
+      if (loadInviteLinks) {
+        const inviteLinksResponse = await loadInviteLinks;
+        const inviteLinksData = (await inviteLinksResponse.json()) as FamilyInviteLinksResponse;
 
-      setFamilyDeletionRequestById((current) => ({ ...current, [familyId]: deletionData.request ?? null }));
-      setFamilyCooldownById((current) => ({ ...current, [familyId]: deletionData.cooldownUntil ?? null }));
+        if (!inviteLinksResponse.ok) {
+          const inviteError = inviteLinksData.error ?? "Failed to load invite links";
+          setFamilyErrorById((current) => ({
+            ...current,
+            [familyId]: inviteError,
+          }));
+          return;
+        }
+
+        setFamilyInviteLinksById((current) => ({
+          ...current,
+          [familyId]: inviteLinksData.invites ?? [],
+        }));
+      } else {
+        setFamilyInviteLinksById((current) => ({
+          ...current,
+          [familyId]: [],
+        }));
+      }
     } catch {
       setFamilyErrorById((current) => ({
         ...current,
@@ -197,6 +259,7 @@ export default function FamiliesDashboard() {
     fallbackError: string,
   ) {
     setBusyActionKey(actionKey);
+    setFamilyMessageById((current) => ({ ...current, [familyId]: null }));
     setFamilyErrorById((current) => ({ ...current, [familyId]: null }));
 
     try {
@@ -362,6 +425,102 @@ export default function FamiliesDashboard() {
     );
   }
 
+  async function handleCreateInviteLink(familyId: number) {
+    setBusyActionKey(`invite-create-${familyId}`);
+    setFamilyMessageById((current) => ({ ...current, [familyId]: null }));
+    setFamilyErrorById((current) => ({ ...current, [familyId]: null }));
+
+    try {
+      const response = await fetch(`/api/families/${familyId}/invite-links`, {
+        method: "POST",
+      });
+      const data = (await response.json()) as CreateFamilyInviteResponse;
+
+      if (!response.ok || !data.invite) {
+        setFamilyErrorById((current) => ({
+          ...current,
+          [familyId]: data.error ?? "Failed to create invite link",
+        }));
+        return;
+      }
+
+      setLatestInviteUrlByFamilyId((current) => ({
+        ...current,
+        [familyId]: data.invite?.inviteUrl ?? null,
+      }));
+      await loadFamilyContext(familyId);
+      setFamilyMessageById((current) => ({
+        ...current,
+        [familyId]: "Invite link created.",
+      }));
+    } catch {
+      setFamilyErrorById((current) => ({
+        ...current,
+        [familyId]: "Failed to create invite link",
+      }));
+    } finally {
+      setBusyActionKey((current) => (current === `invite-create-${familyId}` ? null : current));
+    }
+  }
+
+  async function handleRevokeInviteLink(familyId: number, inviteId: number) {
+    setBusyActionKey(`invite-revoke-${familyId}-${inviteId}`);
+    setFamilyMessageById((current) => ({ ...current, [familyId]: null }));
+    setFamilyErrorById((current) => ({ ...current, [familyId]: null }));
+
+    try {
+      const response = await fetch(`/api/families/${familyId}/invite-links/${inviteId}`, {
+        method: "DELETE",
+      });
+      const data = (await response.json()) as RevokeFamilyInviteResponse;
+
+      if (!response.ok || !data.invite) {
+        setFamilyErrorById((current) => ({
+          ...current,
+          [familyId]: data.error ?? "Failed to revoke invite link",
+        }));
+        return;
+      }
+
+      await loadFamilyContext(familyId);
+      setFamilyMessageById((current) => ({
+        ...current,
+        [familyId]: "Invite link revoked.",
+      }));
+    } catch {
+      setFamilyErrorById((current) => ({
+        ...current,
+        [familyId]: "Failed to revoke invite link",
+      }));
+    } finally {
+      setBusyActionKey((current) => (current === `invite-revoke-${familyId}-${inviteId}` ? null : current));
+    }
+  }
+
+  async function handleCopyInviteUrl(familyId: number) {
+    const inviteUrl = latestInviteUrlByFamilyId[familyId];
+    if (!inviteUrl) {
+      setFamilyErrorById((current) => ({
+        ...current,
+        [familyId]: "No invite URL available to copy. Create a new invite link first.",
+      }));
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setFamilyMessageById((current) => ({
+        ...current,
+        [familyId]: "Invite URL copied.",
+      }));
+    } catch {
+      setFamilyErrorById((current) => ({
+        ...current,
+        [familyId]: "Failed to copy invite URL",
+      }));
+    }
+  }
+
   return (
     <main id="families-dashboard-main" className="app-shell max-w-4xl space-y-6">
       <section id="families-dashboard-header-section" className="surface-panel space-y-4 p-6 sm:p-8">
@@ -416,6 +575,9 @@ export default function FamiliesDashboard() {
               const deletionRequest = familyDeletionRequestById[family.id] ?? null;
               const cooldownUntil = familyCooldownById[family.id] ?? null;
               const familyError = familyErrorById[family.id];
+              const familyMessage = familyMessageById[family.id];
+              const inviteLinks = familyInviteLinksById[family.id] ?? [];
+              const latestInviteUrl = latestInviteUrlByFamilyId[family.id];
               const currentUserVote =
                 detail && deletionRequest
                   ? deletionRequest.votes.find((vote) => vote.userId === detail.currentUserId) ?? null
@@ -466,7 +628,7 @@ export default function FamiliesDashboard() {
                         void handleToggleFamilyManage(family.id);
                       }}
                     >
-                      {isSelected ? "Hide details" : "Manage family"}
+                      {isSelected ? "Hide details" : family.role === "admin" ? "Manage family" : "View family members"}
                     </button>
                     <button
                       id={`families-dashboard-list-item-leave-btn-${family.id}`}
@@ -537,6 +699,95 @@ export default function FamiliesDashboard() {
                               })}
                             </ul>
                           </div>
+
+                          {detail.currentUserRole === "admin" ? (
+                            <div id={`families-dashboard-list-item-invites-section-${family.id}`} className="space-y-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                              <div id={`families-dashboard-list-item-invites-header-${family.id}`} className="flex flex-wrap items-center justify-between gap-2">
+                                <h3 id={`families-dashboard-list-item-invites-title-${family.id}`} className="text-base font-semibold">Invite links</h3>
+                                <button
+                                  id={`families-dashboard-list-item-invites-create-btn-${family.id}`}
+                                  type="button"
+                                  className={buttonClassName("primary")}
+                                  disabled={busyActionKey === `invite-create-${family.id}`}
+                                  onClick={() => {
+                                    void handleCreateInviteLink(family.id);
+                                  }}
+                                >
+                                  {busyActionKey === `invite-create-${family.id}` ? "Generating..." : "Generate invite link"}
+                                </button>
+                              </div>
+
+                              {latestInviteUrl ? (
+                                <div id={`families-dashboard-list-item-invites-latest-url-${family.id}`} className="space-y-2">
+                                  <label id={`families-dashboard-list-item-invites-latest-url-label-${family.id}`} htmlFor={`families-dashboard-list-item-invites-latest-url-input-${family.id}`} className="block text-sm font-medium">
+                                    Latest generated invite URL
+                                  </label>
+                                  <div id={`families-dashboard-list-item-invites-latest-url-row-${family.id}`} className="flex flex-wrap items-center gap-2">
+                                    <input
+                                      id={`families-dashboard-list-item-invites-latest-url-input-${family.id}`}
+                                      readOnly
+                                      value={latestInviteUrl}
+                                      className="input-base min-w-[220px] flex-1"
+                                    />
+                                    <button
+                                      id={`families-dashboard-list-item-invites-copy-btn-${family.id}`}
+                                      type="button"
+                                      className={buttonClassName("secondary")}
+                                      onClick={() => {
+                                        void handleCopyInviteUrl(family.id);
+                                      }}
+                                    >
+                                      Copy URL
+                                    </button>
+                                  </div>
+                                  <p id={`families-dashboard-list-item-invites-latest-url-note-${family.id}`} className="text-xs text-[var(--color-text-muted)]">
+                                    Existing invite URLs are not retrievable later. Save the URL when generated.
+                                  </p>
+                                </div>
+                              ) : null}
+
+                              {inviteLinks.length === 0 ? (
+                                <p id={`families-dashboard-list-item-invites-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">
+                                  No invite links yet.
+                                </p>
+                              ) : (
+                                <ul id={`families-dashboard-list-item-invites-list-${family.id}`} className="space-y-2">
+                                  {inviteLinks.map((inviteLink) => (
+                                    <li
+                                      id={`families-dashboard-list-item-invites-item-${family.id}-${inviteLink.id}`}
+                                      key={inviteLink.id}
+                                      className="rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3"
+                                    >
+                                      <div id={`families-dashboard-list-item-invites-item-content-${family.id}-${inviteLink.id}`} className="space-y-1">
+                                        <p id={`families-dashboard-list-item-invites-item-state-${family.id}-${inviteLink.id}`} className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
+                                          {inviteLink.state}
+                                        </p>
+                                        <p id={`families-dashboard-list-item-invites-item-created-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
+                                          Created: {new Date(inviteLink.createdAt).toLocaleString()}
+                                        </p>
+                                        <p id={`families-dashboard-list-item-invites-item-expires-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
+                                          Expires: {new Date(inviteLink.expiresAt).toLocaleString()}
+                                        </p>
+                                      </div>
+                                      <div id={`families-dashboard-list-item-invites-item-actions-${family.id}-${inviteLink.id}`} className="mt-2 flex flex-wrap gap-2">
+                                        <button
+                                          id={`families-dashboard-list-item-invites-item-revoke-btn-${family.id}-${inviteLink.id}`}
+                                          type="button"
+                                          className={buttonClassName("secondary")}
+                                          disabled={inviteLink.state !== "active" || busyActionKey === `invite-revoke-${family.id}-${inviteLink.id}`}
+                                          onClick={() => {
+                                            void handleRevokeInviteLink(family.id, inviteLink.id);
+                                          }}
+                                        >
+                                          {busyActionKey === `invite-revoke-${family.id}-${inviteLink.id}` ? "Revoking..." : "Revoke"}
+                                        </button>
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ) : null}
 
                           {detail.currentUserRole === "admin" ? (
                             <div id={`families-dashboard-list-item-deletion-section-${family.id}`} className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
@@ -615,6 +866,10 @@ export default function FamiliesDashboard() {
                                 </>
                               )}
                             </div>
+                          ) : null}
+
+                          {familyMessage ? (
+                            <p id={`families-dashboard-list-item-manage-message-${family.id}`} className="text-sm text-[var(--color-primary)]">{familyMessage}</p>
                           ) : null}
 
                           {familyError ? (
