@@ -55,6 +55,8 @@ model User {
   createdFamilyInvites FamilyInvite[] @relation("FamilyInviteCreator")
   consumedFamilyInvites FamilyInvite[] @relation("FamilyInviteConsumer")
   familyInviteDecisions FamilyInviteDecision[]
+  initiatedFamilyDeletionRequests FamilyDeletionRequest[] @relation("FamilyDeletionInitiator")
+  familyDeletionVotes FamilyDeletionVote[]
   familyAuditEvents FamilyAuditEvent[] @relation("FamilyAuditActor")
   metricEvents MetricEvent[] @relation("MetricActor")
 
@@ -92,6 +94,19 @@ enum FamilyInviteDecisionStatus {
   accepted
 }
 
+enum FamilyDeletionRequestStatus {
+  active
+  approved
+  denied
+  cancelled
+  expired
+}
+
+enum FamilyDeletionVoteValue {
+  approve
+  deny
+}
+
 enum RecipeVisibility {
   public
   private
@@ -103,6 +118,7 @@ model Family {
   name            String
   description     String?
   pictureStorageKey String? @map("picture_storage_key")
+  deletionCooldownUntil DateTime? @map("deletion_cooldown_until")
   createdByUserId Int      @map("created_by_user_id")
   createdByUser   User     @relation("FamilyCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   createdAt       DateTime @default(now()) @map("created_at")
@@ -110,6 +126,7 @@ model Family {
 
   memberships     FamilyMembership[]
   invites         FamilyInvite[]
+  deletionRequests FamilyDeletionRequest[]
   recipeLinks     RecipeFamilyLink[]
   auditEvents     FamilyAuditEvent[]
   metricEvents    MetricEvent[]
@@ -185,6 +202,45 @@ model FamilyInviteDecision {
 
   @@unique([inviteId, userId])
   @@index([userId, status])
+}
+
+model FamilyDeletionRequest {
+  id                      Int                         @id @default(autoincrement())
+  familyId                Int                         @map("family_id")
+  initiatedByUserId       Int                         @map("initiated_by_user_id")
+  status                  FamilyDeletionRequestStatus @default(active)
+  eligibleAdminCount      Int                         @map("eligible_admin_count")
+  requiredApprovals       Int                         @map("required_approvals")
+  eligibleAdminUserIdsJson String                     @map("eligible_admin_user_ids_json")
+  approveCount            Int                         @default(0) @map("approve_count")
+  denyCount               Int                         @default(0) @map("deny_count")
+  expiresAt               DateTime                    @map("expires_at")
+  resolvedAt              DateTime?                   @map("resolved_at")
+  resolveReason           String?                     @map("resolve_reason")
+  createdAt               DateTime                    @default(now()) @map("created_at")
+  updatedAt               DateTime                    @updatedAt @map("updated_at")
+
+  family                  Family                      @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  initiatedByUser         User                        @relation("FamilyDeletionInitiator", fields: [initiatedByUserId], references: [id], onDelete: Restrict)
+  votes                   FamilyDeletionVote[]
+
+  @@index([familyId, status])
+  @@index([status, expiresAt])
+}
+
+model FamilyDeletionVote {
+  id                Int                    @id @default(autoincrement())
+  deletionRequestId Int                    @map("deletion_request_id")
+  userId            Int                    @map("user_id")
+  vote              FamilyDeletionVoteValue
+  votedAt           DateTime               @default(now()) @map("voted_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+
+  deletionRequest   FamilyDeletionRequest  @relation(fields: [deletionRequestId], references: [id], onDelete: Cascade)
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([deletionRequestId, userId])
+  @@index([userId])
 }
 
 model FamilyAuditEvent {

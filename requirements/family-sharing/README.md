@@ -4,7 +4,7 @@ This folder contains the product requirements and phased delivery plan for Famil
 
 ## Documents
 - `prd.md`: Master product requirements document.
-- `phase-1-foundation.md`: Family creation, profile metadata (description/picture), invite links, and membership management.
+- `phase-1-foundation.md`: Family creation, profile metadata (description/picture), invite links, membership management, and admin-governed family deletion.
 - `phase-2-sharing-model.md`: Recipe visibility and family-sharing access model.
 - `phase-2-runnable-checklist.md`: Executable API/UI validation checklist for Phase 2.
 - `phase-3-scale-and-ops.md`: Reliability, security hardening, rollout, and operations.

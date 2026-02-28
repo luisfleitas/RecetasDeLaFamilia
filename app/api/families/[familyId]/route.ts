@@ -87,7 +87,9 @@ export async function GET(request: Request, { params }: Params) {
         createdAt: family.createdAt,
         updatedAt: family.updatedAt,
         createdByUserId: family.createdByUserId,
+        currentUserId: authUser.userId,
         currentUserRole: membership.role,
+        deletionCooldownUntil: family.deletionCooldownUntil,
         members: family.memberships.map((item) => ({
           userId: item.userId,
           role: item.role,

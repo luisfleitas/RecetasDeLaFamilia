@@ -82,17 +82,14 @@ export async function PATCH(request: Request, { params }: Params) {
       );
     }
 
-    if (targetMembership.role === FamilyRole.admin && nextRole === FamilyRole.member) {
-      const adminCount = await countFamilyAdmins(prisma, familyId);
-      if (adminCount <= 1) {
-        return withRequestId(NextResponse.json(
-          {
-            error: "Cannot demote the last admin",
-            code: "ADMIN_INVARIANT_VIOLATION",
-          },
-          { status: 409 },
-        ), requestId);
-      }
+    if (nextRole === FamilyRole.member) {
+      return withRequestId(NextResponse.json(
+        {
+          error: "Demotion is not supported",
+          code: "ADMIN_INVARIANT_VIOLATION",
+        },
+        { status: 409 },
+      ), requestId);
     }
 
     const membership = await prisma.familyMembership.update({

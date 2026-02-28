@@ -112,7 +112,11 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
           return;
         }
 
-        setFamilyOptions(data.families.map((family) => ({ id: family.id, name: family.name })));
+        const nextFamilyOptions = data.families.map((family) => ({ id: family.id, name: family.name }));
+        const familyIdSet = new Set(nextFamilyOptions.map((family) => family.id));
+
+        setFamilyOptions(nextFamilyOptions);
+        setSelectedFamilyIds((current) => current.filter((familyId) => familyIdSet.has(familyId)));
       } catch {
         // Keep options empty if unavailable.
       }

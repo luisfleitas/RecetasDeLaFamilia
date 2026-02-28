@@ -1,7 +1,9 @@
 // API handler for fetching and updating a single recipe by id.
 import { parseCreateRecipeInput, parseRecipeId } from "@/lib/application/recipes/validation";
+import { sanitizeRecipeFamilyLinksForUpdate } from "@/lib/application/recipes/family-link-sanitization";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getPrisma } from "@/lib/prisma";
 import { buildRecipeUseCases } from "@/lib/recipes/factory";
 import { NextResponse } from "next/server";
 
@@ -97,6 +99,32 @@ function toErrorStatus(error: unknown): number {
   return isValidationError ? 400 : 500;
 }
 
+async function sanitizeUpdateInputFamilyLinksForUser(userId: number, input: ReturnType<typeof parseCreateRecipeInput>) {
+  const uniqueRequestedFamilyIds = [...new Set(input.familyIds)];
+
+  if (uniqueRequestedFamilyIds.length === 0) {
+    return sanitizeRecipeFamilyLinksForUpdate(input, []);
+  }
+
+  const prisma = await getPrisma();
+  const memberships = await prisma.familyMembership.findMany({
+    where: {
+      userId,
+      familyId: {
+        in: uniqueRequestedFamilyIds,
+      },
+    },
+    select: {
+      familyId: true,
+    },
+  });
+
+  return sanitizeRecipeFamilyLinksForUpdate(
+    input,
+    memberships.map((membership) => membership.familyId),
+  );
+}
+
 export async function GET(request: Request, { params }: Params) {
   const authUser = getAuthUserFromRequest(request);
   const { id } = await params;
@@ -150,7 +178,8 @@ export async function PUT(request: Request, { params }: Params) {
 
     try {
       const formData = await request.formData();
-      recipeInput = parseRecipePayloadFromFormData(formData);
+      const parsedInput = parseRecipePayloadFromFormData(formData);
+      recipeInput = await sanitizeUpdateInputFamilyLinksForUser(authUser.userId, parsedInput);
       newImages = await parseUploadedImagesFromFormData(formData, "newImages");
       primaryImageId = parseOptionalInt(formData.get("primaryImageId"));
       primaryImageIndex = parseOptionalInt(formData.get("primaryImageIndex"));
@@ -195,7 +224,8 @@ export async function PUT(request: Request, { params }: Params) {
 
   let input;
   try {
-    input = parseCreateRecipeInput(body);
+    const parsedInput = parseCreateRecipeInput(body);
+    input = await sanitizeUpdateInputFamilyLinksForUser(authUser.userId, parsedInput);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid recipe payload";
     return NextResponse.json({ error: message }, { status: 400 });

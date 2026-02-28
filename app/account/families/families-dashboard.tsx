@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type Family = {
@@ -11,6 +11,46 @@ type Family = {
   description: string | null;
   pictureUrl: string | null;
   role: "admin" | "member";
+};
+
+type FamilyMember = {
+  userId: number;
+  role: "admin" | "member";
+  joinedAt: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+};
+
+type FamilyDetail = {
+  id: number;
+  name: string;
+  description: string | null;
+  pictureUrl: string | null;
+  currentUserId: number;
+  currentUserRole: "admin" | "member";
+  members: FamilyMember[];
+};
+
+type DeletionVote = {
+  userId: number;
+  vote: "approve" | "deny";
+  votedAt: string;
+};
+
+type DeletionRequest = {
+  id: number;
+  familyId: number;
+  initiatedByUserId: number;
+  status: "active" | "approved" | "denied" | "cancelled" | "expired";
+  eligibleAdminCount: number;
+  requiredApprovals: number;
+  approveCount: number;
+  denyCount: number;
+  expiresAt: string;
+  resolvedAt: string | null;
+  resolveReason: string | null;
+  votes: DeletionVote[];
 };
 
 type Invite = {
@@ -45,7 +85,24 @@ export default function FamiliesDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
 
-  async function loadData() {
+  const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
+  const [loadingFamilyId, setLoadingFamilyId] = useState<number | null>(null);
+  const [familyDetailsById, setFamilyDetailsById] = useState<Record<number, FamilyDetail>>({});
+  const [familyDeletionRequestById, setFamilyDeletionRequestById] = useState<Record<number, DeletionRequest | null>>({});
+  const [familyCooldownById, setFamilyCooldownById] = useState<Record<number, string | null>>({});
+  const [familyErrorById, setFamilyErrorById] = useState<Record<number, string | null>>({});
+  const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
+
+  async function readError(response: Response, fallback: string) {
+    try {
+      const data = (await response.json()) as { error?: string };
+      return data.error ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -68,18 +125,103 @@ export default function FamiliesDashboard() {
         return;
       }
 
-      setFamilies(familiesData.families ?? []);
+      const nextFamilies = familiesData.families ?? [];
+      setFamilies(nextFamilies);
       setPendingInvites(invitesData.invites ?? []);
+      setSelectedFamilyId((current) => (
+        current && !nextFamilies.some((family) => family.id === current) ? null : current
+      ));
     } catch {
       setError("Failed to load family dashboard");
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [loadData]);
+
+  async function loadFamilyContext(familyId: number) {
+    setLoadingFamilyId(familyId);
+    setFamilyErrorById((current) => ({ ...current, [familyId]: null }));
+
+    try {
+      const [detailResponse, deletionResponse] = await Promise.all([
+        fetch(`/api/families/${familyId}`, { cache: "no-store" }),
+        fetch(`/api/families/${familyId}/deletion-requests/active`, { cache: "no-store" }),
+      ]);
+
+      if (!detailResponse.ok) {
+        const detailError = await readError(detailResponse, "Failed to load family details");
+        setFamilyErrorById((current) => ({
+          ...current,
+          [familyId]: detailError,
+        }));
+        return;
+      }
+
+      const detailData = (await detailResponse.json()) as { family: FamilyDetail };
+      setFamilyDetailsById((current) => ({ ...current, [familyId]: detailData.family }));
+
+      if (!deletionResponse.ok) {
+        const deletionError = await readError(deletionResponse, "Failed to load deletion request state");
+        setFamilyErrorById((current) => ({
+          ...current,
+          [familyId]: deletionError,
+        }));
+        return;
+      }
+
+      const deletionData = (await deletionResponse.json()) as {
+        request: DeletionRequest | null;
+        cooldownUntil: string | null;
+      };
+
+      setFamilyDeletionRequestById((current) => ({ ...current, [familyId]: deletionData.request ?? null }));
+      setFamilyCooldownById((current) => ({ ...current, [familyId]: deletionData.cooldownUntil ?? null }));
+    } catch {
+      setFamilyErrorById((current) => ({
+        ...current,
+        [familyId]: "Failed to load family context",
+      }));
+    } finally {
+      setLoadingFamilyId((current) => (current === familyId ? null : current));
+    }
+  }
+
+  async function withFamilyAction(
+    familyId: number,
+    actionKey: string,
+    requestFactory: () => Promise<Response>,
+    fallbackError: string,
+  ) {
+    setBusyActionKey(actionKey);
+    setFamilyErrorById((current) => ({ ...current, [familyId]: null }));
+
+    try {
+      const response = await requestFactory();
+      if (!response.ok) {
+        const actionError = await readError(response, fallbackError);
+        setFamilyErrorById((current) => ({
+          ...current,
+          [familyId]: actionError,
+        }));
+        return false;
+      }
+
+      await Promise.all([loadData(), loadFamilyContext(familyId)]);
+      return true;
+    } catch {
+      setFamilyErrorById((current) => ({
+        ...current,
+        [familyId]: fallbackError,
+      }));
+      return false;
+    } finally {
+      setBusyActionKey((current) => (current === actionKey ? null : current));
+    }
+  }
 
   async function handleCreateFamily(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -117,6 +259,107 @@ export default function FamiliesDashboard() {
     } finally {
       setIsCreating(false);
     }
+  }
+
+  async function handleToggleFamilyManage(familyId: number) {
+    if (selectedFamilyId === familyId) {
+      setSelectedFamilyId(null);
+      return;
+    }
+
+    setSelectedFamilyId(familyId);
+    await loadFamilyContext(familyId);
+  }
+
+  async function handleLeaveFamily(familyId: number) {
+    const ok = await withFamilyAction(
+      familyId,
+      `leave-${familyId}`,
+      () =>
+        fetch(`/api/families/${familyId}/leave`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ confirmDelete: true }),
+        }),
+      "Failed to leave family",
+    );
+
+    if (ok && selectedFamilyId === familyId) {
+      setSelectedFamilyId(null);
+    }
+  }
+
+  async function handlePromoteMember(familyId: number, userId: number) {
+    await withFamilyAction(
+      familyId,
+      `promote-${familyId}-${userId}`,
+      () =>
+        fetch(`/api/families/${familyId}/members/${userId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ role: "admin" }),
+        }),
+      "Failed to promote member",
+    );
+  }
+
+  async function handleRemoveMember(familyId: number, userId: number) {
+    await withFamilyAction(
+      familyId,
+      `remove-${familyId}-${userId}`,
+      () =>
+        fetch(`/api/families/${familyId}/members/${userId}`, {
+          method: "DELETE",
+        }),
+      "Failed to remove member",
+    );
+  }
+
+  async function handleInitiateDeletionRequest(familyId: number) {
+    const ok = await withFamilyAction(
+      familyId,
+      `delete-request-create-${familyId}`,
+      () =>
+        fetch(`/api/families/${familyId}/deletion-requests`, {
+          method: "POST",
+        }),
+      "Failed to create deletion request",
+    );
+
+    if (ok && selectedFamilyId === familyId) {
+      const stillExists = families.some((family) => family.id === familyId);
+      if (!stillExists) {
+        setSelectedFamilyId(null);
+      }
+    }
+  }
+
+  async function handleVoteDeletionRequest(familyId: number, requestId: number, vote: "approve" | "deny") {
+    await withFamilyAction(
+      familyId,
+      `delete-request-vote-${vote}-${familyId}-${requestId}`,
+      () =>
+        fetch(`/api/families/${familyId}/deletion-requests/${requestId}/${vote}`, {
+          method: "POST",
+        }),
+      `Failed to ${vote} deletion request`,
+    );
+  }
+
+  async function handleCancelDeletionRequest(familyId: number, requestId: number) {
+    await withFamilyAction(
+      familyId,
+      `delete-request-cancel-${familyId}-${requestId}`,
+      () =>
+        fetch(`/api/families/${familyId}/deletion-requests/${requestId}/cancel`, {
+          method: "POST",
+        }),
+      "Failed to cancel deletion request",
+    );
   }
 
   return (
@@ -167,36 +410,225 @@ export default function FamiliesDashboard() {
           <p id="families-dashboard-list-empty" className="text-sm text-[var(--color-text-muted)]">No families yet. Create your first one above.</p>
         ) : (
           <ul id="families-dashboard-list" className="space-y-3">
-            {families.map((family) => (
-              <li id={`families-dashboard-list-item-${family.id}`} key={family.id} className="surface-card flex items-start justify-between gap-4 p-4">
-                <div id={`families-dashboard-list-item-content-${family.id}`} className="space-y-1">
-                  <p id={`families-dashboard-list-item-name-${family.id}`} className="text-lg font-semibold">{family.name}</p>
-                  {family.description ? (
-                    <p id={`families-dashboard-list-item-description-${family.id}`} className="text-sm text-[var(--color-text-muted)]">{family.description}</p>
-                  ) : (
-                    <p id={`families-dashboard-list-item-description-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">No description yet</p>
-                  )}
-                  <p id={`families-dashboard-list-item-role-${family.id}`} className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
-                    {family.role}
-                  </p>
-                </div>
+            {families.map((family) => {
+              const isSelected = selectedFamilyId === family.id;
+              const detail = familyDetailsById[family.id];
+              const deletionRequest = familyDeletionRequestById[family.id] ?? null;
+              const cooldownUntil = familyCooldownById[family.id] ?? null;
+              const familyError = familyErrorById[family.id];
+              const currentUserVote =
+                detail && deletionRequest
+                  ? deletionRequest.votes.find((vote) => vote.userId === detail.currentUserId) ?? null
+                  : null;
 
-                {family.pictureUrl ? (
-                  <Image
-                    id={`families-dashboard-list-item-picture-${family.id}`}
-                    src={family.pictureUrl}
-                    alt={family.name}
-                    className="h-16 w-16 rounded-[var(--radius-sm)] object-cover"
-                    width={64}
-                    height={64}
-                  />
-                ) : (
-                  <div id={`families-dashboard-list-item-picture-placeholder-${family.id}`} className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] text-xs text-[var(--color-text-muted)]">
-                    No image
+              const canInitiateDeletion =
+                detail?.currentUserRole === "admin" &&
+                !deletionRequest &&
+                (!cooldownUntil || new Date(cooldownUntil) <= new Date());
+
+              return (
+                <li id={`families-dashboard-list-item-${family.id}`} key={family.id} className="surface-card space-y-4 p-4">
+                  <div id={`families-dashboard-list-item-summary-${family.id}`} className="flex items-start justify-between gap-4">
+                    <div id={`families-dashboard-list-item-content-${family.id}`} className="space-y-1">
+                      <p id={`families-dashboard-list-item-name-${family.id}`} className="text-lg font-semibold">{family.name}</p>
+                      {family.description ? (
+                        <p id={`families-dashboard-list-item-description-${family.id}`} className="text-sm text-[var(--color-text-muted)]">{family.description}</p>
+                      ) : (
+                        <p id={`families-dashboard-list-item-description-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">No description yet</p>
+                      )}
+                      <p id={`families-dashboard-list-item-role-${family.id}`} className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
+                        {family.role}
+                      </p>
+                    </div>
+
+                    {family.pictureUrl ? (
+                      <Image
+                        id={`families-dashboard-list-item-picture-${family.id}`}
+                        src={family.pictureUrl}
+                        alt={family.name}
+                        className="h-16 w-16 rounded-[var(--radius-sm)] object-cover"
+                        width={64}
+                        height={64}
+                      />
+                    ) : (
+                      <div id={`families-dashboard-list-item-picture-placeholder-${family.id}`} className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] text-xs text-[var(--color-text-muted)]">
+                        No image
+                      </div>
+                    )}
                   </div>
-                )}
-              </li>
-            ))}
+
+                  <div id={`families-dashboard-list-item-actions-${family.id}`} className="flex flex-wrap gap-2">
+                    <button
+                      id={`families-dashboard-list-item-manage-btn-${family.id}`}
+                      type="button"
+                      className={buttonClassName("secondary")}
+                      onClick={() => {
+                        void handleToggleFamilyManage(family.id);
+                      }}
+                    >
+                      {isSelected ? "Hide details" : "Manage family"}
+                    </button>
+                    <button
+                      id={`families-dashboard-list-item-leave-btn-${family.id}`}
+                      type="button"
+                      className={buttonClassName("secondary")}
+                      disabled={busyActionKey === `leave-${family.id}`}
+                      onClick={() => {
+                        void handleLeaveFamily(family.id);
+                      }}
+                    >
+                      {busyActionKey === `leave-${family.id}` ? "Leaving..." : "Leave family"}
+                    </button>
+                  </div>
+
+                  {isSelected ? (
+                    <section id={`families-dashboard-list-item-manage-section-${family.id}`} className="space-y-4 border-t border-[var(--color-border)] pt-4">
+                      {loadingFamilyId === family.id ? (
+                        <p id={`families-dashboard-list-item-manage-loading-${family.id}`} className="text-sm text-[var(--color-text-muted)]">Loading family details...</p>
+                      ) : detail ? (
+                        <>
+                          <div id={`families-dashboard-list-item-members-section-${family.id}`} className="space-y-2">
+                            <h3 id={`families-dashboard-list-item-members-title-${family.id}`} className="text-base font-semibold">Family members</h3>
+                            <ul id={`families-dashboard-list-item-members-list-${family.id}`} className="space-y-2">
+                              {detail.members.map((member) => {
+                                const canPromote = detail.currentUserRole === "admin" && member.role !== "admin";
+                                const canRemove = detail.currentUserRole === "admin" && member.userId !== detail.currentUserId;
+
+                                return (
+                                  <li id={`families-dashboard-list-item-member-item-${family.id}-${member.userId}`} key={member.userId} className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                                    <div id={`families-dashboard-list-item-member-content-${family.id}-${member.userId}`}>
+                                      <p id={`families-dashboard-list-item-member-name-${family.id}-${member.userId}`} className="text-sm font-medium">
+                                        {member.firstName} {member.lastName} ({member.username})
+                                      </p>
+                                      <p id={`families-dashboard-list-item-member-role-${family.id}-${member.userId}`} className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+                                        {member.role}
+                                      </p>
+                                    </div>
+                                    <div id={`families-dashboard-list-item-member-actions-${family.id}-${member.userId}`} className="flex gap-2">
+                                      {canPromote ? (
+                                        <button
+                                          id={`families-dashboard-list-item-member-promote-btn-${family.id}-${member.userId}`}
+                                          type="button"
+                                          className={buttonClassName("secondary")}
+                                          disabled={busyActionKey === `promote-${family.id}-${member.userId}`}
+                                          onClick={() => {
+                                            void handlePromoteMember(family.id, member.userId);
+                                          }}
+                                        >
+                                          {busyActionKey === `promote-${family.id}-${member.userId}` ? "Promoting..." : "Promote to admin"}
+                                        </button>
+                                      ) : null}
+                                      {canRemove ? (
+                                        <button
+                                          id={`families-dashboard-list-item-member-remove-btn-${family.id}-${member.userId}`}
+                                          type="button"
+                                          className={buttonClassName("secondary")}
+                                          disabled={busyActionKey === `remove-${family.id}-${member.userId}`}
+                                          onClick={() => {
+                                            void handleRemoveMember(family.id, member.userId);
+                                          }}
+                                        >
+                                          {busyActionKey === `remove-${family.id}-${member.userId}` ? "Removing..." : "Remove"}
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+
+                          {detail.currentUserRole === "admin" ? (
+                            <div id={`families-dashboard-list-item-deletion-section-${family.id}`} className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                              <h3 id={`families-dashboard-list-item-deletion-title-${family.id}`} className="text-base font-semibold">Delete family</h3>
+
+                              {deletionRequest ? (
+                                <>
+                                  <p id={`families-dashboard-list-item-deletion-status-${family.id}`} className="text-sm text-[var(--color-text-muted)]">
+                                    Request is active. {deletionRequest.approveCount}/{deletionRequest.requiredApprovals} approvals. Expires {new Date(deletionRequest.expiresAt).toLocaleString()}.
+                                  </p>
+
+                                  {currentUserVote ? (
+                                    <p id={`families-dashboard-list-item-deletion-my-vote-${family.id}`} className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
+                                      Your vote: {currentUserVote.vote}
+                                    </p>
+                                  ) : (
+                                    <div id={`families-dashboard-list-item-deletion-vote-actions-${family.id}`} className="flex gap-2">
+                                      <button
+                                        id={`families-dashboard-list-item-deletion-approve-btn-${family.id}`}
+                                        type="button"
+                                        className={buttonClassName("primary")}
+                                        disabled={busyActionKey === `delete-request-vote-approve-${family.id}-${deletionRequest.id}`}
+                                        onClick={() => {
+                                          void handleVoteDeletionRequest(family.id, deletionRequest.id, "approve");
+                                        }}
+                                      >
+                                        {busyActionKey === `delete-request-vote-approve-${family.id}-${deletionRequest.id}` ? "Submitting..." : "Approve"}
+                                      </button>
+                                      <button
+                                        id={`families-dashboard-list-item-deletion-deny-btn-${family.id}`}
+                                        type="button"
+                                        className={buttonClassName("secondary")}
+                                        disabled={busyActionKey === `delete-request-vote-deny-${family.id}-${deletionRequest.id}`}
+                                        onClick={() => {
+                                          void handleVoteDeletionRequest(family.id, deletionRequest.id, "deny");
+                                        }}
+                                      >
+                                        {busyActionKey === `delete-request-vote-deny-${family.id}-${deletionRequest.id}` ? "Submitting..." : "Deny"}
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {detail.currentUserId === deletionRequest.initiatedByUserId ? (
+                                    <button
+                                      id={`families-dashboard-list-item-deletion-cancel-btn-${family.id}`}
+                                      type="button"
+                                      className={buttonClassName("secondary")}
+                                      disabled={busyActionKey === `delete-request-cancel-${family.id}-${deletionRequest.id}`}
+                                      onClick={() => {
+                                        void handleCancelDeletionRequest(family.id, deletionRequest.id);
+                                      }}
+                                    >
+                                      {busyActionKey === `delete-request-cancel-${family.id}-${deletionRequest.id}` ? "Cancelling..." : "Cancel request"}
+                                    </button>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <>
+                                  {cooldownUntil && new Date(cooldownUntil) > new Date() ? (
+                                    <p id={`families-dashboard-list-item-deletion-cooldown-${family.id}`} className="text-sm text-[var(--color-text-muted)]">
+                                      New deletion requests are blocked until {new Date(cooldownUntil).toLocaleString()}.
+                                    </p>
+                                  ) : (
+                                    <button
+                                      id={`families-dashboard-list-item-deletion-create-btn-${family.id}`}
+                                      type="button"
+                                      className={buttonClassName("danger")}
+                                      disabled={!canInitiateDeletion || busyActionKey === `delete-request-create-${family.id}`}
+                                      onClick={() => {
+                                        void handleInitiateDeletionRequest(family.id);
+                                      }}
+                                    >
+                                      {busyActionKey === `delete-request-create-${family.id}` ? "Creating..." : "Request family deletion"}
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ) : null}
+
+                          {familyError ? (
+                            <p id={`families-dashboard-list-item-manage-error-${family.id}`} className="text-sm text-[var(--color-danger)]">{familyError}</p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p id={`families-dashboard-list-item-manage-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">No family details available.</p>
+                      )}
+                    </section>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
