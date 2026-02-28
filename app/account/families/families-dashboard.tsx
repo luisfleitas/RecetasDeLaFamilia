@@ -105,6 +105,8 @@ type RevokeFamilyInviteResponse = {
   error?: string;
 };
 
+type ManageFamilyTabId = "members" | "inviteCodes" | "deletion";
+
 export default function FamiliesDashboard() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
@@ -119,6 +121,7 @@ export default function FamiliesDashboard() {
   const [familyCooldownById, setFamilyCooldownById] = useState<Record<number, string | null>>({});
   const [familyInviteLinksById, setFamilyInviteLinksById] = useState<Record<number, FamilyInviteLink[]>>({});
   const [latestInviteUrlByFamilyId, setLatestInviteUrlByFamilyId] = useState<Record<number, string | null>>({});
+  const [manageTabByFamilyId, setManageTabByFamilyId] = useState<Record<number, ManageFamilyTabId>>({});
   const [familyMessageById, setFamilyMessageById] = useState<Record<number, string | null>>({});
   const [familyErrorById, setFamilyErrorById] = useState<Record<number, string | null>>({});
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
@@ -330,6 +333,10 @@ export default function FamiliesDashboard() {
       return;
     }
 
+    setManageTabByFamilyId((current) => ({
+      ...current,
+      [familyId]: current[familyId] ?? "members",
+    }));
     setSelectedFamilyId(familyId);
     await loadFamilyContext(familyId);
   }
@@ -582,9 +589,16 @@ export default function FamiliesDashboard() {
                 detail && deletionRequest
                   ? deletionRequest.votes.find((vote) => vote.userId === detail.currentUserId) ?? null
                   : null;
+              const isAdmin = detail?.currentUserRole === "admin";
+              const manageTabs: Array<{ id: ManageFamilyTabId; label: string }> = [
+                { id: "members", label: "Manage Family Members" },
+                { id: "inviteCodes", label: "Invite Codes" },
+                { id: "deletion", label: "Deletion" },
+              ];
+              const activeManageTab = manageTabByFamilyId[family.id] ?? "members";
 
               const canInitiateDeletion =
-                detail?.currentUserRole === "admin" &&
+                isAdmin &&
                 !deletionRequest &&
                 (!cooldownUntil || new Date(cooldownUntil) <= new Date());
 
@@ -649,61 +663,114 @@ export default function FamiliesDashboard() {
                         <p id={`families-dashboard-list-item-manage-loading-${family.id}`} className="text-sm text-[var(--color-text-muted)]">Loading family details...</p>
                       ) : detail ? (
                         <>
-                          <div id={`families-dashboard-list-item-members-section-${family.id}`} className="space-y-2">
-                            <h3 id={`families-dashboard-list-item-members-title-${family.id}`} className="text-base font-semibold">Family members</h3>
-                            <ul id={`families-dashboard-list-item-members-list-${family.id}`} className="space-y-2">
-                              {detail.members.map((member) => {
-                                const canPromote = detail.currentUserRole === "admin" && member.role !== "admin";
-                                const canRemove = detail.currentUserRole === "admin" && member.userId !== detail.currentUserId;
+                          {isAdmin ? (
+                            <div
+                              id={`families-dashboard-list-item-manage-secondary-menu-${family.id}`}
+                              role="tablist"
+                              aria-label={`Manage ${family.name} sections`}
+                              className="sticky top-2 z-10 -mx-1 flex gap-3 overflow-x-auto border-b border-[var(--color-border)] bg-[var(--color-surface)] px-1 pb-0.5 pt-0.5"
+                            >
+                              {manageTabs.map((tab) => {
+                                const isActive = activeManageTab === tab.id;
 
                                 return (
-                                  <li id={`families-dashboard-list-item-member-item-${family.id}-${member.userId}`} key={member.userId} className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
-                                    <div id={`families-dashboard-list-item-member-content-${family.id}-${member.userId}`}>
-                                      <p id={`families-dashboard-list-item-member-name-${family.id}-${member.userId}`} className="text-sm font-medium">
-                                        {member.firstName} {member.lastName} ({member.username})
-                                      </p>
-                                      <p id={`families-dashboard-list-item-member-role-${family.id}-${member.userId}`} className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
-                                        {member.role}
-                                      </p>
-                                    </div>
-                                    <div id={`families-dashboard-list-item-member-actions-${family.id}-${member.userId}`} className="flex gap-2">
-                                      {canPromote ? (
-                                        <button
-                                          id={`families-dashboard-list-item-member-promote-btn-${family.id}-${member.userId}`}
-                                          type="button"
-                                          className={buttonClassName("secondary")}
-                                          disabled={busyActionKey === `promote-${family.id}-${member.userId}`}
-                                          onClick={() => {
-                                            void handlePromoteMember(family.id, member.userId);
-                                          }}
-                                        >
-                                          {busyActionKey === `promote-${family.id}-${member.userId}` ? "Promoting..." : "Promote to admin"}
-                                        </button>
-                                      ) : null}
-                                      {canRemove ? (
-                                        <button
-                                          id={`families-dashboard-list-item-member-remove-btn-${family.id}-${member.userId}`}
-                                          type="button"
-                                          className={buttonClassName("secondary")}
-                                          disabled={busyActionKey === `remove-${family.id}-${member.userId}`}
-                                          onClick={() => {
-                                            void handleRemoveMember(family.id, member.userId);
-                                          }}
-                                        >
-                                          {busyActionKey === `remove-${family.id}-${member.userId}` ? "Removing..." : "Remove"}
-                                        </button>
-                                      ) : null}
-                                    </div>
-                                  </li>
+                                  <button
+                                    id={`families-dashboard-list-item-manage-secondary-menu-tab-${family.id}-${tab.id}`}
+                                    key={tab.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={isActive}
+                                    aria-controls={
+                                      tab.id === "members"
+                                        ? `families-dashboard-list-item-members-section-${family.id}`
+                                        : tab.id === "inviteCodes"
+                                          ? `families-dashboard-list-item-invites-section-${family.id}`
+                                          : `families-dashboard-list-item-deletion-section-${family.id}`
+                                    }
+                                    tabIndex={isActive ? 0 : -1}
+                                    className={`relative shrink-0 rounded-t-md border-b-2 px-3.5 py-2 text-xs font-semibold uppercase tracking-wide transition-all duration-150 ${
+                                      isActive
+                                        ? "border-[var(--color-primary)] bg-[var(--color-surface-soft)] text-[var(--color-text)]"
+                                        : "border-transparent text-[var(--color-text-muted)] hover:-translate-y-0.5 hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-soft)] hover:text-[var(--color-text)]"
+                                    }`}
+                                    onClick={() => {
+                                      setManageTabByFamilyId((current) => ({ ...current, [family.id]: tab.id }));
+                                    }}
+                                  >
+                                    {tab.label}
+                                  </button>
                                 );
                               })}
-                            </ul>
-                          </div>
+                            </div>
+                          ) : null}
 
-                          {detail.currentUserRole === "admin" ? (
-                            <div id={`families-dashboard-list-item-invites-section-${family.id}`} className="space-y-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                          {(!isAdmin || activeManageTab === "members") ? (
+                            <div
+                              id={`families-dashboard-list-item-members-section-${family.id}`}
+                              role={isAdmin ? "tabpanel" : undefined}
+                              aria-labelledby={isAdmin ? `families-dashboard-list-item-manage-secondary-menu-tab-${family.id}-members` : undefined}
+                              className="space-y-2"
+                            >
+                              <h3 id={`families-dashboard-list-item-members-title-${family.id}`} className="text-base font-semibold">Family members</h3>
+                              <ul id={`families-dashboard-list-item-members-list-${family.id}`} className="space-y-2">
+                                {detail.members.map((member) => {
+                                  const canPromote = detail.currentUserRole === "admin" && member.role !== "admin";
+                                  const canRemove = detail.currentUserRole === "admin" && member.userId !== detail.currentUserId;
+
+                                  return (
+                                    <li id={`families-dashboard-list-item-member-item-${family.id}-${member.userId}`} key={member.userId} className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                                      <div id={`families-dashboard-list-item-member-content-${family.id}-${member.userId}`}>
+                                        <p id={`families-dashboard-list-item-member-name-${family.id}-${member.userId}`} className="text-sm font-medium">
+                                          {member.firstName} {member.lastName} ({member.username})
+                                        </p>
+                                        <p id={`families-dashboard-list-item-member-role-${family.id}-${member.userId}`} className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+                                          {member.role}
+                                        </p>
+                                      </div>
+                                      <div id={`families-dashboard-list-item-member-actions-${family.id}-${member.userId}`} className="flex gap-2">
+                                        {canPromote ? (
+                                          <button
+                                            id={`families-dashboard-list-item-member-promote-btn-${family.id}-${member.userId}`}
+                                            type="button"
+                                            className={buttonClassName("secondary")}
+                                            disabled={busyActionKey === `promote-${family.id}-${member.userId}`}
+                                            onClick={() => {
+                                              void handlePromoteMember(family.id, member.userId);
+                                            }}
+                                          >
+                                            {busyActionKey === `promote-${family.id}-${member.userId}` ? "Promoting..." : "Promote to admin"}
+                                          </button>
+                                        ) : null}
+                                        {canRemove ? (
+                                          <button
+                                            id={`families-dashboard-list-item-member-remove-btn-${family.id}-${member.userId}`}
+                                            type="button"
+                                            className={buttonClassName("secondary")}
+                                            disabled={busyActionKey === `remove-${family.id}-${member.userId}`}
+                                            onClick={() => {
+                                              void handleRemoveMember(family.id, member.userId);
+                                            }}
+                                          >
+                                            {busyActionKey === `remove-${family.id}-${member.userId}` ? "Removing..." : "Remove"}
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          ) : null}
+
+                          {isAdmin && activeManageTab === "inviteCodes" ? (
+                            <div
+                              id={`families-dashboard-list-item-invites-section-${family.id}`}
+                              role="tabpanel"
+                              aria-labelledby={`families-dashboard-list-item-manage-secondary-menu-tab-${family.id}-inviteCodes`}
+                              className="space-y-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3"
+                            >
                               <div id={`families-dashboard-list-item-invites-header-${family.id}`} className="flex flex-wrap items-center justify-between gap-2">
-                                <h3 id={`families-dashboard-list-item-invites-title-${family.id}`} className="text-base font-semibold">Invite links</h3>
+                                <h3 id={`families-dashboard-list-item-invites-title-${family.id}`} className="text-base font-semibold">Invite codes</h3>
                                 <button
                                   id={`families-dashboard-list-item-invites-create-btn-${family.id}`}
                                   type="button"
@@ -789,8 +856,13 @@ export default function FamiliesDashboard() {
                             </div>
                           ) : null}
 
-                          {detail.currentUserRole === "admin" ? (
-                            <div id={`families-dashboard-list-item-deletion-section-${family.id}`} className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                          {isAdmin && activeManageTab === "deletion" ? (
+                            <div
+                              id={`families-dashboard-list-item-deletion-section-${family.id}`}
+                              role="tabpanel"
+                              aria-labelledby={`families-dashboard-list-item-manage-secondary-menu-tab-${family.id}-deletion`}
+                              className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3"
+                            >
                               <h3 id={`families-dashboard-list-item-deletion-title-${family.id}`} className="text-base font-semibold">Delete family</h3>
 
                               {deletionRequest ? (
