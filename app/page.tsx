@@ -17,6 +17,8 @@ type RecipeListItem = {
   id: number;
   title: string;
   createdAt: string;
+  visibility: "public" | "private" | "family";
+  families: Array<{ id: number; name: string }>;
   primaryImage?: PrimaryImageRef | null;
   images?: PrimaryImageRef[];
 };
@@ -39,9 +41,11 @@ function getBaseUrl(requestHeaders: Headers) {
 async function fetchRecipes() {
   const requestHeaders = await headers();
   const baseUrl = getBaseUrl(requestHeaders);
+  const cookie = requestHeaders.get("cookie") ?? "";
 
   const response = await fetch(`${baseUrl}/api/recipes?includePrimaryImage=true&includeImages=true`, {
     cache: "no-store",
+    headers: cookie ? { cookie } : undefined,
   });
 
   if (!response.ok) {
@@ -148,6 +152,13 @@ export default async function HomePage() {
                     </Link>
                     <p id={`home-recipe-added-label-${recipe.id}`} className="mt-2 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Added on</p>
                     <p id={`home-recipe-created-at-${recipe.id}`} className="text-sm text-[var(--color-text-muted)]">{new Date(recipe.createdAt).toLocaleString()}</p>
+                    <p id={`home-recipe-visibility-${recipe.id}`} className="mt-2 text-xs uppercase tracking-wide text-[var(--color-primary)]">
+                      {recipe.visibility === "family"
+                        ? `Shared with ${recipe.families.length} ${recipe.families.length === 1 ? "family" : "families"}`
+                        : recipe.visibility === "private"
+                          ? "Private"
+                          : "Public"}
+                    </p>
                   </div>
                 </li>
               ))}

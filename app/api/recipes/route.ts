@@ -34,6 +34,8 @@ function parseRecipePayloadFromFormData(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description"),
     stepsMarkdown: formData.get("stepsMarkdown"),
+    visibility: formData.get("visibility"),
+    familyIds: formData.getAll("familyIds").map((value) => Number(value)),
     ingredients,
   });
 }
@@ -83,6 +85,8 @@ function toErrorStatus(error: unknown): number {
     message.includes("10MB") ||
     message.includes("supports up to 8 images") ||
     message.includes("primaryImageIndex") ||
+    message.includes("visibility") ||
+    message.includes("familyIds") ||
     message.includes("required") ||
     message.includes("must be");
 
@@ -91,10 +95,14 @@ function toErrorStatus(error: unknown): number {
 
 export async function GET(request: Request) {
   try {
+    const authUser = getAuthUserFromRequest(request);
     const { searchParams } = new URL(request.url);
     const includePrimaryImage = parseBooleanParam(searchParams.get("includePrimaryImage"));
     const includeImages = parseBooleanParam(searchParams.get("includeImages"));
-    const recipes = await recipeUseCases.listRecipes({ includePrimaryImage, includeImages });
+    const recipes = await recipeUseCases.listRecipes(authUser?.userId ?? null, {
+      includePrimaryImage,
+      includeImages,
+    });
 
     return NextResponse.json({ recipes });
   } catch (error) {
@@ -137,6 +145,9 @@ export async function POST(request: Request) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unexpected error while creating recipe";
+      if (message === "FORBIDDEN_FAMILY_LINK") {
+        return NextResponse.json({ error: "Forbidden family link", code: "FORBIDDEN" }, { status: 403 });
+      }
       return NextResponse.json({ error: message }, { status: toErrorStatus(error) });
     }
   }
@@ -163,6 +174,9 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected error while creating recipe";
+    if (message === "FORBIDDEN_FAMILY_LINK") {
+      return NextResponse.json({ error: "Forbidden family link", code: "FORBIDDEN" }, { status: 403 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

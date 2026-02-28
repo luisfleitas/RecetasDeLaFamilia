@@ -4,6 +4,8 @@ import {
   hashFamilyInviteToken,
   isInviteExpired,
 } from "@/lib/families/utils";
+import { isPhase3Enabled } from "@/lib/phase3/config";
+import { getRequestId, recordAuditEvent, recordMetric, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
 import { FamilyInviteDecisionStatus, FamilyRole, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -15,15 +17,22 @@ type Params = {
 };
 
 export async function POST(request: Request, { params }: Params) {
+  const requestId = getRequestId(request);
   const authUser = getAuthUserFromRequest(request);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return withRequestId(
+      NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
+      requestId,
+    );
   }
 
   const { token } = await params;
   if (!token || token.length < 10) {
-    return NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
+      requestId,
+    );
   }
 
   try {
@@ -35,7 +44,10 @@ export async function POST(request: Request, { params }: Params) {
     });
 
     if (!invite) {
-      return NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 });
+      return withRequestId(
+        NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
+        requestId,
+      );
     }
 
     const existingMembership = await prisma.familyMembership.findUnique({
@@ -68,20 +80,29 @@ export async function POST(request: Request, { params }: Params) {
         },
       });
 
-      return NextResponse.json({ ok: true, code: "ALREADY_MEMBER" });
+      return withRequestId(NextResponse.json({ ok: true, code: "ALREADY_MEMBER" }), requestId);
     }
 
     const now = new Date();
     if (invite.revokedAt) {
-      return NextResponse.json({ error: "Invite revoked", code: "INVITE_REVOKED" }, { status: 409 });
+      return withRequestId(
+        NextResponse.json({ error: "Invite revoked", code: "INVITE_REVOKED" }, { status: 409 }),
+        requestId,
+      );
     }
 
     if (invite.consumedAt) {
-      return NextResponse.json({ error: "Invite consumed", code: "INVITE_CONSUMED" }, { status: 409 });
+      return withRequestId(
+        NextResponse.json({ error: "Invite consumed", code: "INVITE_CONSUMED" }, { status: 409 }),
+        requestId,
+      );
     }
 
     if (isInviteExpired(invite.expiresAt, now)) {
-      return NextResponse.json({ error: "Invite expired", code: "INVITE_EXPIRED" }, { status: 409 });
+      return withRequestId(
+        NextResponse.json({ error: "Invite expired", code: "INVITE_EXPIRED" }, { status: 409 }),
+        requestId,
+      );
     }
 
     try {
@@ -135,35 +156,67 @@ export async function POST(request: Request, { params }: Params) {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        return NextResponse.json({ ok: true, code: "ALREADY_MEMBER" });
+        return withRequestId(NextResponse.json({ ok: true, code: "ALREADY_MEMBER" }), requestId);
       }
 
       if (error instanceof Error && error.message === "INVITE_NO_LONGER_ACTIVE") {
         const reloaded = await prisma.familyInvite.findUnique({ where: { id: invite.id } });
         if (!reloaded) {
-          return NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 });
+          return withRequestId(
+            NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
+            requestId,
+          );
         }
 
         const state = getInviteState(reloaded);
         if (state === "revoked") {
-          return NextResponse.json({ error: "Invite revoked", code: "INVITE_REVOKED" }, { status: 409 });
+          return withRequestId(
+            NextResponse.json({ error: "Invite revoked", code: "INVITE_REVOKED" }, { status: 409 }),
+            requestId,
+          );
         }
 
         if (state === "consumed") {
-          return NextResponse.json({ error: "Invite consumed", code: "INVITE_CONSUMED" }, { status: 409 });
+          return withRequestId(
+            NextResponse.json({ error: "Invite consumed", code: "INVITE_CONSUMED" }, { status: 409 }),
+            requestId,
+          );
         }
 
         if (state === "expired") {
-          return NextResponse.json({ error: "Invite expired", code: "INVITE_EXPIRED" }, { status: 409 });
+          return withRequestId(
+            NextResponse.json({ error: "Invite expired", code: "INVITE_EXPIRED" }, { status: 409 }),
+            requestId,
+          );
         }
       }
 
       throw error;
     }
 
-    return NextResponse.json({ ok: true });
+    if (isPhase3Enabled()) {
+      await recordMetric(prisma, {
+        metricName: "invite_accepted",
+        requestId,
+        actorUserId: authUser.userId,
+        familyId: invite.familyId,
+        inviteId: invite.id,
+        statusCode: 200,
+      });
+      await recordAuditEvent(prisma, {
+        eventType: "membership_added_via_invite",
+        requestId,
+        actorUserId: authUser.userId,
+        familyId: invite.familyId,
+        targetUserId: authUser.userId,
+        inviteId: invite.id,
+        newRole: FamilyRole.member,
+      });
+    }
+
+    return withRequestId(NextResponse.json({ ok: true }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while accepting invite";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
   }
 }

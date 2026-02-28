@@ -7,11 +7,13 @@ import type {
 } from "@/lib/domain/recipe";
 
 export type ListRecipeOptions = {
+  viewerUserId?: number | null;
   includePrimaryImage?: boolean;
   includeImages?: boolean;
 };
 
 export type GetRecipeByIdOptions = {
+  viewerUserId?: number | null;
   includePrimaryImage?: boolean;
   includeImages?: boolean;
 };

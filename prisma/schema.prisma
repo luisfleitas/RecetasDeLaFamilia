@@ -13,12 +13,14 @@ model Recipe {
   title           String
   description     String?
   stepsMarkdown   String
+  visibility      RecipeVisibility @default(public)
   createdByUserId Int        @map("created_by_user_id")
   createdByUser  User        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   ingredients     Ingredient[]
   images          RecipeImage[]
+  familyLinks     RecipeFamilyLink[]
 }
 
 model Ingredient {
@@ -53,6 +55,8 @@ model User {
   createdFamilyInvites FamilyInvite[] @relation("FamilyInviteCreator")
   consumedFamilyInvites FamilyInvite[] @relation("FamilyInviteConsumer")
   familyInviteDecisions FamilyInviteDecision[]
+  familyAuditEvents FamilyAuditEvent[] @relation("FamilyAuditActor")
+  metricEvents MetricEvent[] @relation("MetricActor")
 
   @@map("users")
 }
@@ -88,6 +92,12 @@ enum FamilyInviteDecisionStatus {
   accepted
 }
 
+enum RecipeVisibility {
+  public
+  private
+  family
+}
+
 model Family {
   id              Int      @id @default(autoincrement())
   name            String
@@ -100,8 +110,24 @@ model Family {
 
   memberships     FamilyMembership[]
   invites         FamilyInvite[]
+  recipeLinks     RecipeFamilyLink[]
+  auditEvents     FamilyAuditEvent[]
+  metricEvents    MetricEvent[]
 
   @@index([createdByUserId])
+}
+
+model RecipeFamilyLink {
+  id        Int      @id @default(autoincrement())
+  recipeId  Int      @map("recipe_id")
+  familyId  Int      @map("family_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, familyId])
+  @@index([familyId])
 }
 
 model FamilyMembership {
@@ -136,6 +162,8 @@ model FamilyInvite {
   createdByUser    User     @relation("FamilyInviteCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   consumedByUser   User?    @relation("FamilyInviteConsumer", fields: [consumedByUserId], references: [id], onDelete: SetNull)
   decisions        FamilyInviteDecision[]
+  metricEvents     MetricEvent[]
+  auditEvents      FamilyAuditEvent[]
 
   @@index([familyId])
   @@index([familyId, expiresAt])
@@ -157,4 +185,44 @@ model FamilyInviteDecision {
 
   @@unique([inviteId, userId])
   @@index([userId, status])
+}
+
+model FamilyAuditEvent {
+  id           Int      @id @default(autoincrement())
+  eventType    String   @map("event_type")
+  requestId    String   @map("request_id")
+  actorUserId  Int?     @map("actor_user_id")
+  familyId     Int?     @map("family_id")
+  targetUserId Int?     @map("target_user_id")
+  inviteId     Int?     @map("invite_id")
+  oldRole      FamilyRole? @map("old_role")
+  newRole      FamilyRole? @map("new_role")
+  metadataJson String?  @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  actorUser    User?    @relation("FamilyAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  family       Family?  @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  invite       FamilyInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model MetricEvent {
+  id             Int      @id @default(autoincrement())
+  metricName     String   @map("metric_name")
+  requestId      String   @map("request_id")
+  actorUserId    Int?     @map("actor_user_id")
+  familyId       Int?     @map("family_id")
+  inviteId       Int?     @map("invite_id")
+  statusCode     Int?     @map("status_code")
+  metadataJson   String?  @map("metadata_json")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  actorUser      User?    @relation("MetricActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  family         Family?  @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  invite         FamilyInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@index([metricName, createdAt])
+  @@index([createdAt])
 }

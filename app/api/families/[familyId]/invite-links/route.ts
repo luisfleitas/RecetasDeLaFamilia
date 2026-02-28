@@ -7,6 +7,9 @@ import {
   hashFamilyInviteToken,
   isFamilyAdmin,
 } from "@/lib/families/utils";
+import { isPhase3Enabled } from "@/lib/phase3/config";
+import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
+import { checkRateLimit } from "@/lib/phase3/rate-limit";
 import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -17,17 +20,24 @@ type Params = {
 };
 
 export async function GET(request: Request, { params }: Params) {
+  const requestId = getRequestId(request);
   const authUser = getAuthUserFromRequest(request);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return withRequestId(
+      NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
+      requestId,
+    );
   }
 
   const { familyId: familyIdParam } = await params;
   const familyId = parsePositiveInt(familyIdParam);
 
   if (!familyId) {
-    return NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 }),
+      requestId,
+    );
   }
 
   try {
@@ -35,7 +45,10 @@ export async function GET(request: Request, { params }: Params) {
     const admin = await isFamilyAdmin(prisma, familyId, authUser.userId);
 
     if (!admin) {
-      return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
+      return withRequestId(
+        NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 }),
+        requestId,
+      );
     }
 
     const invites = await prisma.familyInvite.findMany({
@@ -47,7 +60,7 @@ export async function GET(request: Request, { params }: Params) {
       },
     });
 
-    return NextResponse.json({
+    return withRequestId(NextResponse.json({
       invites: invites.map((invite) => ({
         id: invite.id,
         familyId: invite.familyId,
@@ -59,25 +72,32 @@ export async function GET(request: Request, { params }: Params) {
         consumedByUserId: invite.consumedByUserId,
         state: getInviteState(invite),
       })),
-    });
+    }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while listing invite links";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
   }
 }
 
 export async function POST(request: Request, { params }: Params) {
+  const requestId = getRequestId(request);
   const authUser = getAuthUserFromRequest(request);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return withRequestId(
+      NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
+      requestId,
+    );
   }
 
   const { familyId: familyIdParam } = await params;
   const familyId = parsePositiveInt(familyIdParam);
 
   if (!familyId) {
-    return NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 }),
+      requestId,
+    );
   }
 
   try {
@@ -85,7 +105,22 @@ export async function POST(request: Request, { params }: Params) {
     const admin = await isFamilyAdmin(prisma, familyId, authUser.userId);
 
     if (!admin) {
-      return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
+      return withRequestId(
+        NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 }),
+        requestId,
+      );
+    }
+
+    if (isPhase3Enabled()) {
+      const rate = checkRateLimit("invite-create", `${authUser.userId}:${familyId}`, 10, 60 * 60 * 1000);
+      if (!rate.allowed) {
+        const limitedResponse = NextResponse.json(
+          { error: "Too many invite creations. Please retry later.", code: "RATE_LIMITED" },
+          { status: 429 },
+        );
+        limitedResponse.headers.set("retry-after", String(rate.retryAfterSeconds));
+        return withRequestId(limitedResponse, requestId);
+      }
     }
 
     const token = createFamilyInviteToken();
@@ -103,7 +138,19 @@ export async function POST(request: Request, { params }: Params) {
     });
 
     const origin = new URL(request.url).origin;
-    return NextResponse.json(
+    if (isPhase3Enabled()) {
+      await recordMetric(prisma, {
+        metricName: "invite_created",
+        requestId,
+        actorUserId: authUser.userId,
+        familyId,
+        inviteId: invite.id,
+        statusCode: 201,
+      });
+    }
+
+    return withRequestId(
+      NextResponse.json(
       {
         invite: {
           id: invite.id,
@@ -116,9 +163,11 @@ export async function POST(request: Request, { params }: Params) {
         },
       },
       { status: 201 },
+    ),
+      requestId,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while creating invite link";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
   }
 }

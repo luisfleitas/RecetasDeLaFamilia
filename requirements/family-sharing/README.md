@@ -6,7 +6,9 @@ This folder contains the product requirements and phased delivery plan for Famil
 - `prd.md`: Master product requirements document.
 - `phase-1-foundation.md`: Family creation, profile metadata (description/picture), invite links, and membership management.
 - `phase-2-sharing-model.md`: Recipe visibility and family-sharing access model.
+- `phase-2-runnable-checklist.md`: Executable API/UI validation checklist for Phase 2.
 - `phase-3-scale-and-ops.md`: Reliability, security hardening, rollout, and operations.
+- `phase-3-operations-runbook.md`: Dashboard queries, alert thresholds, and rollback response for Phase 3.
 - `api-contracts.md`: API routes, request/response contracts, and error codes.
 - `data-model.md`: Domain model, schema rules, and invariants.
 - `test-plan.md`: Unit, integration, and E2E acceptance tests.

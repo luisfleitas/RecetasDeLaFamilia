@@ -1,6 +1,8 @@
 import { parsePositiveInt, parseUpdateFamilyInput } from "@/lib/application/families/validation";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { buildFamilyPictureUrl, isFamilyAdmin } from "@/lib/families/utils";
+import { isPhase3Enabled } from "@/lib/phase3/config";
+import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -11,17 +13,24 @@ type Params = {
 };
 
 export async function GET(request: Request, { params }: Params) {
+  const requestId = getRequestId(request);
   const authUser = getAuthUserFromRequest(request);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return withRequestId(
+      NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
+      requestId,
+    );
   }
 
   const { familyId: familyIdParam } = await params;
   const familyId = parsePositiveInt(familyIdParam);
 
   if (!familyId) {
-    return NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 }),
+      requestId,
+    );
   }
 
   try {
@@ -36,7 +45,10 @@ export async function GET(request: Request, { params }: Params) {
     });
 
     if (!membership) {
-      return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
+      return withRequestId(
+        NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 }),
+        requestId,
+      );
     }
 
     const family = await prisma.family.findUnique({
@@ -59,10 +71,13 @@ export async function GET(request: Request, { params }: Params) {
     });
 
     if (!family) {
-      return NextResponse.json({ error: "Family not found", code: "NOT_FOUND" }, { status: 404 });
+      return withRequestId(
+        NextResponse.json({ error: "Family not found", code: "NOT_FOUND" }, { status: 404 }),
+        requestId,
+      );
     }
 
-    return NextResponse.json({
+    return withRequestId(NextResponse.json({
       family: {
         id: family.id,
         name: family.name,
@@ -82,32 +97,42 @@ export async function GET(request: Request, { params }: Params) {
           lastName: item.user.lastName,
         })),
       },
-    });
+    }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while fetching family";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
   }
 }
 
 export async function PATCH(request: Request, { params }: Params) {
+  const requestId = getRequestId(request);
   const authUser = getAuthUserFromRequest(request);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return withRequestId(
+      NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
+      requestId,
+    );
   }
 
   const { familyId: familyIdParam } = await params;
   const familyId = parsePositiveInt(familyIdParam);
 
   if (!familyId) {
-    return NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid family id", code: "VALIDATION_ERROR" }, { status: 400 }),
+      requestId,
+    );
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body", code: "VALIDATION_ERROR" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid JSON body", code: "VALIDATION_ERROR" }, { status: 400 }),
+      requestId,
+    );
   }
 
   let input;
@@ -115,7 +140,10 @@ export async function PATCH(request: Request, { params }: Params) {
     input = parseUpdateFamilyInput(body);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid family payload";
-    return NextResponse.json({ error: message, code: "VALIDATION_ERROR" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: message, code: "VALIDATION_ERROR" }, { status: 400 }),
+      requestId,
+    );
   }
 
   try {
@@ -123,7 +151,10 @@ export async function PATCH(request: Request, { params }: Params) {
     const admin = await isFamilyAdmin(prisma, familyId, authUser.userId);
 
     if (!admin) {
-      return NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 });
+      return withRequestId(
+        NextResponse.json({ error: "Forbidden", code: "FORBIDDEN" }, { status: 403 }),
+        requestId,
+      );
     }
 
     const family = await prisma.family.update({
@@ -137,7 +168,17 @@ export async function PATCH(request: Request, { params }: Params) {
       },
     });
 
-    return NextResponse.json({
+    if (isPhase3Enabled()) {
+      await recordMetric(prisma, {
+        metricName: "family_profile_updated",
+        requestId,
+        actorUserId: authUser.userId,
+        familyId: family.id,
+        statusCode: 200,
+      });
+    }
+
+    return withRequestId(NextResponse.json({
       family: {
         id: family.id,
         name: family.name,
@@ -147,14 +188,17 @@ export async function PATCH(request: Request, { params }: Params) {
         createdAt: family.createdAt,
         updatedAt: family.updatedAt,
       },
-    });
+    }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while updating family";
 
     if (message.includes("Record to update not found")) {
-      return NextResponse.json({ error: "Family not found", code: "NOT_FOUND" }, { status: 404 });
+      return withRequestId(
+        NextResponse.json({ error: "Family not found", code: "NOT_FOUND" }, { status: 404 }),
+        requestId,
+      );
     }
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
   }
 }

@@ -25,6 +25,8 @@ type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  visibility: "public" | "private" | "family";
+  families: Array<{ id: number; name: string }>;
   ingredients: Ingredient[];
   images?: RecipeImage[];
   primaryImage?: { id: number } | null;
@@ -53,11 +55,13 @@ function getBaseUrl(requestHeaders: Headers) {
 async function fetchRecipe(id: string) {
   const requestHeaders = await headers();
   const baseUrl = getBaseUrl(requestHeaders);
+  const cookie = requestHeaders.get("cookie") ?? "";
 
   const response = await fetch(
     `${baseUrl}/api/recipes/${id}?includeImages=true&includePrimaryImage=true`,
     {
       cache: "no-store",
+      headers: cookie ? { cookie } : undefined,
     },
   );
 

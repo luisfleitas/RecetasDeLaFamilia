@@ -4,6 +4,9 @@ import {
   getInviteState,
   hashFamilyInviteToken,
 } from "@/lib/families/utils";
+import { isPhase3Enabled } from "@/lib/phase3/config";
+import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
+import { checkRateLimit } from "@/lib/phase3/rate-limit";
 import { getPrisma } from "@/lib/prisma";
 import { FamilyInviteDecisionStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -15,19 +18,39 @@ type Params = {
 };
 
 export async function GET(request: Request, { params }: Params) {
+  const requestId = getRequestId(request);
   const authUser = getAuthUserFromRequest(request);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return withRequestId(
+      NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
+      requestId,
+    );
   }
 
   const { token } = await params;
   if (!token || token.length < 10) {
-    return NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
+      requestId,
+    );
   }
 
   try {
     const prisma = await getPrisma();
+
+    if (isPhase3Enabled()) {
+      const rate = checkRateLimit("invite-open", `${authUser.userId}:${token}`, 30, 5 * 60 * 1000);
+      if (!rate.allowed) {
+        const limitedResponse = NextResponse.json(
+          { error: "Too many invite lookups. Please retry later.", code: "RATE_LIMITED" },
+          { status: 429 },
+        );
+        limitedResponse.headers.set("retry-after", String(rate.retryAfterSeconds));
+        return withRequestId(limitedResponse, requestId);
+      }
+    }
+
     const tokenHash = hashFamilyInviteToken(token);
 
     const invite = await prisma.familyInvite.findUnique({
@@ -40,7 +63,19 @@ export async function GET(request: Request, { params }: Params) {
     });
 
     if (!invite) {
-      return NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 });
+      if (isPhase3Enabled()) {
+        await recordMetric(prisma, {
+          metricName: "invite_opened",
+          requestId,
+          actorUserId: authUser.userId,
+          statusCode: 400,
+          metadata: { reason: "invalid_token" },
+        });
+      }
+      return withRequestId(
+        NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
+        requestId,
+      );
     }
 
     const membership = await prisma.familyMembership.findUnique({
@@ -71,7 +106,19 @@ export async function GET(request: Request, { params }: Params) {
       },
     });
 
-    return NextResponse.json({
+    if (isPhase3Enabled()) {
+      await recordMetric(prisma, {
+        metricName: "invite_opened",
+        requestId,
+        actorUserId: authUser.userId,
+        familyId: invite.familyId,
+        inviteId: invite.id,
+        statusCode: 200,
+        metadata: { state },
+      });
+    }
+
+    return withRequestId(NextResponse.json({
       invite: {
         id: invite.id,
         familyId: invite.familyId,
@@ -93,9 +140,9 @@ export async function GET(request: Request, { params }: Params) {
           decidedAt: decision.decidedAt,
         },
       },
-    });
+    }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while resolving invite";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
   }
 }

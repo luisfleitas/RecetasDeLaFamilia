@@ -26,6 +26,8 @@ type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  visibility: "public" | "private" | "family";
+  families: Array<{ id: number; name: string }>;
   createdByUserId: number;
   createdAt: string;
   ingredients: Ingredient[];
@@ -60,11 +62,13 @@ function formatQuantity(qty: number) {
 async function fetchRecipe(id: string) {
   const requestHeaders = await headers();
   const baseUrl = getBaseUrl(requestHeaders);
+  const cookie = requestHeaders.get("cookie") ?? "";
 
   const response = await fetch(
     `${baseUrl}/api/recipes/${id}?includePrimaryImage=true&includeImages=true`,
     {
       cache: "no-store",
+      headers: cookie ? { cookie } : undefined,
     },
   );
 
@@ -111,6 +115,13 @@ export default async function RecipeDetailPage({ params }: Params) {
         </div>
 
         <p id="recipe-detail-created-at" className="text-sm text-[var(--color-text-muted)]">Created {new Date(recipe.createdAt).toLocaleString()}</p>
+        <p id="recipe-detail-visibility" className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
+          {recipe.visibility === "family"
+            ? `Shared with: ${recipe.families.map((family) => family.name).join(", ")}`
+            : recipe.visibility === "private"
+              ? "Private to owner"
+              : "Public"}
+        </p>
 
         {recipe.primaryImage ? (
           <img
