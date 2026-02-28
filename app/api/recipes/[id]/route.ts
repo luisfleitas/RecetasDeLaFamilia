@@ -1,7 +1,9 @@
 // API handler for fetching and updating a single recipe by id.
 import { parseCreateRecipeInput, parseRecipeId } from "@/lib/application/recipes/validation";
+import { sanitizeRecipeFamilyLinksForUpdate } from "@/lib/application/recipes/family-link-sanitization";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getPrisma } from "@/lib/prisma";
 import { buildRecipeUseCases } from "@/lib/recipes/factory";
 import { NextResponse } from "next/server";
 
@@ -38,6 +40,8 @@ function parseRecipePayloadFromFormData(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description"),
     stepsMarkdown: formData.get("stepsMarkdown"),
+    visibility: formData.get("visibility"),
+    familyIds: formData.getAll("familyIds").map((value) => Number(value)),
     ingredients,
   });
 }
@@ -87,13 +91,42 @@ function toErrorStatus(error: unknown): number {
     message.includes("10MB") ||
     message.includes("supports up to 8 images") ||
     message.includes("primaryImage") ||
+    message.includes("visibility") ||
+    message.includes("familyIds") ||
     message.includes("required") ||
     message.includes("must be");
 
   return isValidationError ? 400 : 500;
 }
 
+async function sanitizeUpdateInputFamilyLinksForUser(userId: number, input: ReturnType<typeof parseCreateRecipeInput>) {
+  const uniqueRequestedFamilyIds = [...new Set(input.familyIds)];
+
+  if (uniqueRequestedFamilyIds.length === 0) {
+    return sanitizeRecipeFamilyLinksForUpdate(input, []);
+  }
+
+  const prisma = await getPrisma();
+  const memberships = await prisma.familyMembership.findMany({
+    where: {
+      userId,
+      familyId: {
+        in: uniqueRequestedFamilyIds,
+      },
+    },
+    select: {
+      familyId: true,
+    },
+  });
+
+  return sanitizeRecipeFamilyLinksForUpdate(
+    input,
+    memberships.map((membership) => membership.familyId),
+  );
+}
+
 export async function GET(request: Request, { params }: Params) {
+  const authUser = getAuthUserFromRequest(request);
   const { id } = await params;
   const recipeId = parseRecipeId(id);
 
@@ -105,7 +138,7 @@ export async function GET(request: Request, { params }: Params) {
     const { searchParams } = new URL(request.url);
     const includePrimaryImage = parseBooleanParam(searchParams.get("includePrimaryImage"));
     const includeImages = parseBooleanParam(searchParams.get("includeImages"));
-    const recipe = await recipeUseCases.getRecipeById(recipeId, {
+    const recipe = await recipeUseCases.getRecipeById(recipeId, authUser?.userId ?? null, {
       includePrimaryImage,
       includeImages,
     });
@@ -145,7 +178,8 @@ export async function PUT(request: Request, { params }: Params) {
 
     try {
       const formData = await request.formData();
-      recipeInput = parseRecipePayloadFromFormData(formData);
+      const parsedInput = parseRecipePayloadFromFormData(formData);
+      recipeInput = await sanitizeUpdateInputFamilyLinksForUser(authUser.userId, parsedInput);
       newImages = await parseUploadedImagesFromFormData(formData, "newImages");
       primaryImageId = parseOptionalInt(formData.get("primaryImageId"));
       primaryImageIndex = parseOptionalInt(formData.get("primaryImageIndex"));
@@ -174,6 +208,9 @@ export async function PUT(request: Request, { params }: Params) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unexpected error while updating recipe";
+      if (message === "FORBIDDEN_FAMILY_LINK") {
+        return NextResponse.json({ error: "Forbidden family link", code: "FORBIDDEN" }, { status: 403 });
+      }
       return NextResponse.json({ error: message }, { status: toErrorStatus(error) });
     }
   }
@@ -187,7 +224,8 @@ export async function PUT(request: Request, { params }: Params) {
 
   let input;
   try {
-    input = parseCreateRecipeInput(body);
+    const parsedInput = parseCreateRecipeInput(body);
+    input = await sanitizeUpdateInputFamilyLinksForUser(authUser.userId, parsedInput);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid recipe payload";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -208,6 +246,9 @@ export async function PUT(request: Request, { params }: Params) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected error while updating recipe";
+    if (message === "FORBIDDEN_FAMILY_LINK") {
+      return NextResponse.json({ error: "Forbidden family link", code: "FORBIDDEN" }, { status: 403 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -30,6 +30,11 @@ type NewImageDraft = {
   previewUrl: string;
 };
 
+type FamilyOption = {
+  id: number;
+  name: string;
+};
+
 const EMPTY_INGREDIENT: IngredientDraft = {
   rowId: 1,
   name: "",
@@ -69,6 +74,31 @@ export default function NewRecipeForm() {
   const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
   const [nextImageId, setNextImageId] = useState(1);
   const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
+  const [visibility, setVisibility] = useState<"public" | "private" | "family">("public");
+  const [familyOptions, setFamilyOptions] = useState<FamilyOption[]>([]);
+  const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    async function loadFamilies() {
+      try {
+        const response = await fetch("/api/families", { cache: "no-store" });
+        const data = (await response.json()) as {
+          families?: Array<{ id: number; name: string }>;
+          error?: string;
+        };
+
+        if (!response.ok || !data.families) {
+          return;
+        }
+
+        setFamilyOptions(data.families.map((family) => ({ id: family.id, name: family.name })));
+      } catch {
+        // Leave family options empty if fetch fails.
+      }
+    }
+
+    loadFamilies();
+  }, []);
 
   useEffect(() => {
     if (searchParams.get("importDraft") !== "1") {
@@ -184,6 +214,12 @@ export default function NewRecipeForm() {
     });
   }
 
+  function toggleSelectedFamily(familyId: number) {
+    setSelectedFamilyIds((current) =>
+      current.includes(familyId) ? current.filter((id) => id !== familyId) : [...current, familyId],
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -240,11 +276,24 @@ export default function NewRecipeForm() {
       return;
     }
 
+    if (visibility === "family" && selectedFamilyIds.length === 0) {
+      setError("Choose at least one family when sharing is set to Family.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const recipeFormData = new FormData();
     recipeFormData.append("title", trimmedTitle);
     recipeFormData.append("description", trimmedDescription);
     recipeFormData.append("stepsMarkdown", trimmedStepsMarkdown);
+    recipeFormData.append("visibility", visibility);
     recipeFormData.append("ingredients", JSON.stringify(payloadIngredients));
+
+    if (visibility === "family") {
+      for (const familyId of selectedFamilyIds) {
+        recipeFormData.append("familyIds", String(familyId));
+      }
+    }
 
     for (const image of newImages) {
       recipeFormData.append("images", image.file);
@@ -335,6 +384,75 @@ export default function NewRecipeForm() {
               onChange={(event) => setStepsMarkdown(event.target.value)}
               className="input-base"
             />
+          </div>
+
+          <div id="new-recipe-sharing-section" className="surface-card space-y-3 p-4">
+            <p id="new-recipe-sharing-title" className="text-sm font-medium">Sharing</p>
+            <div id="new-recipe-sharing-visibility-group" className="flex flex-wrap gap-4">
+              <label id="new-recipe-sharing-public-label" className="text-sm">
+                <input
+                  id="new-recipe-sharing-public-input"
+                  type="radio"
+                  name="recipeVisibility"
+                  checked={visibility === "public"}
+                  onChange={() => setVisibility("public")}
+                  className="mr-2"
+                />
+                Public (everyone)
+              </label>
+              <label id="new-recipe-sharing-private-label" className="text-sm">
+                <input
+                  id="new-recipe-sharing-private-input"
+                  type="radio"
+                  name="recipeVisibility"
+                  checked={visibility === "private"}
+                  onChange={() => setVisibility("private")}
+                  className="mr-2"
+                />
+                Private (only you)
+              </label>
+              <label id="new-recipe-sharing-family-label" className="text-sm">
+                <input
+                  id="new-recipe-sharing-family-input"
+                  type="radio"
+                  name="recipeVisibility"
+                  checked={visibility === "family"}
+                  onChange={() => setVisibility("family")}
+                  className="mr-2"
+                />
+                Family
+              </label>
+            </div>
+
+            {visibility === "family" ? (
+              <div id="new-recipe-sharing-families-section" className="space-y-2">
+                <p id="new-recipe-sharing-families-title" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+                  Select families
+                </p>
+                {familyOptions.length > 0 ? (
+                  <ul id="new-recipe-sharing-families-list" className="space-y-2">
+                    {familyOptions.map((family) => (
+                      <li id={`new-recipe-sharing-family-item-${family.id}`} key={family.id}>
+                        <label id={`new-recipe-sharing-family-label-${family.id}`} className="text-sm">
+                          <input
+                            id={`new-recipe-sharing-family-input-${family.id}`}
+                            type="checkbox"
+                            checked={selectedFamilyIds.includes(family.id)}
+                            onChange={() => toggleSelectedFamily(family.id)}
+                            className="mr-2"
+                          />
+                          {family.name}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p id="new-recipe-sharing-families-empty" className="text-sm text-[var(--color-text-muted)]">
+                    You are not a member of any families yet.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div id="new-recipe-images-section" className="surface-card p-4">

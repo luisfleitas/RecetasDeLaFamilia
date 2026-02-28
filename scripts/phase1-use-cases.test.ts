@@ -52,6 +52,8 @@ class FakeRecipeRepository implements RecipeRepository {
     return [...this.recipes.values()].map((recipe) => ({
       id: recipe.id,
       title: recipe.title,
+      visibility: recipe.visibility,
+      families: recipe.families,
       createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
     }));
@@ -95,6 +97,8 @@ class FakeRecipeRepository implements RecipeRepository {
       title: input.title,
       description: input.description,
       stepsMarkdown: input.stepsMarkdown,
+      visibility: input.visibility,
+      families: [],
       createdByUserId,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -126,6 +130,8 @@ class FakeRecipeRepository implements RecipeRepository {
       title: input.title,
       description: input.description,
       stepsMarkdown: input.stepsMarkdown,
+      visibility: input.visibility,
+      families: [],
       updatedAt: new Date(),
     };
     this.recipes.set(id, updated);
@@ -200,11 +206,22 @@ class FakeRecipeRepository implements RecipeRepository {
   }
 }
 
+class TrackingRecipeRepository extends FakeRecipeRepository {
+  public lastGetByIdOptions: GetRecipeByIdOptions | undefined;
+
+  async getById(id: number, options?: GetRecipeByIdOptions): Promise<Recipe | null> {
+    this.lastGetByIdOptions = options;
+    return super.getById(id, options);
+  }
+}
+
 function sampleRecipeInput(): CreateRecipeInput {
   return {
     title: "Test",
     description: "desc",
     stepsMarkdown: "step",
+    visibility: "private",
+    familyIds: [],
     ingredients: [{ name: "salt", qty: 1, unit: "tsp", notes: null, position: 1 }],
   };
 }
@@ -298,4 +315,23 @@ test("createRecipeWithImages stores image and exposes retrievable asset keys", a
   assert.ok(asset);
   assert.ok(asset?.storageKey.includes("recipes/"));
   assert.ok(asset?.thumbnailKey.includes("recipes/"));
+});
+
+test("updateRecipeWithImages reload uses viewer context for private/family recipes", async () => {
+  const repo = new TrackingRecipeRepository();
+  const storage = new InMemoryStorageProvider();
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+
+  const recipe = await repo.create(sampleRecipeInput(), 42);
+
+  const result = await useCases.updateRecipeWithImages(42, recipe.id, {
+    recipe: { ...sampleRecipeInput(), visibility: "family", familyIds: [1] },
+    newImages: [],
+  });
+
+  assert.equal(result.forbidden, false);
+  assert.ok(result.recipe);
+  assert.equal(repo.lastGetByIdOptions?.viewerUserId, 42);
+  assert.equal(repo.lastGetByIdOptions?.includeImages, true);
+  assert.equal(repo.lastGetByIdOptions?.includePrimaryImage, true);
 });

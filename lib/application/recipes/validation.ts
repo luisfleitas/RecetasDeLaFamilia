@@ -1,4 +1,4 @@
-import { CreateIngredientInput, CreateRecipeInput } from "@/lib/domain/recipe";
+import { CreateIngredientInput, CreateRecipeInput, RecipeVisibility } from "@/lib/domain/recipe";
 
 type IncomingIngredient = {
   name?: unknown;
@@ -12,6 +12,8 @@ type IncomingRecipe = {
   title?: unknown;
   description?: unknown;
   stepsMarkdown?: unknown;
+  visibility?: unknown;
+  familyIds?: unknown;
   ingredients?: unknown;
 };
 
@@ -84,6 +86,40 @@ function parseIngredients(input: unknown): CreateIngredientInput[] {
   });
 }
 
+function parseVisibility(value: unknown): RecipeVisibility {
+  if (value == null) {
+    return "public";
+  }
+
+  if (value === "public" || value === "private" || value === "family") {
+    return value;
+  }
+
+  throw new Error("visibility must be one of: public, private, family");
+}
+
+function parseFamilyIds(input: unknown): number[] {
+  if (input == null) {
+    return [];
+  }
+
+  if (!Array.isArray(input)) {
+    throw new Error("familyIds must be an array");
+  }
+
+  const unique = new Set<number>();
+
+  for (const item of input) {
+    if (!Number.isInteger(item) || (item as number) <= 0) {
+      throw new Error("familyIds must contain positive integers");
+    }
+
+    unique.add(item as number);
+  }
+
+  return [...unique];
+}
+
 export function parseCreateRecipeInput(input: unknown): CreateRecipeInput {
   const recipe = input as IncomingRecipe;
 
@@ -102,10 +138,19 @@ export function parseCreateRecipeInput(input: unknown): CreateRecipeInput {
     throw new Error("description must be a string");
   }
 
+  const visibility = parseVisibility(recipe.visibility);
+  const familyIds = parseFamilyIds(recipe.familyIds);
+
+  if (visibility === "family" && familyIds.length === 0) {
+    throw new Error("familyIds is required when visibility is family");
+  }
+
   return {
     title: recipe.title.trim(),
     description,
     stepsMarkdown: recipe.stepsMarkdown.trim(),
+    visibility,
+    familyIds,
     ingredients: parseIngredients(recipe.ingredients),
   };
 }

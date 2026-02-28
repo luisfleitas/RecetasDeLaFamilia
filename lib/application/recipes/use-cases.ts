@@ -34,8 +34,8 @@ type UpdateRecipeWithImagesInput = {
 };
 
 export type RecipeUseCases = {
-  listRecipes: (options?: ListRecipeOptions) => Promise<RecipeListItem[]>;
-  getRecipeById: (id: number, options?: GetRecipeByIdOptions) => Promise<Recipe | null>;
+  listRecipes: (viewerUserId: number | null, options?: ListRecipeOptions) => Promise<RecipeListItem[]>;
+  getRecipeById: (id: number, viewerUserId: number | null, options?: GetRecipeByIdOptions) => Promise<Recipe | null>;
   createRecipe: (userId: number, input: CreateRecipeInput) => Promise<Recipe>;
   createRecipeWithImages: (userId: number, input: CreateRecipeWithImagesInput) => Promise<Recipe>;
   updateRecipe: (
@@ -140,12 +140,18 @@ export function makeRecipeUseCases(
   }
 
   return {
-    async listRecipes(options) {
-      return recipeRepository.list(options);
+    async listRecipes(viewerUserId, options) {
+      return recipeRepository.list({
+        ...options,
+        viewerUserId,
+      });
     },
 
-    async getRecipeById(id: number, options?: GetRecipeByIdOptions) {
-      return recipeRepository.getById(id, options);
+    async getRecipeById(id: number, viewerUserId: number | null, options?: GetRecipeByIdOptions) {
+      return recipeRepository.getById(id, {
+        ...options,
+        viewerUserId,
+      });
     },
 
     async createRecipe(userId: number, input: CreateRecipeInput) {
@@ -161,6 +167,7 @@ export function makeRecipeUseCases(
       await persistNewImages(recipe.id, input.images, input.primaryImageIndex);
 
       const withImages = await recipeRepository.getById(recipe.id, {
+        viewerUserId: userId,
         includePrimaryImage: true,
         includeImages: true,
       });
@@ -218,6 +225,7 @@ export function makeRecipeUseCases(
       }
 
       const recipe = await recipeRepository.getById(id, {
+        viewerUserId: userId,
         includePrimaryImage: true,
         includeImages: true,
       });
