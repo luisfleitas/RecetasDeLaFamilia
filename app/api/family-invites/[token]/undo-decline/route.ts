@@ -3,6 +3,8 @@ import {
   getInviteState,
   hashFamilyInviteToken,
 } from "@/lib/families/utils";
+import { isPhase3Enabled } from "@/lib/phase3/config";
+import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
 import { FamilyInviteDecisionStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -14,15 +16,22 @@ type Params = {
 };
 
 export async function POST(request: Request, { params }: Params) {
+  const requestId = getRequestId(request);
   const authUser = getAuthUserFromRequest(request);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return withRequestId(
+      NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
+      requestId,
+    );
   }
 
   const { token } = await params;
   if (!token || token.length < 10) {
-    return NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 });
+    return withRequestId(
+      NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
+      requestId,
+    );
   }
 
   try {
@@ -36,22 +45,28 @@ export async function POST(request: Request, { params }: Params) {
     });
 
     if (!invite) {
-      return NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 });
+      return withRequestId(
+        NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
+        requestId,
+      );
     }
 
     const state = getInviteState(invite);
     if (state !== "active") {
-      return NextResponse.json(
-        {
-          error: "Invite can only be reopened while active",
-          code:
-            state === "revoked"
-              ? "INVITE_REVOKED"
-              : state === "consumed"
-                ? "INVITE_CONSUMED"
-                : "INVITE_EXPIRED",
-        },
-        { status: 409 },
+      return withRequestId(
+        NextResponse.json(
+          {
+            error: "Invite can only be reopened while active",
+            code:
+              state === "revoked"
+                ? "INVITE_REVOKED"
+                : state === "consumed"
+                  ? "INVITE_CONSUMED"
+                  : "INVITE_EXPIRED",
+          },
+          { status: 409 },
+        ),
+        requestId,
       );
     }
 
@@ -65,12 +80,15 @@ export async function POST(request: Request, { params }: Params) {
     });
 
     if (!decision || decision.status !== FamilyInviteDecisionStatus.declined) {
-      return NextResponse.json(
-        {
-          error: "Invite is not declined",
-          code: "VALIDATION_ERROR",
-        },
-        { status: 400 },
+      return withRequestId(
+        NextResponse.json(
+          {
+            error: "Invite is not declined",
+            code: "VALIDATION_ERROR",
+          },
+          { status: 400 },
+        ),
+        requestId,
       );
     }
 
@@ -85,9 +103,20 @@ export async function POST(request: Request, { params }: Params) {
       },
     });
 
-    return NextResponse.json({ decision: updated });
+    if (isPhase3Enabled()) {
+      await recordMetric(prisma, {
+        metricName: "invite_decline_undone",
+        requestId,
+        actorUserId: authUser.userId,
+        familyId: invite.familyId,
+        inviteId: invite.id,
+        statusCode: 200,
+      });
+    }
+
+    return withRequestId(NextResponse.json({ decision: updated }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while undoing decline";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
   }
 }

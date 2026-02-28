@@ -23,6 +23,7 @@ type InviteDetails = {
 type InviteLookupResponse = {
   invite?: InviteDetails;
   error?: string;
+  code?: string;
 };
 
 export default function InviteFamilyFlow({ token }: { token: string }) {
@@ -43,7 +44,17 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
       const data = (await response.json()) as InviteLookupResponse;
 
       if (!response.ok || !data.invite) {
-        setError(data.error ?? "Failed to load invite");
+        if (response.status === 429 || data.code === "RATE_LIMITED") {
+          const retryAfterRaw = response.headers.get("retry-after");
+          const retryAfterSeconds = retryAfterRaw ? Number.parseInt(retryAfterRaw, 10) : NaN;
+          if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+            setError(`Too many lookups. Try again in ${retryAfterSeconds} seconds.`);
+          } else {
+            setError("Too many lookups. Try again shortly.");
+          }
+        } else {
+          setError(data.error ?? "Failed to load invite");
+        }
         return;
       }
 
@@ -72,6 +83,20 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
       const data = (await response.json()) as { error?: string; code?: string };
 
       if (!response.ok) {
+        if (response.status === 409 || data.code?.startsWith("INVITE_")) {
+          if (data.code === "INVITE_REVOKED") {
+            setError("Invite was revoked. Refreshing latest state.");
+          } else if (data.code === "INVITE_CONSUMED") {
+            setError("Invite was already used. Refreshing latest state.");
+          } else if (data.code === "INVITE_EXPIRED") {
+            setError("Invite expired. Refreshing latest state.");
+          } else {
+            setError(data.error ?? `Failed to ${action} invite`);
+          }
+          await loadInvite();
+          return;
+        }
+
         setError(data.error ?? `Failed to ${action} invite`);
         return;
       }
@@ -107,7 +132,20 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
         {isLoading ? (
           <p id="family-invite-loading" className="text-sm text-[var(--color-text-muted)]">Loading invite...</p>
         ) : error ? (
-          <p id="family-invite-error" className="text-sm text-[var(--color-danger)]">{error}</p>
+          <div id="family-invite-error-panel" className="space-y-3">
+            <p id="family-invite-error" className="text-sm text-[var(--color-danger)]">{error}</p>
+            <button
+              id="family-invite-retry-btn"
+              type="button"
+              disabled={isLoading}
+              onClick={() => {
+                void loadInvite();
+              }}
+              className={buttonClassName("secondary")}
+            >
+              Retry
+            </button>
+          </div>
         ) : invite ? (
           <div id="family-invite-content" className="space-y-4">
             <div id="family-invite-family-card" className="surface-card space-y-2 p-4">
