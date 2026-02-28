@@ -167,6 +167,7 @@ export function makeRecipeUseCases(
       await persistNewImages(recipe.id, input.images, input.primaryImageIndex);
 
       const withImages = await recipeRepository.getById(recipe.id, {
+        viewerUserId: userId,
         includePrimaryImage: true,
         includeImages: true,
       });
@@ -224,6 +225,7 @@ export function makeRecipeUseCases(
       }
 
       const recipe = await recipeRepository.getById(id, {
+        viewerUserId: userId,
         includePrimaryImage: true,
         includeImages: true,
       });
