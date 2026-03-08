@@ -42,6 +42,25 @@ class InMemoryStorageProvider implements ImageStorageProvider {
   }
 }
 
+class FailOnNthPutStorageProvider extends InMemoryStorageProvider {
+  private putCount = 0;
+  private readonly failOnPutNumber: number;
+
+  constructor(failOnPutNumber: number) {
+    super();
+    this.failOnPutNumber = failOnPutNumber;
+  }
+
+  async putObject(input: PutObjectInput) {
+    this.putCount += 1;
+    if (this.putCount === this.failOnPutNumber) {
+      throw new Error("Simulated storage write failure");
+    }
+
+    await super.putObject(input);
+  }
+}
+
 class FakeRecipeRepository implements RecipeRepository {
   private nextRecipeId = 1;
   private nextImageId = 1;
@@ -350,6 +369,26 @@ test("createRecipeWithImages rolls back recipe and storage when reload fails aft
         primaryImageIndex: 0,
       }),
     /Recipe not found after create/,
+  );
+
+  assert.equal(await repo.getById(1), null);
+  assert.equal(storage.objects.size, 0);
+});
+
+test("createRecipeWithImages rolls back recipe and storage when image persistence fails", async () => {
+  const repo = new FakeRecipeRepository();
+  const storage = new FailOnNthPutStorageProvider(2);
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const image = await sampleImage();
+
+  await assert.rejects(
+    () =>
+      useCases.createRecipeWithImages(1, {
+        recipe: sampleRecipeInput(),
+        images: [image],
+        primaryImageIndex: 0,
+      }),
+    /Simulated storage write failure/,
   );
 
   assert.equal(await repo.getById(1), null);
