@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import { getImportWarningsForDraft, type ImportWarning } from "@/lib/application/recipes/import-warnings";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
 
 type ParseResponse = {
+  importSessionId?: string;
   draft?: ImportedRecipeDraft;
+  warnings?: ImportWarning[];
   error?: string;
 };
-
-const IMPORT_DRAFT_STORAGE_KEY = "recipe-import-draft-v1";
 
 type IngredientDraft = {
   rowId: number;
@@ -36,17 +37,37 @@ export default function ImportRecipeForm() {
   const [rawText, setRawText] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [draft, setDraft] = useState<ImportedRecipeDraft | null>(null);
+  const [importSessionId, setImportSessionId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [stepsMarkdown, setStepsMarkdown] = useState("");
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false);
 
   const canParse = useMemo(
     () => rawText.trim().length > 0 || selectedFile != null,
     [rawText, selectedFile],
   );
+  const draftWarnings = useMemo<ImportWarning[]>(() => {
+    if (!draft) {
+      return [];
+    }
+
+    return getImportWarningsForDraft({
+      title: title.trim(),
+      description: description.trim().length > 0 ? description.trim() : null,
+      stepsMarkdown: stepsMarkdown.trim(),
+      ingredients: ingredients.map((ingredient, index) => ({
+        name: ingredient.name.trim(),
+        qty: Number(ingredient.qty),
+        unit: ingredient.unit.trim(),
+        notes: ingredient.notes.trim().length > 0 ? ingredient.notes.trim() : null,
+        position: index + 1,
+      })),
+    });
+  }, [description, draft, ingredients, stepsMarkdown, title]);
 
   function applyDraft(nextDraft: ImportedRecipeDraft) {
     setDraft(nextDraft);
@@ -106,23 +127,26 @@ export default function ImportRecipeForm() {
 
       const data = (await response.json()) as ParseResponse;
 
-      if (!response.ok || !data.draft) {
+      if (!response.ok || !data.draft || !data.importSessionId) {
         setDraft(null);
+        setImportSessionId(null);
         setError(data.error ?? "Could not parse this recipe.");
         return;
       }
 
+      setImportSessionId(data.importSessionId ?? null);
       applyDraft(data.draft);
     } catch {
       setDraft(null);
+      setImportSessionId(null);
       setError("Could not parse this recipe.");
     } finally {
       setIsParsing(false);
     }
   }
 
-  function continueToCreate() {
-    if (!draft) {
+  async function continueToCreate() {
+    if (!draft || !importSessionId) {
       return;
     }
 
@@ -152,8 +176,35 @@ export default function ImportRecipeForm() {
       return;
     }
 
-    window.sessionStorage.setItem(IMPORT_DRAFT_STORAGE_KEY, JSON.stringify(payload));
-    router.push("/recipes/new?importDraft=1");
+    setError(null);
+    setIsContinuing(true);
+    try {
+      const response = await fetch(`/api/recipes/import/sessions/${encodeURIComponent(importSessionId)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ draft: payload }),
+      });
+
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Could not save imported draft.");
+        return;
+      }
+
+      router.push(`/recipes/new?importSession=${encodeURIComponent(importSessionId)}`);
+    } catch {
+      setError("Could not save imported draft.");
+    } finally {
+      setIsContinuing(false);
+    }
+  }
+
+  function getWarningsForField(field: string): ImportWarning[] {
+    return draftWarnings.filter((warning) => warning.field === field);
+  }
+
+  function getWarningsForIngredientField(index: number, field: "name" | "qty" | "unit" | "notes"): ImportWarning[] {
+    return getWarningsForField(`ingredients.${index}.` + field);
   }
 
   return (
@@ -183,12 +234,12 @@ export default function ImportRecipeForm() {
 
           <div id="recipe-import-file-field">
             <label id="recipe-import-file-label" htmlFor="recipe-import-file-input" className="mb-1 block text-sm font-medium">
-              Or upload TXT document
+              Or upload TXT, PDF, or image document (JPG, PNG, WEBP, TIFF, BMP)
             </label>
             <input
               id="recipe-import-file-input"
               type="file"
-              accept=".txt,text/plain"
+              accept=".txt,text/plain,.pdf,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
               className="input-base"
             />
@@ -214,6 +265,24 @@ export default function ImportRecipeForm() {
           <section id="recipe-import-preview-section" className="space-y-4 border-t border-[var(--color-border)] pt-4">
             <h2 id="recipe-import-preview-title" className="text-lg font-semibold">Preview and edit</h2>
 
+            {draftWarnings.length > 0 ? (
+              <div
+                id="recipe-import-warning-summary"
+                className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+              >
+                <p id="recipe-import-warning-summary-title" className="font-medium">
+                  Review detected fields before continuing.
+                </p>
+                <ul id="recipe-import-warning-summary-list" className="mt-2 space-y-1">
+                  {draftWarnings.map((warning, index) => (
+                    <li id={`recipe-import-warning-summary-item-${index + 1}`} key={`${warning.code}-${warning.field ?? "global"}`}>
+                      {warning.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <div id="recipe-import-title-field">
               <label id="recipe-import-title-label" htmlFor="recipe-import-title-input" className="mb-1 block text-sm font-medium">
                 Title
@@ -237,6 +306,15 @@ export default function ImportRecipeForm() {
                 rows={2}
                 className="input-base"
               />
+              {getWarningsForField("description").map((warning, index) => (
+                <p
+                  id={`recipe-import-description-warning-${index + 1}`}
+                  key={`${warning.code}-${index}`}
+                  className="mt-1 text-sm text-amber-800"
+                >
+                  {warning.message}
+                </p>
+              ))}
             </div>
 
             <div id="recipe-import-steps-field">
@@ -250,6 +328,15 @@ export default function ImportRecipeForm() {
                 rows={6}
                 className="input-base"
               />
+              {getWarningsForField("stepsMarkdown").map((warning, index) => (
+                <p
+                  id={`recipe-import-steps-warning-${index + 1}`}
+                  key={`${warning.code}-${index}`}
+                  className="mt-1 text-sm text-amber-800"
+                >
+                  {warning.message}
+                </p>
+              ))}
             </div>
 
             <div id="recipe-import-ingredients-section" className="space-y-2">
@@ -265,40 +352,57 @@ export default function ImportRecipeForm() {
                 </button>
               </div>
 
-              {ingredients.map((ingredient) => (
+              {ingredients.map((ingredient, ingredientIndex) => (
                 <div
                   id={`recipe-import-ingredient-row-${ingredient.rowId}`}
                   key={ingredient.rowId}
                   className="grid gap-2 rounded-lg border border-[var(--color-border)] p-2 sm:grid-cols-[1.5fr_0.8fr_1fr_1.4fr_auto]"
                 >
-                  <input
-                    id={`recipe-import-ingredient-name-input-${ingredient.rowId}`}
-                    value={ingredient.name}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "name", event.target.value)}
-                    placeholder="Name"
-                    className="input-base"
-                  />
-                  <input
-                    id={`recipe-import-ingredient-qty-input-${ingredient.rowId}`}
-                    value={ingredient.qty}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "qty", event.target.value)}
-                    placeholder="Qty"
-                    className="input-base"
-                  />
-                  <input
-                    id={`recipe-import-ingredient-unit-input-${ingredient.rowId}`}
-                    value={ingredient.unit}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "unit", event.target.value)}
-                    placeholder="Unit"
-                    className="input-base"
-                  />
-                  <input
-                    id={`recipe-import-ingredient-notes-input-${ingredient.rowId}`}
-                    value={ingredient.notes}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "notes", event.target.value)}
-                    placeholder="Notes"
-                    className="input-base"
-                  />
+                  <div id={`recipe-import-ingredient-name-field-${ingredient.rowId}`}>
+                    <input
+                      id={`recipe-import-ingredient-name-input-${ingredient.rowId}`}
+                      value={ingredient.name}
+                      onChange={(event) => updateIngredient(ingredient.rowId, "name", event.target.value)}
+                      placeholder="Name"
+                      className="input-base"
+                    />
+                  </div>
+                  <div id={`recipe-import-ingredient-qty-field-${ingredient.rowId}`}>
+                    <input
+                      id={`recipe-import-ingredient-qty-input-${ingredient.rowId}`}
+                      value={ingredient.qty}
+                      onChange={(event) => updateIngredient(ingredient.rowId, "qty", event.target.value)}
+                      placeholder="Qty"
+                      className="input-base"
+                    />
+                  </div>
+                  <div id={`recipe-import-ingredient-unit-field-${ingredient.rowId}`}>
+                    <input
+                      id={`recipe-import-ingredient-unit-input-${ingredient.rowId}`}
+                      value={ingredient.unit}
+                      onChange={(event) => updateIngredient(ingredient.rowId, "unit", event.target.value)}
+                      placeholder="Unit"
+                      className="input-base"
+                    />
+                    {getWarningsForIngredientField(ingredientIndex, "unit").map((warning, index) => (
+                      <p
+                        id={`recipe-import-ingredient-unit-warning-${ingredient.rowId}-${index + 1}`}
+                        key={`${warning.code}-${index}`}
+                        className="mt-1 text-sm text-amber-800"
+                      >
+                        {warning.message}
+                      </p>
+                    ))}
+                  </div>
+                  <div id={`recipe-import-ingredient-notes-field-${ingredient.rowId}`}>
+                    <input
+                      id={`recipe-import-ingredient-notes-input-${ingredient.rowId}`}
+                      value={ingredient.notes}
+                      onChange={(event) => updateIngredient(ingredient.rowId, "notes", event.target.value)}
+                      placeholder="Notes"
+                      className="input-base"
+                    />
+                  </div>
                   <button
                     id={`recipe-import-remove-ingredient-btn-${ingredient.rowId}`}
                     type="button"
@@ -315,9 +419,10 @@ export default function ImportRecipeForm() {
               id="recipe-import-continue-btn"
               type="button"
               onClick={continueToCreate}
+              disabled={isContinuing}
               className={buttonClassName("primary")}
             >
-              Continue to recipe form
+              {isContinuing ? "Saving..." : "Continue to recipe form"}
             </button>
           </section>
         ) : null}
