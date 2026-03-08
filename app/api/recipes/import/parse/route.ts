@@ -1,10 +1,17 @@
 import { isRecipeImportEnabled } from "@/lib/application/recipes/import-config";
+import { checkRecipeImportParseRateLimit } from "@/lib/application/recipes/import-rate-limit";
+import { recordRecipeImportTelemetry } from "@/lib/application/recipes/import-telemetry";
+import {
+  RecipeImportParseTimeoutError,
+  withRecipeImportParseTimeout,
+} from "@/lib/application/recipes/import-timeout";
 import { getImportWarningsForDraft } from "@/lib/application/recipes/import-warnings";
 import { importRecipeFromTextDocument } from "@/lib/application/recipes/text-document-import";
 import { extractTextWithLocalOcr, isSupportedOcrMimeType } from "@/lib/application/recipes/local-ocr";
 import { extractTextFromPdfWithLocalOcr, isPdfFile } from "@/lib/application/recipes/pdf-import";
 import { stageImportSourceDocument, type ImportSourceType } from "@/lib/application/recipes/source-documents";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getRequestId, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -24,6 +31,9 @@ function isTxtFile(file: File): boolean {
 
 type ParsedImportRequest = {
   content: string;
+  sourceType: "paste" | ImportSourceType;
+  pdfExtractionMethod?: "text-layer" | "ocr-preview" | null;
+  ocrDriver?: "local" | null;
   sourceDocument:
     | {
         bytes: Buffer;
@@ -41,7 +51,13 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   const pastedText = formData.get("content");
 
   if (typeof pastedText === "string" && pastedText.trim().length > 0) {
-    return { content: pastedText, sourceDocument: null };
+    return {
+      content: pastedText,
+      sourceType: "paste",
+      pdfExtractionMethod: null,
+      ocrDriver: null,
+      sourceDocument: null,
+    };
   }
 
   if (!(file instanceof File)) {
@@ -58,8 +74,12 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
 
   if (!isTxtFile(file)) {
     if (isPdfFile(file)) {
+      const pdfResult = await extractTextFromPdfWithLocalOcr(bytes);
       return {
-        content: await extractTextFromPdfWithLocalOcr(bytes),
+        content: pdfResult.text,
+        sourceType: "pdf",
+        pdfExtractionMethod: pdfResult.extractionMethod,
+        ocrDriver: pdfResult.extractionMethod === "ocr-preview" ? "local" : null,
         sourceDocument: {
           bytes,
           sourceType: "pdf",
@@ -81,6 +101,9 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
         bytes,
         mimeType: file.type,
       }),
+      sourceType: "image",
+      pdfExtractionMethod: null,
+      ocrDriver: "local",
       sourceDocument: {
         bytes,
         sourceType: "image",
@@ -97,6 +120,9 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
 
   return {
     content: bytes.toString("utf8"),
+    sourceType: "txt",
+    pdfExtractionMethod: null,
+    ocrDriver: null,
     sourceDocument: {
       bytes,
       sourceType: "txt",
@@ -126,84 +152,210 @@ async function parseContentFromJsonRequest(request: Request): Promise<ParsedImpo
 
   return {
     content,
+    sourceType: "paste",
+    pdfExtractionMethod: null,
+    ocrDriver: null,
     sourceDocument: null,
   };
 }
 
 export async function POST(request: Request) {
+  const requestId = getRequestId(request);
   if (!isRecipeImportEnabled()) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return withRequestId(NextResponse.json({ error: "Not found" }, { status: 404 }), requestId);
   }
 
   const authUser = getAuthUserFromRequest(request);
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), requestId);
   }
 
-  let draft;
-  let parsedRequest: ParsedImportRequest;
-  try {
-    const contentType = request.headers.get("content-type") ?? "";
-    parsedRequest = contentType.includes("multipart/form-data")
-      ? await parseContentFromMultipartRequest(request)
-      : await parseContentFromJsonRequest(request);
+  const startedAt = Date.now();
+  const prisma = await getPrisma();
 
-    draft = importRecipeFromTextDocument(parsedRequest.content);
+  const rate = checkRecipeImportParseRateLimit(authUser.userId);
+  if (!rate.allowed) {
+    const limitedResponse = NextResponse.json(
+      { error: "Too many recipe import attempts. Please retry later.", code: "RATE_LIMITED" },
+      { status: 429 },
+    );
+    limitedResponse.headers.set("retry-after", String(rate.retryAfterSeconds));
+    try {
+      await recordRecipeImportTelemetry({
+        prisma,
+        requestId,
+        userId: authUser.userId,
+        statusCode: 429,
+        sourceType: "unknown",
+        outcome: "rate_limited",
+        errorCode: "RATE_LIMITED",
+        latencyMs: Date.now() - startedAt,
+      });
+    } catch {
+      // Metrics are best effort and must not block the request.
+    }
+    return withRequestId(limitedResponse, requestId);
+  }
+
+  try {
+    return await withRecipeImportParseTimeout(async () => {
+      let draft;
+      let parsedRequest: ParsedImportRequest;
+      try {
+        const contentType = request.headers.get("content-type") ?? "";
+        parsedRequest = contentType.includes("multipart/form-data")
+          ? await parseContentFromMultipartRequest(request)
+          : await parseContentFromJsonRequest(request);
+
+        draft = importRecipeFromTextDocument(parsedRequest.content);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unexpected parse error while importing recipe.";
+        const errorResponse = NextResponse.json({ error: message }, { status: 400 });
+        try {
+          await recordRecipeImportTelemetry({
+            prisma,
+            requestId,
+            userId: authUser.userId,
+            statusCode: 400,
+            sourceType: "unknown",
+            outcome: "error",
+            errorCode: "PARSE_ERROR",
+            latencyMs: Date.now() - startedAt,
+          });
+        } catch {
+          // Metrics are best effort and must not block the request.
+        }
+        return withRequestId(errorResponse, requestId);
+      }
+
+      let createdSessionId: string | null = null;
+      try {
+        const ttlHours = Number(process.env.RECIPE_IMPORT_SESSION_TTL_HOURS ?? DEFAULT_SESSION_TTL_HOURS);
+        const expiresAt = new Date(
+          Date.now() + (Number.isFinite(ttlHours) ? ttlHours : DEFAULT_SESSION_TTL_HOURS) * 60 * 60 * 1000,
+        );
+        const prisma = await getPrisma();
+        const session = await prisma.importSession.create({
+          data: {
+            userId: authUser.userId,
+            status: "PARSED",
+            draftJson: JSON.stringify(draft),
+            expiresAt,
+          },
+          select: {
+            id: true,
+          },
+        });
+        createdSessionId = session.id;
+
+        if (parsedRequest.sourceDocument) {
+          await stageImportSourceDocument({
+            userId: authUser.userId,
+            importSessionId: session.id,
+            originalFilename: parsedRequest.sourceDocument.originalFilename,
+            mimeType: parsedRequest.sourceDocument.mimeType,
+            sizeBytes: parsedRequest.sourceDocument.sizeBytes,
+            sourceType: parsedRequest.sourceDocument.sourceType,
+            bytes: parsedRequest.sourceDocument.bytes,
+          });
+        }
+
+        const warnings = getImportWarningsForDraft(draft);
+        const response = NextResponse.json({
+          importSessionId: session.id,
+          draft,
+          warnings,
+        });
+        try {
+          await recordRecipeImportTelemetry({
+            prisma,
+            requestId,
+            userId: authUser.userId,
+            statusCode: 200,
+            sourceType: parsedRequest.sourceType,
+            outcome: "success",
+            latencyMs: Date.now() - startedAt,
+            warningCount: warnings.length,
+            pdfExtractionMethod: parsedRequest.pdfExtractionMethod ?? null,
+            ocrDriver: parsedRequest.ocrDriver ?? null,
+          });
+        } catch {
+          // Metrics are best effort and must not block the request.
+        }
+        return withRequestId(response, requestId);
+      } catch (error) {
+        if (createdSessionId) {
+          try {
+            const prisma = await getPrisma();
+            await prisma.importSession.delete({ where: { id: createdSessionId } });
+          } catch {
+            // Preserve the original persistence error; cleanup is best effort.
+          }
+        }
+
+        const message =
+          error instanceof Error ? error.message : "Unexpected persistence error while saving import session.";
+        const errorResponse = NextResponse.json({ error: message }, { status: 500 });
+        try {
+          await recordRecipeImportTelemetry({
+            prisma,
+            requestId,
+            userId: authUser.userId,
+            statusCode: 500,
+            sourceType: parsedRequest.sourceType,
+            outcome: "error",
+            errorCode: "PERSISTENCE_ERROR",
+            latencyMs: Date.now() - startedAt,
+            pdfExtractionMethod: parsedRequest.pdfExtractionMethod ?? null,
+            ocrDriver: parsedRequest.ocrDriver ?? null,
+          });
+        } catch {
+          // Metrics are best effort and must not block the request.
+        }
+        return withRequestId(errorResponse, requestId);
+      }
+    });
   } catch (error) {
+    if (error instanceof RecipeImportParseTimeoutError) {
+      const timeoutResponse = NextResponse.json(
+        { error: error.message, code: "EXTRACTION_TIMEOUT" },
+        { status: 504 },
+      );
+      try {
+        await recordRecipeImportTelemetry({
+          prisma,
+          requestId,
+          userId: authUser.userId,
+          statusCode: 504,
+          sourceType: "unknown",
+          outcome: "error",
+          errorCode: "EXTRACTION_TIMEOUT",
+          latencyMs: Date.now() - startedAt,
+        });
+      } catch {
+        // Metrics are best effort and must not block the request.
+      }
+      return withRequestId(timeoutResponse, requestId);
+    }
+
     const message =
       error instanceof Error ? error.message : "Unexpected parse error while importing recipe.";
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
-
-  let createdSessionId: string | null = null;
-  try {
-    const ttlHours = Number(process.env.RECIPE_IMPORT_SESSION_TTL_HOURS ?? DEFAULT_SESSION_TTL_HOURS);
-    const expiresAt = new Date(
-      Date.now() + (Number.isFinite(ttlHours) ? ttlHours : DEFAULT_SESSION_TTL_HOURS) * 60 * 60 * 1000,
-    );
-    const prisma = await getPrisma();
-    const session = await prisma.importSession.create({
-      data: {
+    const errorResponse = NextResponse.json({ error: message }, { status: 500 });
+    try {
+      await recordRecipeImportTelemetry({
+        prisma,
+        requestId,
         userId: authUser.userId,
-        status: "PARSED",
-        draftJson: JSON.stringify(draft),
-        expiresAt,
-      },
-      select: {
-        id: true,
-      },
-    });
-    createdSessionId = session.id;
-
-    if (parsedRequest.sourceDocument) {
-      await stageImportSourceDocument({
-        userId: authUser.userId,
-        importSessionId: session.id,
-        originalFilename: parsedRequest.sourceDocument.originalFilename,
-        mimeType: parsedRequest.sourceDocument.mimeType,
-        sizeBytes: parsedRequest.sourceDocument.sizeBytes,
-        sourceType: parsedRequest.sourceDocument.sourceType,
-        bytes: parsedRequest.sourceDocument.bytes,
+        statusCode: 500,
+        sourceType: "unknown",
+        outcome: "error",
+        errorCode: "UNEXPECTED_ERROR",
+        latencyMs: Date.now() - startedAt,
       });
+    } catch {
+      // Metrics are best effort and must not block the request.
     }
-
-    return NextResponse.json({
-      importSessionId: session.id,
-      draft,
-      warnings: getImportWarningsForDraft(draft),
-    });
-  } catch (error) {
-    if (createdSessionId) {
-      try {
-        const prisma = await getPrisma();
-        await prisma.importSession.delete({ where: { id: createdSessionId } });
-      } catch {
-        // Preserve the original persistence error; cleanup is best effort.
-      }
-    }
-
-    const message =
-      error instanceof Error ? error.message : "Unexpected persistence error while saving import session.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return withRequestId(errorResponse, requestId);
   }
 }
