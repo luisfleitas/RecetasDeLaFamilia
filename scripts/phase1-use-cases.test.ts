@@ -139,7 +139,16 @@ class FakeRecipeRepository implements RecipeRepository {
   }
 
   async delete(id: number): Promise<boolean> {
-    return this.recipes.delete(id);
+    const deleted = this.recipes.delete(id);
+    if (deleted) {
+      for (const [imageId, image] of this.images.entries()) {
+        if (image.recipeId === id) {
+          this.images.delete(imageId);
+        }
+      }
+    }
+
+    return deleted;
   }
 
   async addImage(recipeId: number, input: AddRecipeImageInput): Promise<RecipeImage> {
@@ -211,6 +220,16 @@ class TrackingRecipeRepository extends FakeRecipeRepository {
 
   async getById(id: number, options?: GetRecipeByIdOptions): Promise<Recipe | null> {
     this.lastGetByIdOptions = options;
+    return super.getById(id, options);
+  }
+}
+
+class MissingAfterCreateRecipeRepository extends FakeRecipeRepository {
+  async getById(id: number, options?: GetRecipeByIdOptions): Promise<Recipe | null> {
+    if (options?.includeImages || options?.includePrimaryImage) {
+      return null;
+    }
+
     return super.getById(id, options);
   }
 }
@@ -315,6 +334,26 @@ test("createRecipeWithImages stores image and exposes retrievable asset keys", a
   assert.ok(asset);
   assert.ok(asset?.storageKey.includes("recipes/"));
   assert.ok(asset?.thumbnailKey.includes("recipes/"));
+});
+
+test("createRecipeWithImages rolls back recipe and storage when reload fails after create", async () => {
+  const repo = new MissingAfterCreateRecipeRepository();
+  const storage = new InMemoryStorageProvider();
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const image = await sampleImage();
+
+  await assert.rejects(
+    () =>
+      useCases.createRecipeWithImages(1, {
+        recipe: sampleRecipeInput(),
+        images: [image],
+        primaryImageIndex: 0,
+      }),
+    /Recipe not found after create/,
+  );
+
+  assert.equal(await repo.getById(1), null);
+  assert.equal(storage.objects.size, 0);
 });
 
 test("updateRecipeWithImages reload uses viewer context for private/family recipes", async () => {

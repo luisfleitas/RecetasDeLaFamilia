@@ -71,9 +71,9 @@ export function makeRecipeUseCases(
     recipeId: number,
     newImages: UploadedRecipeImage[],
     primaryImageIndex?: number | null,
-  ): Promise<{ createdImageIds: number[]; primaryImageId: number | null }> {
+  ): Promise<{ createdImageIds: number[]; primaryImageId: number | null; storageKeys: string[] }> {
     if (newImages.length === 0) {
-      return { createdImageIds: [], primaryImageId: null };
+      return { createdImageIds: [], primaryImageId: null, storageKeys: [] };
     }
 
     const existingCount = await recipeRepository.countImagesByRecipeId(recipeId);
@@ -92,51 +92,70 @@ export function makeRecipeUseCases(
 
     const existingPrimary = await recipeRepository.getPrimaryImageByRecipeId(recipeId);
     const createdImageIds: number[] = [];
+    const storageKeys: string[] = [];
 
-    for (let index = 0; index < newImages.length; index += 1) {
-      const image = newImages[index];
-      assertSupportedImageMimeType(image.mimeType);
-      assertSupportedImageSize(image.sizeBytes);
+    try {
+      for (let index = 0; index < newImages.length; index += 1) {
+        const image = newImages[index];
+        assertSupportedImageMimeType(image.mimeType);
+        assertSupportedImageSize(image.sizeBytes);
 
-      const resized = await resizeRecipeImage(image.buffer);
-      const imageKeyToken = randomUUID();
-      const fullKey = `recipes/${recipeId}/img_${imageKeyToken}.jpg`;
-      const thumbnailKey = `recipes/${recipeId}/thumb_${imageKeyToken}.jpg`;
-      const shouldSetPrimary =
-        primaryImageIndex != null
-          ? primaryImageIndex === index
-          : existingCount === 0 && index === 0 && !existingPrimary;
+        const resized = await resizeRecipeImage(image.buffer);
+        const imageKeyToken = randomUUID();
+        const fullKey = `recipes/${recipeId}/img_${imageKeyToken}.jpg`;
+        const thumbnailKey = `recipes/${recipeId}/thumb_${imageKeyToken}.jpg`;
+        const shouldSetPrimary =
+          primaryImageIndex != null
+            ? primaryImageIndex === index
+            : existingCount === 0 && index === 0 && !existingPrimary;
 
-      await storageProvider.putObject({
-        key: fullKey,
-        buffer: resized.fullBuffer,
-        contentType: resized.mimeType,
-      });
-      await storageProvider.putObject({
-        key: thumbnailKey,
-        buffer: resized.thumbnailBuffer,
-        contentType: resized.mimeType,
-      });
+        await storageProvider.putObject({
+          key: fullKey,
+          buffer: resized.fullBuffer,
+          contentType: resized.mimeType,
+        });
+        storageKeys.push(fullKey);
+        await storageProvider.putObject({
+          key: thumbnailKey,
+          buffer: resized.thumbnailBuffer,
+          contentType: resized.mimeType,
+        });
+        storageKeys.push(thumbnailKey);
 
-      const created = await recipeRepository.addImage(recipeId, {
-        originalFilename: image.originalFilename,
-        mimeType: resized.mimeType,
-        sizeBytes: image.sizeBytes,
-        storageKey: fullKey,
-        thumbnailKey,
-        width: resized.width,
-        height: resized.height,
-        position: existingCount + index + 1,
-        isPrimary: shouldSetPrimary,
-      });
+        const created = await recipeRepository.addImage(recipeId, {
+          originalFilename: image.originalFilename,
+          mimeType: resized.mimeType,
+          sizeBytes: image.sizeBytes,
+          storageKey: fullKey,
+          thumbnailKey,
+          width: resized.width,
+          height: resized.height,
+          position: existingCount + index + 1,
+          isPrimary: shouldSetPrimary,
+        });
 
-      createdImageIds.push(created.id);
+        createdImageIds.push(created.id);
+      }
+    } catch (error) {
+      const deleteResults = await Promise.allSettled(
+        storageKeys.map((key) => storageProvider.deleteObject(key)),
+      );
+      const failedDeletes = deleteResults.filter((result) => result.status === "rejected").length;
+      if (failedDeletes > 0) {
+        console.error("[recipes.create] image persistence cleanup left orphaned storage objects", {
+          recipeId,
+          failedDeletes,
+          totalKeys: storageKeys.length,
+        });
+      }
+
+      throw error;
     }
 
     const primaryImageId =
       primaryImageIndex != null ? (createdImageIds[primaryImageIndex] ?? null) : null;
 
-    return { createdImageIds, primaryImageId };
+    return { createdImageIds, primaryImageId, storageKeys };
   }
 
   return {
@@ -164,19 +183,42 @@ export function makeRecipeUseCases(
       }
 
       const recipe = await recipeRepository.create(input.recipe, userId);
-      await persistNewImages(recipe.id, input.images, input.primaryImageIndex);
+      let createdStorageKeys: string[] = [];
 
-      const withImages = await recipeRepository.getById(recipe.id, {
-        viewerUserId: userId,
-        includePrimaryImage: true,
-        includeImages: true,
-      });
+      try {
+        const { storageKeys } = await persistNewImages(recipe.id, input.images, input.primaryImageIndex);
+        createdStorageKeys = storageKeys;
 
-      if (!withImages) {
-        throw new Error("Recipe not found after create");
+        const withImages = await recipeRepository.getById(recipe.id, {
+          viewerUserId: userId,
+          includePrimaryImage: true,
+          includeImages: true,
+        });
+
+        if (!withImages) {
+          throw new Error("Recipe not found after create");
+        }
+
+        return withImages;
+      } catch (error) {
+        await recipeRepository.delete(recipe.id);
+
+        if (createdStorageKeys.length > 0) {
+          const deleteResults = await Promise.allSettled(
+            createdStorageKeys.map((key) => storageProvider.deleteObject(key)),
+          );
+          const failedDeletes = deleteResults.filter((result) => result.status === "rejected").length;
+          if (failedDeletes > 0) {
+            console.error("[recipes.create] recipe rollback left orphaned storage objects", {
+              recipeId: recipe.id,
+              failedDeletes,
+              totalKeys: createdStorageKeys.length,
+            });
+          }
+        }
+
+        throw error;
       }
-
-      return withImages;
     },
 
     async updateRecipe(userId: number, id: number, input: CreateRecipeInput) {
