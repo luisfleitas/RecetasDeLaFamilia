@@ -20,6 +20,7 @@ model Recipe {
   updatedAt       DateTime      @updatedAt
   ingredients     Ingredient[]
   images          RecipeImage[]
+  sourceDocuments RecipeSourceDocument[]
   familyLinks     RecipeFamilyLink[]
 }
 
@@ -50,6 +51,8 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
   recipes      Recipe[]
+  importSessions ImportSession[]
+  recipeSourceDocuments RecipeSourceDocument[]
   createdFamilies Family[] @relation("FamilyCreator")
   familyMemberships FamilyMembership[]
   createdFamilyInvites FamilyInvite[] @relation("FamilyInviteCreator")
@@ -61,6 +64,49 @@ model User {
   metricEvents MetricEvent[] @relation("MetricActor")
 
   @@map("users")
+}
+
+enum ImportSessionStatus {
+  PARSED
+  CONFIRMED
+  EXPIRED
+  FAILED
+}
+
+model ImportSession {
+  id        String              @id @default(cuid())
+  userId    Int                 @map("user_id")
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    ImportSessionStatus @default(PARSED)
+  draftJson String              @map("draft_json")
+  expiresAt DateTime            @map("expires_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+  sourceDocuments RecipeSourceDocument[]
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+model RecipeSourceDocument {
+  id               Int      @id @default(autoincrement())
+  recipeId         Int?     @map("recipe_id")
+  recipe           Recipe?  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  importSessionId  String?  @map("import_session_id")
+  importSession    ImportSession? @relation(fields: [importSessionId], references: [id], onDelete: Cascade)
+  uploadedByUserId Int      @map("uploaded_by_user_id")
+  uploadedByUser   User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  originalFilename String   @map("original_filename")
+  mimeType         String   @map("mime_type")
+  sizeBytes        Int      @map("size_bytes")
+  storageKey       String   @map("storage_key")
+  sourceType       String   @map("source_type")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([recipeId, createdAt])
+  @@index([importSessionId, createdAt])
+  @@index([uploadedByUserId, createdAt])
 }
 
 model RecipeImage {

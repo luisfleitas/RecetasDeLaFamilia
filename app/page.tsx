@@ -1,5 +1,6 @@
 // Home page that lists recipes from the API.
 import Link from "next/link";
+import Image from "next/image";
 import { headers } from "next/headers";
 import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 import LogoutButton from "@/app/_components/logout-button";
@@ -57,6 +58,7 @@ export default async function HomePage() {
   const [recipesResponse, authUser] = await Promise.all([fetchRecipes(), getOptionalAuthPageUser()]);
   const { recipes } = recipesResponse;
   const publicRecipes = recipes.filter((recipe) => recipe.visibility === "public");
+  const visibleRecipes = authUser ? recipes : publicRecipes;
   const privateRecipes = recipes.filter((recipe) => recipe.visibility === "private");
   const familyGroupsMap = new Map<string, RecipeVisibilityTabGroup>();
 
@@ -98,11 +100,13 @@ export default async function HomePage() {
   }
 
   const familyGroups = Array.from(familyGroupsMap.values()).sort((a, b) => a.label.localeCompare(b.label));
-  const visibilityTabGroups: RecipeVisibilityTabGroup[] = [
-    { id: "public", label: "Public", type: "public", recipes: publicRecipes },
-    ...familyGroups,
-    { id: "private", label: "Private", type: "private", recipes: privateRecipes },
-  ];
+  const visibilityTabGroups: RecipeVisibilityTabGroup[] = authUser
+    ? [
+        { id: "public", label: "Public", type: "public", recipes: publicRecipes },
+        ...familyGroups,
+        { id: "private", label: "Private", type: "private", recipes: privateRecipes },
+      ]
+    : [];
 
   return (
     <main id="home-page-main" className="relative min-h-screen overflow-hidden py-6 sm:py-10">
@@ -136,9 +140,6 @@ export default async function HomePage() {
               <Link id="home-add-recipe-link" href="/recipes/new" className={buttonClassName("primary")}>
                 + Add Family Recipe
               </Link>
-              <Link id="home-import-recipe-link" href="/recipes/import" className={buttonClassName("secondary")}>
-                Import Recipe Text
-              </Link>
             </div>
 
             <div id="home-hero-copy" className="max-w-3xl">
@@ -160,7 +161,7 @@ export default async function HomePage() {
 
           <div id="home-status-pills" className="mt-5 flex flex-wrap gap-2.5">
             <span id="home-recipe-count-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
-              {recipes.length} Heritage Recipe{recipes.length === 1 ? "" : "s"}
+              {visibleRecipes.length} Heritage Recipe{visibleRecipes.length === 1 ? "" : "s"}
             </span>
             <span id="home-auth-status-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-text-muted)]">
               {authUser ? `Signed in as ${authUser.username}` : "Guest preview mode"}
@@ -169,14 +170,58 @@ export default async function HomePage() {
         </header>
 
         <section id="home-content-section" className="grid gap-[18px] lg:grid-cols-[1.7fr_1fr]">
-          {recipes.length === 0 ? (
+          {visibleRecipes.length === 0 ? (
             <article id="home-empty-state-card" className="surface-card p-10 text-center">
               <h2 id="home-empty-state-title" className="text-xl font-semibold">Start your family recipe archive</h2>
               <p id="home-empty-state-description" className="mx-auto mt-3 max-w-lg text-sm text-[var(--color-text-muted)]">
                 Add your first recipe with notes about who taught it and where it came from, so your family can keep it for generations.
               </p>
             </article>
-          ) : <RecipeVisibilityTabs groups={visibilityTabGroups} />}
+          ) : authUser ? (
+            <RecipeVisibilityTabs groups={visibilityTabGroups} />
+          ) : (
+            <article id="home-public-recipes-card" className="surface-card p-4 sm:p-5">
+              <p id="home-public-recipes-label" className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+                Showing Public recipes ({publicRecipes.length})
+              </p>
+              <ul id="home-public-recipes-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {publicRecipes.map((recipe) => (
+                  <li id={`home-public-recipes-item-${recipe.id}`} key={recipe.id} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
+                    {recipe.images && recipe.images.length > 0 ? (
+                      <Image
+                        id={`home-public-recipes-image-gallery-first-${recipe.id}`}
+                        src={recipe.images[0].thumbnailUrl}
+                        alt={recipe.title}
+                        width={640}
+                        height={360}
+                        className="block h-36 w-full object-cover"
+                      />
+                    ) : recipe.primaryImage ? (
+                      <Image
+                        id={`home-public-recipes-image-${recipe.id}`}
+                        src={recipe.primaryImage.thumbnailUrl}
+                        alt={recipe.title}
+                        width={640}
+                        height={360}
+                        className="block h-36 w-full object-cover"
+                      />
+                    ) : null}
+                    <div id={`home-public-recipes-item-content-${recipe.id}`} className="p-3">
+                      <Link id={`home-public-recipes-link-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
+                        {recipe.title}
+                      </Link>
+                      <p id={`home-public-recipes-date-${recipe.id}`} className="mt-1 text-xs text-[var(--color-text-muted)]">
+                        Added {new Date(recipe.createdAt).toLocaleDateString()}
+                      </p>
+                      <p id={`home-public-recipes-summary-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--color-primary)]">
+                        Public
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          )}
 
           <aside id="home-preservation-aside" className="surface-card p-5">
             <h2 id="home-preservation-title" className="text-lg font-semibold">Preservation Features</h2>

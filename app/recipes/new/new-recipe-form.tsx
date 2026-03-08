@@ -35,6 +35,10 @@ type FamilyOption = {
   name: string;
 };
 
+type NewRecipeFormProps = {
+  isRecipeImportEnabled: boolean;
+};
+
 const EMPTY_INGREDIENT: IngredientDraft = {
   rowId: 1,
   name: "",
@@ -46,8 +50,6 @@ const EMPTY_INGREDIENT: IngredientDraft = {
 const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const IMPORT_DRAFT_STORAGE_KEY = "recipe-import-draft-v1";
-
 function toIngredientDraftsFromImportedDraft(draft: ImportedRecipeDraft): IngredientDraft[] {
   if (draft.ingredients.length === 0) {
     return [EMPTY_INGREDIENT];
@@ -62,9 +64,10 @@ function toIngredientDraftsFromImportedDraft(draft: ImportedRecipeDraft): Ingred
   }));
 }
 
-export default function NewRecipeForm() {
+export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const importSessionId = searchParams.get("importSession");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -101,27 +104,45 @@ export default function NewRecipeForm() {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get("importDraft") !== "1") {
+    if (!importSessionId) {
       return;
     }
 
-    const stored = window.sessionStorage.getItem(IMPORT_DRAFT_STORAGE_KEY);
-    if (!stored) {
-      return;
-    }
+    let isCancelled = false;
 
-    try {
-      const parsed = JSON.parse(stored) as ImportedRecipeDraft;
-      setTitle(parsed.title ?? "");
-      setDescription(parsed.description ?? "");
-      setStepsMarkdown(parsed.stepsMarkdown ?? "");
-      setIngredients(toIngredientDraftsFromImportedDraft(parsed));
-      setError(null);
-      window.sessionStorage.removeItem(IMPORT_DRAFT_STORAGE_KEY);
-    } catch {
-      setError("Could not hydrate imported draft.");
-    }
-  }, [searchParams]);
+    const hydrateFromImportSession = async () => {
+      try {
+        const response = await fetch(`/api/recipes/import/sessions/${encodeURIComponent(importSessionId)}`, {
+          method: "GET",
+        });
+        const data = (await response.json()) as { draft?: ImportedRecipeDraft; error?: string };
+        if (!response.ok || !data.draft) {
+          if (!isCancelled) {
+            setError(data.error ?? "Could not hydrate imported draft.");
+          }
+          return;
+        }
+
+        if (!isCancelled) {
+          setTitle(data.draft.title ?? "");
+          setDescription(data.draft.description ?? "");
+          setStepsMarkdown(data.draft.stepsMarkdown ?? "");
+          setIngredients(toIngredientDraftsFromImportedDraft(data.draft));
+          setError(null);
+        }
+      } catch {
+        if (!isCancelled) {
+          setError("Could not hydrate imported draft.");
+        }
+      }
+    };
+
+    void hydrateFromImportSession();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [importSessionId]);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -306,6 +327,10 @@ export default function NewRecipeForm() {
       }
     }
 
+    if (importSessionId) {
+      recipeFormData.append("importSessionId", importSessionId);
+    }
+
     try {
       const response = await fetch("/api/recipes", {
         method: "POST",
@@ -333,9 +358,11 @@ export default function NewRecipeForm() {
         <div id="new-recipe-header" className="flex items-center justify-between">
           <h1 id="new-recipe-title" className="text-2xl font-semibold">Add Family Recipe</h1>
           <div id="new-recipe-header-links" className="flex items-center gap-3">
-            <Link id="new-recipe-import-link" href="/recipes/import" className="text-link text-sm">
-              Import text
-            </Link>
+            {isRecipeImportEnabled ? (
+              <Link id="new-recipe-import-link" href="/recipes/import" className="text-link text-sm">
+                Import Recipe
+              </Link>
+            ) : null}
             <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
               Back to list
             </Link>
