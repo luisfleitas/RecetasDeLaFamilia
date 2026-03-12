@@ -89,6 +89,26 @@ const UNIT_CANONICAL_MAP: Record<string, string> = {
 };
 
 const INGREDIENT_PREFIX_WORDS = new Set(["de", "del", "la", "el", "los", "las", "of"]);
+const UNICODE_FRACTION_MAP: Record<string, number> = {
+  "¼": 1 / 4,
+  "½": 1 / 2,
+  "¾": 3 / 4,
+  "⅐": 1 / 7,
+  "⅑": 1 / 9,
+  "⅒": 1 / 10,
+  "⅓": 1 / 3,
+  "⅔": 2 / 3,
+  "⅕": 1 / 5,
+  "⅖": 2 / 5,
+  "⅗": 3 / 5,
+  "⅘": 4 / 5,
+  "⅙": 1 / 6,
+  "⅚": 5 / 6,
+  "⅛": 1 / 8,
+  "⅜": 3 / 8,
+  "⅝": 5 / 8,
+  "⅞": 7 / 8,
+};
 
 function canonicalizeUnit(rawUnit: string): string {
   const normalized = rawUnit.trim().toLowerCase();
@@ -112,6 +132,8 @@ function cleanIngredientName(rawName: string): string {
   }
 
   let name = trimmedPrefixTokens.join(" ").trim();
+  name = name.replace(/\bvino\s+tinto\s+(dulce|seco)\b/gi, "vino $1");
+  name = name.replace(/\bvino\s+blanco\s+(dulce|seco)\b/gi, "vino $1");
   name = name.replace(/\s+del\s+buen[oa]s?[.?!,:;]*$/i, "").trim();
   name = name.replace(/[?!.,;:]+$/g, "").trim();
   return name;
@@ -122,6 +144,31 @@ function normalizeLine(line: string): string {
 }
 
 function parseLeadingQuantity(text: string): { qty: number | null; rest: string } {
+  const unicodeMixedFractionMatch = text.match(/^(\d+)([¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s+(.+)$/);
+  if (unicodeMixedFractionMatch) {
+    const whole = Number(unicodeMixedFractionMatch[1]);
+    const fraction = UNICODE_FRACTION_MAP[unicodeMixedFractionMatch[2] ?? ""];
+
+    if (Number.isFinite(whole) && fraction != null) {
+      return {
+        qty: whole + fraction,
+        rest: unicodeMixedFractionMatch[3]?.trim() ?? "",
+      };
+    }
+  }
+
+  const unicodeFractionMatch = text.match(/^([¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s+(.+)$/);
+  if (unicodeFractionMatch) {
+    const fraction = UNICODE_FRACTION_MAP[unicodeFractionMatch[1] ?? ""];
+
+    if (fraction != null) {
+      return {
+        qty: fraction,
+        rest: unicodeFractionMatch[2]?.trim() ?? "",
+      };
+    }
+  }
+
   const mixedFractionMatch = text.match(/^(\d+)\s+(\d+)\/(\d+)\s+(.+)$/);
   if (mixedFractionMatch) {
     const whole = Number(mixedFractionMatch[1]);
@@ -438,10 +485,6 @@ export function importRecipeFromTextDocument(content: string): ImportedRecipeDra
       : inferIngredientsFromStepLines(buckets.steps);
 
   const stepsMarkdown = formatStepsMarkdown(buckets.steps);
-
-  if (!title) {
-    throw new Error("Could not identify a recipe title.");
-  }
 
   if (ingredients.length === 0) {
     throw new Error("Could not identify ingredients in the document.");

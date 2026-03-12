@@ -1,4 +1,4 @@
-import { CreateIngredientInput, CreateRecipeInput, RecipeVisibility } from "@/lib/domain/recipe";
+import type { CreateIngredientInput, CreateRecipeInput, RecipeVisibility } from "@/lib/domain/recipe";
 
 type IncomingIngredient = {
   name?: unknown;

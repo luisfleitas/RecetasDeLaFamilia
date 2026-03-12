@@ -1,9 +1,11 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { isOpenAiOcrFallbackConfigured, runOpenAiOcrFallback, shouldUseOpenAiOcrFallback } from "@/lib/application/recipes/openai-ocr";
+import { shouldForceRecipeImportOpenAiOcr } from "@/lib/application/recipes/import-config";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
-import { extractTextWithLocalOcr } from "@/lib/application/recipes/local-ocr";
+import { extractTextWithLocalOcrResult } from "@/lib/application/recipes/local-ocr";
 
 const execFileAsync = promisify(execFile);
 
@@ -18,6 +20,8 @@ export function isPdfFile(file: File): boolean {
 export type PdfImportResult = {
   text: string;
   extractionMethod: "text-layer" | "ocr-preview";
+  ocrDriver: "local" | "openai" | null;
+  localConfidence: number | null;
 };
 
 async function extractTextLayerFromPdf(pdfPath: string): Promise<string> {
@@ -61,6 +65,7 @@ export async function extractTextFromPdfWithLocalOcr(pdfBytes: Buffer): Promise<
   const minTextLayerChars = Number(process.env.RECIPE_IMPORT_PDF_TEXT_LAYER_MIN_CHARS ?? "80");
   const normalizedMinTextLayerChars =
     Number.isFinite(minTextLayerChars) && minTextLayerChars >= 0 ? minTextLayerChars : 80;
+  const forceOpenAiOcr = shouldForceRecipeImportOpenAiOcr();
 
   const tempDir = await mkdtemp(join(tmpdir(), "recetas-pdf-"));
   const pdfPath = join(tempDir, "input.pdf");
@@ -70,31 +75,89 @@ export async function extractTextFromPdfWithLocalOcr(pdfBytes: Buffer): Promise<
     await writeFile(pdfPath, pdfBytes);
 
     const textLayer = await extractTextLayerFromPdf(pdfPath);
-    if (textLayer.length >= normalizedMinTextLayerChars) {
+    if (!forceOpenAiOcr && textLayer.length >= normalizedMinTextLayerChars) {
       return {
         text: textLayer,
         extractionMethod: "text-layer",
+        ocrDriver: null,
+        localConfidence: null,
       };
     }
 
     await mkdir(previewDir);
     const previewBytes = await renderPdfPreviewImage(pdfPath, previewDir);
-    const ocrText = await extractTextWithLocalOcr({
-      bytes: previewBytes,
-      mimeType: "image/png",
-    });
 
-    if (ocrText.trim().length > 0) {
+    if (forceOpenAiOcr) {
+      if (!isOpenAiOcrFallbackConfigured()) {
+        throw new Error("OpenAI OCR fallback is not configured.");
+      }
+
+      const fallbackResult = await runOpenAiOcrFallback({
+        bytes: previewBytes,
+        mimeType: "image/png",
+      });
       return {
-        text: ocrText.trim(),
+        text: fallbackResult.text.trim(),
         extractionMethod: "ocr-preview",
+        ocrDriver: "openai",
+        localConfidence: null,
       };
+    }
+
+    try {
+      const localOcrResult = await extractTextWithLocalOcrResult({
+        bytes: previewBytes,
+        mimeType: "image/png",
+      });
+      if (
+        localOcrResult.text.trim().length > 0 &&
+        (!shouldUseOpenAiOcrFallback(localOcrResult.confidence) || !isOpenAiOcrFallbackConfigured())
+      ) {
+        return {
+          text: localOcrResult.text.trim(),
+          extractionMethod: "ocr-preview",
+          ocrDriver: "local",
+          localConfidence: localOcrResult.confidence,
+        };
+      }
+
+      if (isOpenAiOcrFallbackConfigured()) {
+        const fallbackResult = await runOpenAiOcrFallback({
+          bytes: previewBytes,
+          mimeType: "image/png",
+        });
+        return {
+          text: fallbackResult.text.trim(),
+          extractionMethod: "ocr-preview",
+          ocrDriver: "openai",
+          localConfidence: localOcrResult.confidence,
+        };
+      }
+    } catch (error) {
+      if (isOpenAiOcrFallbackConfigured()) {
+        const fallbackResult = await runOpenAiOcrFallback({
+          bytes: previewBytes,
+          mimeType: "image/png",
+        });
+        return {
+          text: fallbackResult.text.trim(),
+          extractionMethod: "ocr-preview",
+          ocrDriver: "openai",
+          localConfidence: null,
+        };
+      }
+
+      if (error instanceof Error) {
+        throw error;
+      }
     }
 
     if (textLayer.length > 0) {
       return {
         text: textLayer,
         extractionMethod: "text-layer",
+        ocrDriver: null,
+        localConfidence: null,
       };
     }
 

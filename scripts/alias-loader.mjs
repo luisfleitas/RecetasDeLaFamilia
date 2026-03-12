@@ -12,6 +12,10 @@ function resolveExistingPath(basePath) {
 }
 
 export async function resolve(specifier, context, defaultResolve) {
+  if (specifier === "next/server") {
+    return defaultResolve("next/server.js", context, defaultResolve);
+  }
+
   if (specifier.startsWith("@/")) {
     const basePath = join(process.cwd(), specifier.slice(2));
     const resolvedPath = resolveExistingPath(basePath);

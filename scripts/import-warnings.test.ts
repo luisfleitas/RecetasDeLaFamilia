@@ -29,6 +29,11 @@ test("returns field warnings for missing description, short steps, and generic i
       { code: "INGREDIENT_UNIT_NEEDS_REVIEW", field: "ingredients.0.unit" },
     ],
   );
+
+  assert.equal(
+    warnings.find((warning) => warning.code === "INGREDIENT_UNIT_NEEDS_REVIEW")?.message,
+    "Use a specific unit here, like tsp, cup, or lb.",
+  );
 });
 
 test("does not return warnings when draft looks complete", () => {

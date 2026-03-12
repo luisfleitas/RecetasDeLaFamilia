@@ -33,6 +33,41 @@ Seeded credentials for MVP testing:
 
 Set `JWT_SECRET` in `.env` before using auth endpoints.
 
+## Recipe import configuration
+
+Recipe import supports local-first OCR with optional OpenAI OCR fallback.
+
+Environment variables:
+
+- `OPENAI_API_KEY`:
+  - required for OpenAI OCR fallback and OpenAI-based extraction
+- `RECIPE_IMPORT_ENABLED`:
+  - enables the import feature
+  - defaults to `true`
+- `RECIPE_IMPORT_EXTRACTOR_DRIVER`:
+  - `rule-based` (default)
+  - `openai`
+- `RECIPE_IMPORT_OCR_CONFIDENCE_THRESHOLD`:
+  - local OCR confidence threshold before falling back to OpenAI
+  - defaults to `0.8`
+- `RECIPE_IMPORT_OCR_OPENAI_MODEL`:
+  - OpenAI model used for OCR fallback
+  - defaults to `gpt-4.1-mini`
+- `RECIPE_IMPORT_FORCE_OPENAI_OCR`:
+  - when `true`, bypasses local OCR and forces the OpenAI OCR path
+  - for PDFs, this also skips the text-layer shortcut and sends the rendered preview image to OpenAI
+
+Example:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key
+RECIPE_IMPORT_ENABLED=true
+RECIPE_IMPORT_EXTRACTOR_DRIVER=rule-based
+RECIPE_IMPORT_OCR_CONFIDENCE_THRESHOLD=0.8
+RECIPE_IMPORT_OCR_OPENAI_MODEL=gpt-4.1-mini
+RECIPE_IMPORT_FORCE_OPENAI_OCR=true
+```
+
 ## Image upload configuration
 
 Recipe image upload/storage uses a pluggable storage backend.

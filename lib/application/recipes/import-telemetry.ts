@@ -1,33 +1,18 @@
 import { recordMetric } from "@/lib/phase3/observability";
-
-type TelemetryPrismaClient = {
-  metricEvent: {
-    create: (args: {
-      data: {
-        metricName: string;
-        requestId: string;
-        actorUserId: number | null;
-        familyId: number | null;
-        inviteId: number | null;
-        statusCode: number | null;
-        metadataJson: string | null;
-      };
-    }) => Promise<unknown>;
-  };
-};
+import type { ImportSourceType } from "@/lib/application/recipes/source-documents";
 
 export type RecipeImportTelemetryInput = {
-  prisma: TelemetryPrismaClient;
+  prisma: Parameters<typeof recordMetric>[0];
   requestId: string;
   userId: number;
   statusCode: number;
-  sourceType: "paste" | "txt" | "pdf" | "image" | "unknown";
+  sourceType: ImportSourceType | "unknown";
   outcome: "success" | "error" | "rate_limited";
   errorCode?: string | null;
   latencyMs: number;
   warningCount?: number;
   pdfExtractionMethod?: "text-layer" | "ocr-preview" | null;
-  ocrDriver?: "local" | null;
+  ocrDriver?: "local" | "openai" | null;
 };
 
 export async function recordRecipeImportTelemetry(input: RecipeImportTelemetryInput) {
@@ -44,7 +29,7 @@ export async function recordRecipeImportTelemetry(input: RecipeImportTelemetryIn
       warningCount: input.warningCount ?? null,
       pdfExtractionMethod: input.pdfExtractionMethod ?? null,
       ocrDriver: input.ocrDriver ?? null,
-      usedFallback: input.pdfExtractionMethod === "ocr-preview",
+      usedFallback: input.ocrDriver === "openai",
     },
   });
 }

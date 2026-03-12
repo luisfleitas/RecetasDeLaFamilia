@@ -1,13 +1,28 @@
-import { isRecipeImportEnabled } from "@/lib/application/recipes/import-config";
+import { isRecipeImportEnabled, shouldForceRecipeImportOpenAiOcr } from "@/lib/application/recipes/import-config";
+import { RecipeImportError, toRecipeImportError } from "@/lib/application/recipes/import-errors";
+import type { RecipeImportExtractorResult } from "@/lib/application/recipes/import-extractor-provider";
 import { checkRecipeImportParseRateLimit } from "@/lib/application/recipes/import-rate-limit";
+import type { ImportSessionSourceRef } from "@/lib/application/recipes/import-session-metadata";
 import { recordRecipeImportTelemetry } from "@/lib/application/recipes/import-telemetry";
+import { validateImportedRecipeDraft } from "@/lib/application/recipes/import-parse-validation";
 import {
   RecipeImportParseTimeoutError,
   withRecipeImportParseTimeout,
 } from "@/lib/application/recipes/import-timeout";
 import { getImportWarningsForDraft } from "@/lib/application/recipes/import-warnings";
-import { importRecipeFromTextDocument } from "@/lib/application/recipes/text-document-import";
-import { extractTextWithLocalOcr, isSupportedOcrMimeType } from "@/lib/application/recipes/local-ocr";
+import { buildRecipeImportExtractorProvider } from "@/lib/application/recipes/import-extractor-provider";
+import {
+  extractTextFromDocBestEffort,
+  extractTextFromDocx,
+  isDocFile,
+  isDocxFile,
+} from "@/lib/application/recipes/office-document-import";
+import {
+  isOpenAiOcrFallbackConfigured,
+  runOpenAiOcrFallback,
+  shouldUseOpenAiOcrFallback,
+} from "@/lib/application/recipes/openai-ocr";
+import { extractTextWithLocalOcrResult, isSupportedOcrMimeType } from "@/lib/application/recipes/local-ocr";
 import { extractTextFromPdfWithLocalOcr, isPdfFile } from "@/lib/application/recipes/pdf-import";
 import { stageImportSourceDocument, type ImportSourceType } from "@/lib/application/recipes/source-documents";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
@@ -16,6 +31,8 @@ import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+
+const extractorProvider = buildRecipeImportExtractorProvider();
 
 const MAX_IMPORT_TEXT_BYTES = 512 * 1024;
 const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
@@ -33,7 +50,7 @@ type ParsedImportRequest = {
   content: string;
   sourceType: "paste" | ImportSourceType;
   pdfExtractionMethod?: "text-layer" | "ocr-preview" | null;
-  ocrDriver?: "local" | null;
+  ocrDriver?: "local" | "openai" | null;
   sourceDocument:
     | {
         bytes: Buffer;
@@ -49,6 +66,7 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   const formData = await request.formData();
   const file = formData.get("file");
   const pastedText = formData.get("content");
+  const forceOpenAiOcr = shouldForceRecipeImportOpenAiOcr();
 
   if (typeof pastedText === "string" && pastedText.trim().length > 0) {
     return {
@@ -61,7 +79,7 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   }
 
   if (!(file instanceof File)) {
-    throw new Error("Provide recipe text, a TXT/PDF file, or a supported image file.");
+    throw new Error("Provide recipe text, a TXT, DOCX, DOC, PDF file, or a supported image file.");
   }
 
   if (file.size > MAX_IMPORT_FILE_BYTES) {
@@ -73,13 +91,45 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   const originalFilename = file.name || "source-document";
 
   if (!isTxtFile(file)) {
+    if (isDocxFile(file)) {
+      return {
+        content: await extractTextFromDocx(bytes),
+        sourceType: "docx",
+        pdfExtractionMethod: null,
+        ocrDriver: null,
+        sourceDocument: {
+          bytes,
+          sourceType: "docx",
+          originalFilename,
+          mimeType,
+          sizeBytes: file.size,
+        },
+      };
+    }
+
+    if (isDocFile(file)) {
+      return {
+        content: await extractTextFromDocBestEffort(bytes),
+        sourceType: "doc",
+        pdfExtractionMethod: null,
+        ocrDriver: null,
+        sourceDocument: {
+          bytes,
+          sourceType: "doc",
+          originalFilename,
+          mimeType,
+          sizeBytes: file.size,
+        },
+      };
+    }
+
     if (isPdfFile(file)) {
       const pdfResult = await extractTextFromPdfWithLocalOcr(bytes);
       return {
         content: pdfResult.text,
         sourceType: "pdf",
         pdfExtractionMethod: pdfResult.extractionMethod,
-        ocrDriver: pdfResult.extractionMethod === "ocr-preview" ? "local" : null,
+        ocrDriver: pdfResult.ocrDriver,
         sourceDocument: {
           bytes,
           sourceType: "pdf",
@@ -92,15 +142,93 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
 
     if (!isSupportedOcrMimeType(file.type)) {
       throw new Error(
-        "Unsupported file type. Use TXT, PDF, or an image file (JPG, PNG, WEBP, TIFF, BMP).",
+        "Unsupported file type. Use TXT, DOCX, DOC, PDF, or an image file (JPG, PNG, WEBP, TIFF, BMP).",
       );
     }
 
-    return {
-      content: await extractTextWithLocalOcr({
+    if (forceOpenAiOcr) {
+      if (!isOpenAiOcrFallbackConfigured()) {
+        throw new Error("OpenAI OCR fallback is not configured.");
+      }
+
+      const fallbackResult = await runOpenAiOcrFallback({
         bytes,
         mimeType: file.type,
-      }),
+      });
+
+      return {
+        content: fallbackResult.text,
+        sourceType: "image",
+        pdfExtractionMethod: null,
+        ocrDriver: "openai",
+        sourceDocument: {
+          bytes,
+          sourceType: "image",
+          originalFilename,
+          mimeType,
+          sizeBytes: file.size,
+        },
+      };
+    }
+
+    const localOcrResult = await extractTextWithLocalOcrResult({
+      bytes,
+      mimeType: file.type,
+    }).catch(async (error) => {
+      if (!isOpenAiOcrFallbackConfigured()) {
+        throw error;
+      }
+
+      const fallbackResult = await runOpenAiOcrFallback({
+        bytes,
+        mimeType: file.type,
+      });
+      return {
+        text: fallbackResult.text,
+        confidence: 0,
+        ocrDriver: "openai" as const,
+      };
+    });
+
+    if ("ocrDriver" in localOcrResult) {
+      return {
+        content: localOcrResult.text,
+        sourceType: "image",
+        pdfExtractionMethod: null,
+        ocrDriver: "openai",
+        sourceDocument: {
+          bytes,
+          sourceType: "image",
+          originalFilename,
+          mimeType,
+          sizeBytes: file.size,
+        },
+      };
+    }
+
+    if (shouldUseOpenAiOcrFallback(localOcrResult.confidence) && isOpenAiOcrFallbackConfigured()) {
+      const fallbackResult = await runOpenAiOcrFallback({
+        bytes,
+        mimeType: file.type,
+      });
+
+      return {
+        content: fallbackResult.text,
+        sourceType: "image",
+        pdfExtractionMethod: null,
+        ocrDriver: "openai",
+        sourceDocument: {
+          bytes,
+          sourceType: "image",
+          originalFilename,
+          mimeType,
+          sizeBytes: file.size,
+        },
+      };
+    }
+
+    return {
+      content: localOcrResult.text,
       sourceType: "image",
       pdfExtractionMethod: null,
       ocrDriver: "local",
@@ -201,26 +329,30 @@ export async function POST(request: Request) {
     return await withRecipeImportParseTimeout(async () => {
       let draft;
       let parsedRequest: ParsedImportRequest;
+      let extractionResult: RecipeImportExtractorResult;
       try {
         const contentType = request.headers.get("content-type") ?? "";
         parsedRequest = contentType.includes("multipart/form-data")
           ? await parseContentFromMultipartRequest(request)
           : await parseContentFromJsonRequest(request);
 
-        draft = importRecipeFromTextDocument(parsedRequest.content);
+        extractionResult = await extractorProvider.extract(parsedRequest.content);
+        draft = validateImportedRecipeDraft(extractionResult.draft);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unexpected parse error while importing recipe.";
-        const errorResponse = NextResponse.json({ error: message }, { status: 400 });
+        const importError = toRecipeImportError(error);
+        const errorResponse = NextResponse.json(
+          { error: importError.message, code: importError.code },
+          { status: importError.status },
+        );
         try {
           await recordRecipeImportTelemetry({
             prisma,
             requestId,
             userId: authUser.userId,
-            statusCode: 400,
+            statusCode: importError.status,
             sourceType: "unknown",
             outcome: "error",
-            errorCode: "PARSE_ERROR",
+            errorCode: importError.code,
             latencyMs: Date.now() - startedAt,
           });
         } catch {
@@ -235,12 +367,18 @@ export async function POST(request: Request) {
         const expiresAt = new Date(
           Date.now() + (Number.isFinite(ttlHours) ? ttlHours : DEFAULT_SESSION_TTL_HOURS) * 60 * 60 * 1000,
         );
-        const prisma = await getPrisma();
+        const warnings = getImportWarningsForDraft(draft);
+        const sourceRefs: ImportSessionSourceRef[] = [];
         const session = await prisma.importSession.create({
           data: {
             userId: authUser.userId,
             status: "PARSED",
             draftJson: JSON.stringify(draft),
+            warningsJson: JSON.stringify(warnings),
+            sourceRefsJson: JSON.stringify(sourceRefs),
+            providerName: extractionResult.providerName,
+            providerModel: extractionResult.providerModel,
+            promptVersion: extractionResult.promptVersion,
             expiresAt,
           },
           select: {
@@ -250,7 +388,7 @@ export async function POST(request: Request) {
         createdSessionId = session.id;
 
         if (parsedRequest.sourceDocument) {
-          await stageImportSourceDocument({
+          const sourceDocument = await stageImportSourceDocument({
             userId: authUser.userId,
             importSessionId: session.id,
             originalFilename: parsedRequest.sourceDocument.originalFilename,
@@ -259,13 +397,32 @@ export async function POST(request: Request) {
             sourceType: parsedRequest.sourceDocument.sourceType,
             bytes: parsedRequest.sourceDocument.bytes,
           });
+
+          sourceRefs.push({
+            id: (sourceDocument as { id?: number }).id,
+            sourceType: parsedRequest.sourceDocument.sourceType,
+            originalFilename: parsedRequest.sourceDocument.originalFilename,
+            mimeType: parsedRequest.sourceDocument.mimeType,
+            sizeBytes: parsedRequest.sourceDocument.sizeBytes,
+            storageKey: (sourceDocument as { storageKey?: string }).storageKey,
+          });
+
+          await prisma.importSession.update({
+            where: { id: session.id },
+            data: {
+              sourceRefsJson: JSON.stringify(sourceRefs),
+            },
+          });
         }
 
-        const warnings = getImportWarningsForDraft(draft);
         const response = NextResponse.json({
           importSessionId: session.id,
           draft,
           warnings,
+          sourceRefs,
+          providerName: extractionResult.providerName,
+          providerModel: extractionResult.providerModel,
+          promptVersion: extractionResult.promptVersion,
         });
         try {
           await recordRecipeImportTelemetry({
@@ -318,19 +475,20 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof RecipeImportParseTimeoutError) {
+      const importError = new RecipeImportError("EXTRACTION_TIMEOUT", error.message, 504);
       const timeoutResponse = NextResponse.json(
-        { error: error.message, code: "EXTRACTION_TIMEOUT" },
-        { status: 504 },
+        { error: importError.message, code: importError.code },
+        { status: importError.status },
       );
       try {
         await recordRecipeImportTelemetry({
           prisma,
           requestId,
           userId: authUser.userId,
-          statusCode: 504,
+          statusCode: importError.status,
           sourceType: "unknown",
           outcome: "error",
-          errorCode: "EXTRACTION_TIMEOUT",
+          errorCode: importError.code,
           latencyMs: Date.now() - startedAt,
         });
       } catch {
@@ -339,18 +497,20 @@ export async function POST(request: Request) {
       return withRequestId(timeoutResponse, requestId);
     }
 
-    const message =
-      error instanceof Error ? error.message : "Unexpected parse error while importing recipe.";
-    const errorResponse = NextResponse.json({ error: message }, { status: 500 });
+    const importError = toRecipeImportError(error);
+    const errorResponse = NextResponse.json(
+      { error: importError.message, code: importError.code },
+      { status: importError.status },
+    );
     try {
       await recordRecipeImportTelemetry({
         prisma,
         requestId,
         userId: authUser.userId,
-        statusCode: 500,
+        statusCode: importError.status,
         sourceType: "unknown",
         outcome: "error",
-        errorCode: "UNEXPECTED_ERROR",
+        errorCode: importError.code,
         latencyMs: Date.now() - startedAt,
       });
     } catch {

@@ -94,6 +94,24 @@ Pasos:
   assert.equal(parsed.ingredients[1]?.unit.toLowerCase(), "kilo");
 });
 
+test("parses unicode fractions and normalizes vino descriptors", () => {
+  const input = `
+Sangria
+
+Ingredientes:
+- ½ taza vino tinto dulce
+
+Pasos:
+- Mezclar.
+`;
+
+  const parsed = importRecipeFromTextDocument(input);
+
+  assert.equal(parsed.ingredients[0]?.qty, 0.5);
+  assert.equal(parsed.ingredients[0]?.unit.toLowerCase(), "taza");
+  assert.equal(parsed.ingredients[0]?.name.toLowerCase(), "vino dulce");
+});
+
 test("imports unstructured english recipe without ingredients header", () => {
   const input = `
 Garlic Butter Shrimp
@@ -187,6 +205,22 @@ Steps:
       { name: "ham", qty: 2, unit: "gram" },
     ],
   );
+});
+
+test("imports text without a detectable title when ingredients and steps exist", () => {
+  const input = `
+Ingredients:
+- 1 slice bread
+
+Steps:
+1. Toast bread.
+`;
+
+  const parsed = importRecipeFromTextDocument(input);
+
+  assert.equal(parsed.title, "");
+  assert.equal(parsed.ingredients.length, 1);
+  assert.match(parsed.stepsMarkdown, /1\. Toast bread\./);
 });
 
 test("throws when ingredients are missing", () => {

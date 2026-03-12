@@ -4,7 +4,7 @@ import { getPrisma } from "@/lib/prisma";
 
 const storageProvider = buildImageStorageProvider();
 
-export type ImportSourceType = "txt" | "pdf" | "image" | "paste";
+export type ImportSourceType = "txt" | "docx" | "doc" | "pdf" | "image" | "paste";
 
 type StageImportSourceDocumentInput = {
   userId: number;

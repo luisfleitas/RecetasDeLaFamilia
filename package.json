@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "test:phase0": "./scripts/phase0-checks.sh",
     "test:phase1": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase1-use-cases.test.ts",
     "test:phase2": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase2-use-cases.test.ts scripts/recipe-family-link-sanitization.test.ts",

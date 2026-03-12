@@ -32,7 +32,7 @@ test("recordRecipeImportTelemetry stores normalized metadata including fallback 
     latencyMs: 123,
     warningCount: 2,
     pdfExtractionMethod: "ocr-preview",
-    ocrDriver: "local",
+    ocrDriver: "openai",
   });
 
   assert.ok(captured);
@@ -47,6 +47,6 @@ test("recordRecipeImportTelemetry stores normalized metadata including fallback 
   assert.equal(metadata.latencyMs, 123);
   assert.equal(metadata.warningCount, 2);
   assert.equal(metadata.pdfExtractionMethod, "ocr-preview");
-  assert.equal(metadata.ocrDriver, "local");
+  assert.equal(metadata.ocrDriver, "openai");
   assert.equal(metadata.usedFallback, true);
 });

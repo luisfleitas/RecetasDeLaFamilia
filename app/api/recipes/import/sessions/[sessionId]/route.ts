@@ -1,4 +1,9 @@
 import { isRecipeImportEnabled } from "@/lib/application/recipes/import-config";
+import {
+  parseImportSourceRefsJson,
+  parseImportWarningsJson,
+  type ImportSessionSourceRef,
+} from "@/lib/application/recipes/import-session-metadata";
 import { getImportWarningsForDraft, type ImportWarning } from "@/lib/application/recipes/import-warnings";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
@@ -15,6 +20,10 @@ type ImportSessionResponse = {
   importSessionId: string;
   draft: ImportedRecipeDraft;
   warnings: ImportWarning[];
+  sourceRefs: ImportSessionSourceRef[];
+  providerName: string | null;
+  providerModel: string | null;
+  promptVersion: string | null;
 };
 
 function parseDraftFromUnknown(value: unknown): ImportedRecipeDraft {
@@ -57,8 +66,8 @@ function parseDraftFromUnknown(value: unknown): ImportedRecipeDraft {
     };
   });
 
-  if (!title || !stepsMarkdown || ingredients.length === 0) {
-    throw new Error("Title, ingredients, and steps are required.");
+  if (!stepsMarkdown || ingredients.length === 0) {
+    throw new Error("Ingredients and steps are required.");
   }
 
   return {
@@ -78,6 +87,11 @@ async function readImportSession(sessionId: string) {
       userId: true,
       status: true,
       draftJson: true,
+      warningsJson: true,
+      sourceRefsJson: true,
+      providerName: true,
+      providerModel: true,
+      promptVersion: true,
       expiresAt: true,
     },
   });
@@ -141,7 +155,14 @@ export async function GET(request: Request, { params }: Params) {
   const response: ImportSessionResponse = {
     importSessionId: session.id,
     draft,
-    warnings: getImportWarningsForDraft(draft),
+    warnings:
+      session.warningsJson != null
+        ? parseImportWarningsJson(session.warningsJson)
+        : getImportWarningsForDraft(draft),
+    sourceRefs: parseImportSourceRefsJson(session.sourceRefsJson),
+    providerName: session.providerName,
+    providerModel: session.providerModel,
+    promptVersion: session.promptVersion,
   };
   return NextResponse.json(response);
 }
@@ -200,12 +221,18 @@ export async function PATCH(request: Request, { params }: Params) {
     where: { id: session.id },
     data: {
       draftJson: JSON.stringify(draft),
+      warningsJson: JSON.stringify(getImportWarningsForDraft(draft)),
     },
   });
 
+  const warnings = getImportWarningsForDraft(draft);
   return NextResponse.json({
     importSessionId: session.id,
     draft,
-    warnings: getImportWarningsForDraft(draft),
+    warnings,
+    sourceRefs: parseImportSourceRefsJson(session.sourceRefsJson),
+    providerName: session.providerName,
+    providerModel: session.providerModel,
+    promptVersion: session.promptVersion,
   } satisfies ImportSessionResponse);
 }

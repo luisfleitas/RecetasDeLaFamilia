@@ -23,15 +23,15 @@ Rule: Track implementation completion against this checklist.
 - [x] Add `POST /api/recipes/import/parse` route (multipart + JSON support).
 - [x] Implement input normalization and file type routing.
 - [x] Implement TXT extraction adapter.
-- [ ] Implement DOCX extraction adapter.
-- [ ] Implement DOC best-effort adapter with explicit failure path.
+- [x] Implement DOCX extraction adapter.
+- [x] Implement DOC best-effort adapter with explicit failure path.
 - [x] Implement PDF text-layer extraction adapter.
 - [x] Implement local OCR adapter.
-- [ ] Implement OpenAI OCR fallback when local confidence is low.
-- [ ] Implement extractor provider interface and factory.
-- [ ] Implement OpenAI extraction provider mapping to app schema.
-- [ ] Add parse validation with standardized error codes.
-- [ ] Persist/refresh import session with draft + warnings + metadata.
+- [x] Implement OpenAI OCR fallback when local confidence is low.
+- [x] Implement extractor provider interface and factory.
+- [x] Implement OpenAI extraction provider mapping to app schema.
+- [x] Add parse validation with standardized error codes.
+- [x] Persist/refresh import session with draft + warnings + metadata.
 
 ## 3. API and Access Control
 - [x] Add `GET /api/recipes/import/sessions/[sessionId]` (owner-only).
@@ -61,9 +61,9 @@ Rule: Track implementation completion against this checklist.
 
 ## 7. Verification
 - [ ] Unit tests for adapters, provider mapping, and validation.
-- [ ] Integration tests for parse endpoint and source-doc access control.
+- [x] Integration tests for parse endpoint and source-doc access control.
 - [ ] E2E happy path from import to create.
-- [ ] Regression check that non-import recipe create flow is unchanged.
+- [x] Regression check that non-import recipe create flow is unchanged.
 
 ## 8. Release Readiness
 - [ ] Feature gate verified (`RECIPE_IMPORT_ENABLED`).

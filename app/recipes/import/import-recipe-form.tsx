@@ -234,12 +234,12 @@ export default function ImportRecipeForm() {
 
           <div id="recipe-import-file-field">
             <label id="recipe-import-file-label" htmlFor="recipe-import-file-input" className="mb-1 block text-sm font-medium">
-              Or upload TXT, PDF, or image document (JPG, PNG, WEBP, TIFF, BMP)
+              Or upload TXT, DOCX, DOC, PDF, or image document (JPG, PNG, WEBP, TIFF, BMP)
             </label>
             <input
               id="recipe-import-file-input"
               type="file"
-              accept=".txt,text/plain,.pdf,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
+              accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
               className="input-base"
             />
@@ -388,7 +388,7 @@ export default function ImportRecipeForm() {
                       <p
                         id={`recipe-import-ingredient-unit-warning-${ingredient.rowId}-${index + 1}`}
                         key={`${warning.code}-${index}`}
-                        className="mt-1 text-sm text-amber-800"
+                        className="mt-1 text-xs text-[var(--color-text-muted)]"
                       >
                         {warning.message}
                       </p>

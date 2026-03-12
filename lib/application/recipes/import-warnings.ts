@@ -43,7 +43,7 @@ export function getImportWarningsForDraft(draft: ImportedRecipeDraft): ImportWar
     warnings.push({
       code: "INGREDIENT_UNIT_NEEDS_REVIEW",
       field: `ingredients.${index}.unit`,
-      message: `Ingredient ${index + 1} needs a more specific unit than "unit".`,
+      message: 'Use a specific unit here, like tsp, cup, or lb.',
     });
   });
 
