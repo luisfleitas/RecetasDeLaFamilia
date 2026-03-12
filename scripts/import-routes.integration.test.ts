@@ -12,6 +12,8 @@ type RouteModule = {
   POST?: (request: Request, context?: { params: Promise<Record<string, string>> }) => Promise<Response>;
 };
 
+const SHARED_UPLOADS_DIR = join(tmpdir(), "recetas-import-integration-uploads");
+
 async function applyMigrations(dbPath: string) {
   const db = new Database(dbPath);
   try {
@@ -33,7 +35,8 @@ async function applyMigrations(dbPath: string) {
 async function setupIntegrationEnv() {
   const rootDir = await mkdtemp(join(tmpdir(), "recetas-import-integration-"));
   const dbPath = join(rootDir, "test.db");
-  const uploadsDir = join(rootDir, "uploads");
+  await rm(SHARED_UPLOADS_DIR, { recursive: true, force: true });
+  await mkdir(SHARED_UPLOADS_DIR, { recursive: true });
 
   await applyMigrations(dbPath);
 
@@ -41,13 +44,13 @@ async function setupIntegrationEnv() {
   process.env.JWT_SECRET = "integration-test-secret";
   process.env.JWT_EXPIRES_IN = "7d";
   process.env.IMAGE_STORAGE_DRIVER = "local";
-  process.env.IMAGE_STORAGE_LOCAL_ROOT = uploadsDir;
+  process.env.IMAGE_STORAGE_LOCAL_ROOT = SHARED_UPLOADS_DIR;
   process.env.RECIPE_IMPORT_ENABLED = "true";
   process.env.RECIPE_IMPORT_EXTRACTOR_DRIVER = "rule-based";
 
   (globalThis as { prisma?: unknown }).prisma = undefined;
 
-  return { rootDir };
+  return { rootDir, uploadsDir: SHARED_UPLOADS_DIR };
 }
 
 async function loadRouteModule(relativePath: string): Promise<RouteModule> {
@@ -123,7 +126,7 @@ Steps:
 });
 
 test("source document routes enforce recipe access control", async () => {
-  const { rootDir } = await setupIntegrationEnv();
+  const { rootDir, uploadsDir } = await setupIntegrationEnv();
 
   try {
     const prisma = await getPrisma();
@@ -167,7 +170,7 @@ test("source document routes enforce recipe access control", async () => {
     });
 
     const storageKey = `recipes/${recipe.id}/sources/source.txt`;
-    const sourceFilePath = join(rootDir, "uploads", storageKey);
+    const sourceFilePath = join(uploadsDir, storageKey);
     await mkdir(dirname(sourceFilePath), { recursive: true });
     await writeFile(sourceFilePath, "source document");
 
@@ -291,6 +294,197 @@ test("recipe creation still works without import session", async () => {
       where: { userId: user.id },
     });
     assert.equal(importSessions.length, 0);
+  } finally {
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("file import can be edited, hydrated, and promoted on recipe create", async () => {
+  const { rootDir, uploadsDir } = await setupIntegrationEnv();
+
+  try {
+    const prisma = await getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        firstName: "Import",
+        lastName: "Flow",
+        email: "import-flow@example.com",
+        username: "import-flow-user",
+        passwordHash: "hash",
+      },
+    });
+
+    const token = signAccessToken({ userId: user.id, username: user.username });
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+    const sessionRoute = await loadRouteModule("../app/api/recipes/import/sessions/[sessionId]/route.ts");
+    const recipesRoute = await loadRouteModule("../app/api/recipes/route.ts");
+
+    const importFormData = new FormData();
+    importFormData.append(
+      "file",
+      new File(
+        [
+          `
+Toast
+
+Ingredients:
+- 1 slice bread
+
+Steps:
+1. Toast bread.
+`,
+        ],
+        "toast.txt",
+        { type: "text/plain" },
+      ),
+    );
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: importFormData,
+      }),
+    );
+    assert.equal(parseResponse.status, 200);
+
+    const parsePayload = (await parseResponse.json()) as {
+      importSessionId: string;
+      draft: {
+        title: string;
+        description: string | null;
+        stepsMarkdown: string;
+        ingredients: Array<{
+          name: string;
+          qty: number;
+          unit: string;
+          notes: string | null;
+          position: number;
+        }>;
+      };
+      sourceRefs: Array<{
+        storageKey?: string;
+        originalFilename: string;
+      }>;
+    };
+
+    assert.ok(parsePayload.importSessionId);
+    assert.equal(parsePayload.sourceRefs.length, 1);
+    assert.equal(parsePayload.sourceRefs[0]?.originalFilename, "toast.txt");
+
+    const stagedStorageKey = parsePayload.sourceRefs[0]?.storageKey;
+    assert.ok(stagedStorageKey);
+    const stagedFilePath = join(uploadsDir, stagedStorageKey!);
+    const stagedContents = await readFile(stagedFilePath, "utf8");
+    assert.match(stagedContents, /Toast/);
+
+    const patchPayload = {
+      draft: {
+        ...parsePayload.draft,
+        title: "Edited Toast",
+        ingredients: [
+          {
+            ...parsePayload.draft.ingredients[0],
+            notes: "buttered",
+          },
+        ],
+      },
+    };
+
+    const patchResponse = await sessionRoute.PATCH!(
+      new Request(`http://localhost/api/recipes/import/sessions/${parsePayload.importSessionId}`, {
+        method: "PATCH",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(patchPayload),
+      }),
+      { params: Promise.resolve({ sessionId: parsePayload.importSessionId }) },
+    );
+    assert.equal(patchResponse.status, 200);
+
+    const getResponse = await sessionRoute.GET!(
+      new Request(`http://localhost/api/recipes/import/sessions/${parsePayload.importSessionId}`, {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+      { params: Promise.resolve({ sessionId: parsePayload.importSessionId }) },
+    );
+    assert.equal(getResponse.status, 200);
+
+    const hydratedPayload = (await getResponse.json()) as {
+      draft: {
+        title: string;
+        ingredients: Array<{ notes: string | null }>;
+      };
+    };
+    assert.equal(hydratedPayload.draft.title, "Edited Toast");
+    assert.equal(hydratedPayload.draft.ingredients[0]?.notes, "buttered");
+
+    const createFormData = new FormData();
+    createFormData.append(
+      "recipe",
+      JSON.stringify({
+        title: "Edited Toast",
+        description: null,
+        stepsMarkdown: "1. Toast bread.",
+        visibility: "private",
+        familyIds: [],
+        ingredients: [
+          {
+            name: "bread",
+            qty: 1,
+            unit: "slice",
+            notes: "buttered",
+            position: 1,
+          },
+        ],
+      }),
+    );
+    createFormData.append("importSessionId", parsePayload.importSessionId);
+
+    const createResponse = await recipesRoute.POST!(
+      new Request("http://localhost/api/recipes", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: createFormData,
+      }),
+    );
+    assert.equal(createResponse.status, 201);
+
+    const createPayload = (await createResponse.json()) as { recipe?: { id: number } };
+    assert.ok(createPayload.recipe?.id);
+
+    const confirmedSession = await prisma.importSession.findUnique({
+      where: { id: parsePayload.importSessionId },
+      select: { status: true },
+    });
+    assert.equal(confirmedSession?.status, "CONFIRMED");
+
+    const sourceDocuments = await prisma.recipeSourceDocument.findMany({
+      where: { importSessionId: parsePayload.importSessionId },
+      select: {
+        recipeId: true,
+        storageKey: true,
+        originalFilename: true,
+      },
+    });
+    assert.equal(sourceDocuments.length, 1);
+    assert.equal(sourceDocuments[0]?.recipeId, createPayload.recipe?.id);
+    assert.equal(sourceDocuments[0]?.originalFilename, "toast.txt");
+    assert.match(
+      sourceDocuments[0]?.storageKey ?? "",
+      new RegExp(`^recipes/${createPayload.recipe?.id}/sources/`),
+    );
+
+    const finalFilePath = join(uploadsDir, sourceDocuments[0]!.storageKey);
+    const finalContents = await readFile(finalFilePath, "utf8");
+    assert.match(finalContents, /Toast/);
+
+    await assert.rejects(readFile(stagedFilePath, "utf8"));
   } finally {
     const prisma = await getPrisma();
     await prisma.$disconnect();
