@@ -1,12 +1,12 @@
 /* Seed users and recipes with explicit ownership for MVP auth. */
-require("dotenv/config");
-const { PrismaClient } = require("@prisma/client");
-const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
-const bcrypt = require("bcryptjs");
-const { createHash } = require("node:crypto");
-const { access, copyFile, mkdir, writeFile } = require("node:fs/promises");
-const { constants } = require("node:fs");
-const { dirname, join } = require("node:path");
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
+import { constants } from "node:fs";
+import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 const adapter = new PrismaBetterSqlite3({
   url: process.env.DATABASE_URL ?? "file:./dev.db",
@@ -229,9 +229,7 @@ async function main() {
       title: "Beef Stir Fry",
       description: "Smoke test",
       stepsMarkdown: "Step 1",
-      ingredients: [
-        { name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 },
-      ],
+      ingredients: [{ name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 }],
       images: [
         {
           storageKeyTemplate: "recipes/12/img_a10e70da-0e9a-4a1e-a6d6-450a9803a920.jpg",
@@ -321,9 +319,7 @@ async function main() {
       title: "Chicken Tacos",
       description: "Should fail",
       stepsMarkdown: "Step 1",
-      ingredients: [
-        { name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 },
-      ],
+      ingredients: [{ name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 }],
       images: [
         {
           storageKeyTemplate: "recipes/14/img_fb15029c-6ddc-4f6f-a8e9-792f5acebb1f.jpg",

@@ -2,9 +2,10 @@
 // Client page for creating a recipe and ingredient rows.
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
 
 type CreatedRecipe = {
   id: number;
@@ -34,6 +35,10 @@ type FamilyOption = {
   name: string;
 };
 
+type NewRecipeFormProps = {
+  isRecipeImportEnabled: boolean;
+};
+
 const EMPTY_INGREDIENT: IngredientDraft = {
   rowId: 1,
   name: "",
@@ -45,11 +50,29 @@ const EMPTY_INGREDIENT: IngredientDraft = {
 const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+function toIngredientDraftsFromImportedDraft(draft: ImportedRecipeDraft): IngredientDraft[] {
+  if (draft.ingredients.length === 0) {
+    return [EMPTY_INGREDIENT];
+  }
 
-export default function NewRecipeForm() {
+  return draft.ingredients.map((ingredient, index) => ({
+    rowId: index + 1,
+    name: ingredient.name,
+    qty: ingredient.qty.toString(),
+    unit: ingredient.unit,
+    notes: ingredient.notes ?? "",
+  }));
+}
+
+export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const importSessionId = searchParams.get("importSession");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [stepsMarkdown, setStepsMarkdown] = useState("");
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([EMPTY_INGREDIENT]);
   const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
   const [nextImageId, setNextImageId] = useState(1);
@@ -79,6 +102,47 @@ export default function NewRecipeForm() {
 
     loadFamilies();
   }, []);
+
+  useEffect(() => {
+    if (!importSessionId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const hydrateFromImportSession = async () => {
+      try {
+        const response = await fetch(`/api/recipes/import/sessions/${encodeURIComponent(importSessionId)}`, {
+          method: "GET",
+        });
+        const data = (await response.json()) as { draft?: ImportedRecipeDraft; error?: string };
+        if (!response.ok || !data.draft) {
+          if (!isCancelled) {
+            setError(data.error ?? "Could not hydrate imported draft.");
+          }
+          return;
+        }
+
+        if (!isCancelled) {
+          setTitle(data.draft.title ?? "");
+          setDescription(data.draft.description ?? "");
+          setStepsMarkdown(data.draft.stepsMarkdown ?? "");
+          setIngredients(toIngredientDraftsFromImportedDraft(data.draft));
+          setError(null);
+        }
+      } catch {
+        if (!isCancelled) {
+          setError("Could not hydrate imported draft.");
+        }
+      }
+    };
+
+    void hydrateFromImportSession();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [importSessionId]);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -182,11 +246,9 @@ export default function NewRecipeForm() {
     setError(null);
     setIsSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
-
-    const title = String(formData.get("title") ?? "").trim();
-    const description = String(formData.get("description") ?? "").trim();
-    const stepsMarkdown = String(formData.get("stepsMarkdown") ?? "").trim();
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    const trimmedStepsMarkdown = stepsMarkdown.trim();
 
     if (ingredients.length === 0) {
       setError("Add at least one ingredient.");
@@ -223,6 +285,18 @@ export default function NewRecipeForm() {
       return;
     }
 
+    if (!trimmedTitle) {
+      setError("Title is required.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!trimmedStepsMarkdown) {
+      setError("Steps are required.");
+      setIsSubmitting(false);
+      return;
+    }
+
     if (visibility === "family" && selectedFamilyIds.length === 0) {
       setError("Choose at least one family when sharing is set to Family.");
       setIsSubmitting(false);
@@ -230,9 +304,9 @@ export default function NewRecipeForm() {
     }
 
     const recipeFormData = new FormData();
-    recipeFormData.append("title", title);
-    recipeFormData.append("description", description);
-    recipeFormData.append("stepsMarkdown", stepsMarkdown);
+    recipeFormData.append("title", trimmedTitle);
+    recipeFormData.append("description", trimmedDescription);
+    recipeFormData.append("stepsMarkdown", trimmedStepsMarkdown);
     recipeFormData.append("visibility", visibility);
     recipeFormData.append("ingredients", JSON.stringify(payloadIngredients));
 
@@ -251,6 +325,10 @@ export default function NewRecipeForm() {
       if (primaryIndex >= 0) {
         recipeFormData.append("primaryImageIndex", String(primaryIndex));
       }
+    }
+
+    if (importSessionId) {
+      recipeFormData.append("importSessionId", importSessionId);
     }
 
     try {
@@ -279,9 +357,16 @@ export default function NewRecipeForm() {
       <div id="new-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
         <div id="new-recipe-header" className="flex items-center justify-between">
           <h1 id="new-recipe-title" className="text-2xl font-semibold">Add Family Recipe</h1>
-          <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
-            Back to list
-          </Link>
+          <div id="new-recipe-header-links" className="flex items-center gap-3">
+            {isRecipeImportEnabled ? (
+              <Link id="new-recipe-import-link" href="/recipes/import" className="text-link text-sm">
+                Import Recipe
+              </Link>
+            ) : null}
+            <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
+              Back to list
+            </Link>
+          </div>
         </div>
 
         <form id="new-recipe-form" onSubmit={handleSubmit} className="space-y-4">
@@ -289,21 +374,43 @@ export default function NewRecipeForm() {
             <label id="new-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
               Title
             </label>
-            <input id="title" name="title" required className="input-base" />
+            <input
+              id="title"
+              name="title"
+              required
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="input-base"
+            />
           </div>
 
           <div id="new-recipe-description-field">
             <label id="new-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
               Description
             </label>
-            <textarea id="description" name="description" rows={2} className="input-base" />
+            <textarea
+              id="description"
+              name="description"
+              rows={2}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="input-base"
+            />
           </div>
 
           <div id="new-recipe-steps-field">
             <label id="new-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
               Steps (Markdown)
             </label>
-            <textarea id="stepsMarkdown" name="stepsMarkdown" rows={6} required className="input-base" />
+            <textarea
+              id="stepsMarkdown"
+              name="stepsMarkdown"
+              rows={6}
+              required
+              value={stepsMarkdown}
+              onChange={(event) => setStepsMarkdown(event.target.value)}
+              className="input-base"
+            />
           </div>
 
           <div id="new-recipe-sharing-section" className="surface-card space-y-3 p-4">
