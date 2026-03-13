@@ -32,7 +32,7 @@ async function applyMigrations(dbPath: string) {
   }
 }
 
-async function setupIntegrationEnv() {
+async function setupIntegrationEnv(options?: { recipeImportEnabled?: boolean }) {
   const rootDir = await mkdtemp(join(tmpdir(), "recetas-import-integration-"));
   const dbPath = join(rootDir, "test.db");
   await rm(SHARED_UPLOADS_DIR, { recursive: true, force: true });
@@ -45,7 +45,7 @@ async function setupIntegrationEnv() {
   process.env.JWT_EXPIRES_IN = "7d";
   process.env.IMAGE_STORAGE_DRIVER = "local";
   process.env.IMAGE_STORAGE_LOCAL_ROOT = SHARED_UPLOADS_DIR;
-  process.env.RECIPE_IMPORT_ENABLED = "true";
+  process.env.RECIPE_IMPORT_ENABLED = options?.recipeImportEnabled === false ? "false" : "true";
   process.env.RECIPE_IMPORT_EXTRACTOR_DRIVER = "rule-based";
 
   (globalThis as { prisma?: unknown }).prisma = undefined;
@@ -294,6 +294,52 @@ test("recipe creation still works without import session", async () => {
       where: { userId: user.id },
     });
     assert.equal(importSessions.length, 0);
+  } finally {
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("import routes return 404 when recipe import feature flag is disabled", async () => {
+  const { rootDir } = await setupIntegrationEnv({ recipeImportEnabled: false });
+
+  try {
+    const prisma = await getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        firstName: "Feature",
+        lastName: "Gate",
+        email: "feature-gate@example.com",
+        username: "feature-gate-user",
+        passwordHash: "hash",
+      },
+    });
+
+    const token = signAccessToken({ userId: user.id, username: user.username });
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+    const sessionRoute = await loadRouteModule("../app/api/recipes/import/sessions/[sessionId]/route.ts");
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ content: "Toast" }),
+      }),
+    );
+    assert.equal(parseResponse.status, 404);
+
+    const getResponse = await sessionRoute.GET!(
+      new Request("http://localhost/api/recipes/import/sessions/test-session", {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+      { params: Promise.resolve({ sessionId: "test-session" }) },
+    );
+    assert.equal(getResponse.status, 404);
   } finally {
     const prisma = await getPrisma();
     await prisma.$disconnect();

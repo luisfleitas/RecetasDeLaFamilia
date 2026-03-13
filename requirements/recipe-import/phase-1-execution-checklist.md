@@ -1,16 +1,18 @@
 # Recipe Import - Phase 1 Execution Checklist
 
 ## Phase Gate
-Status: `IN_PROGRESS`
+Status: `READY_FOR_STAGING_VALIDATION`
 Rule: Track implementation completion against this checklist.
 
-## Progress Snapshot (Updated: 2026-03-04)
+## Progress Snapshot (Updated: 2026-03-13)
 - Implemented core import flow for paste text + TXT/PDF/image OCR.
 - Implemented import session persistence and draft hydration/edit flow.
 - Implemented source-document staging, promotion, and authorized retrieval endpoints.
 - Added import health endpoint and cleanup script for expired sessions.
 - Added parser coverage for recipes where ingredients are inferred from step text.
-- Remaining work is primarily DOCX/DOC support, provider/OCR fallback abstraction, guardrails/telemetry, and full integration/E2E validation.
+- Added focused import verification command and route-level happy-path coverage from file import through recipe create.
+- Documented staging validation and rollback procedures for release readiness.
+- Remaining work is limited to local migration application, staging runbook execution, and Phase 2 signoff.
 
 ## 1. Schema and Persistence
 - [x] Add `ImportSession` model in Prisma schema.
@@ -60,13 +62,13 @@ Rule: Track implementation completion against this checklist.
 - [x] Add telemetry: success rate, fallback rate, top error codes, latency.
 
 ## 7. Verification
-- [ ] Unit tests for adapters, provider mapping, and validation.
+- [x] Unit tests for adapters, provider mapping, and validation.
 - [x] Integration tests for parse endpoint and source-doc access control.
-- [ ] E2E happy path from import to create.
+- [x] E2E happy path from import to create.
 - [x] Regression check that non-import recipe create flow is unchanged.
 
 ## 8. Release Readiness
-- [ ] Feature gate verified (`RECIPE_IMPORT_ENABLED`).
+- [x] Feature gate verified (`RECIPE_IMPORT_ENABLED`).
 - [ ] Staging validation runbook executed.
-- [ ] Rollback plan documented.
+- [x] Rollback plan documented.
 - [ ] Approval obtained for Phase 2 (implementation completion signoff).
