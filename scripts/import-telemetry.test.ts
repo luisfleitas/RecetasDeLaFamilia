@@ -23,6 +23,11 @@ test("recordRecipeImportTelemetry stores normalized metadata including fallback 
           return {};
         },
       },
+      familyAuditEvent: {
+        async create() {
+          throw new Error("familyAuditEvent.create should not be called in import telemetry");
+        },
+      },
     },
     requestId: "recipe-import-request",
     userId: 42,
@@ -35,13 +40,26 @@ test("recordRecipeImportTelemetry stores normalized metadata including fallback 
     ocrDriver: "openai",
   });
 
-  assert.ok(captured);
-  assert.equal(captured?.metricName, "recipe_import_parse");
-  assert.equal(captured?.requestId, "recipe-import-request");
-  assert.equal(captured?.actorUserId, 42);
-  assert.equal(captured?.statusCode, 200);
+  if (!captured) {
+    throw new Error("Expected telemetry payload to be captured");
+  }
 
-  const metadata = JSON.parse(captured?.metadataJson ?? "{}") as Record<string, unknown>;
+  const metric = captured as {
+    metricName: string;
+    requestId: string;
+    actorUserId: number | null;
+    familyId: number | null;
+    inviteId: number | null;
+    statusCode: number | null;
+    metadataJson: string | null;
+  };
+
+  assert.equal(metric.metricName, "recipe_import_parse");
+  assert.equal(metric.requestId, "recipe-import-request");
+  assert.equal(metric.actorUserId, 42);
+  assert.equal(metric.statusCode, 200);
+
+  const metadata = JSON.parse(metric.metadataJson ?? "{}") as Record<string, unknown>;
   assert.equal(metadata.sourceType, "pdf");
   assert.equal(metadata.outcome, "success");
   assert.equal(metadata.latencyMs, 123);

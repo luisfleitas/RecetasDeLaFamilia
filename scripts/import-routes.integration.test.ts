@@ -10,6 +10,7 @@ import { getPrisma } from "../lib/prisma";
 type RouteModule = {
   GET?: (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
   POST?: (request: Request, context?: { params: Promise<Record<string, string>> }) => Promise<Response>;
+  PATCH?: (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>;
 };
 
 const SHARED_UPLOADS_DIR = join(tmpdir(), "recetas-import-integration-uploads");
