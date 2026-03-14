@@ -113,9 +113,20 @@ export default async function HomePage() {
       <HomeCanvas />
 
       <div id="home-app-shell" className="app-shell space-y-6">
-        <header id="home-page-header" className="surface-panel p-6 sm:p-8">
-          <div id="home-header-content" className="space-y-5">
-            <div id="home-hero-actions" className="flex w-full flex-wrap items-center justify-end gap-2">
+        <header id="home-page-top-header" className="surface-panel p-4 sm:p-5">
+          <div id="home-page-top-header-row" className="page-header-bar">
+            <div id="home-page-top-header-brand" className="page-header-copy">
+              <p id="home-page-top-header-eyebrow" className="page-eyebrow">Recetas</p>
+              <p id="home-page-top-header-description" className="page-supporting-text">
+                A shared archive for preserving recipes, stories, and family cooking traditions.
+              </p>
+            </div>
+
+            <div id="home-page-top-header-actions" className="flex flex-wrap items-center gap-2">
+              <Link id="home-top-add-recipe-link" href="/recipes/new" className={buttonClassName("primary")}>
+                + Add Family Recipe
+              </Link>
+
               {!authUser ? (
                 <>
                   <Link id="home-create-account-link" href="/register" className={buttonClassName("secondary")}>
@@ -127,21 +138,35 @@ export default async function HomePage() {
                 </>
               ) : (
                 <>
-                  <LogoutButton />
                   <Link id="home-manage-account-link" href="/account/change-password" className={buttonClassName("secondary")}>
-                    Manage your Account
+                    Manage Account
                   </Link>
                   <Link id="home-my-families-link" href="/account/families" className={buttonClassName("secondary")}>
                     My Families
                   </Link>
+                  <LogoutButton />
                 </>
               )}
-
-              <Link id="home-add-recipe-link" href="/recipes/new" className={buttonClassName("primary")}>
-                + Add Family Recipe
-              </Link>
             </div>
+          </div>
 
+          <div id="home-page-top-header-tabs" className="secondary-tab-strip mt-4">
+            <span id="home-top-header-tab-recipes" className="secondary-tab-strip-item" data-active="true">Recipes</span>
+            <Link
+              id="home-top-header-tab-account"
+              href={authUser ? "/account/change-password" : "/login"}
+              className="secondary-tab-strip-item"
+            >
+              {authUser ? "Account" : "Log In"}
+            </Link>
+            <Link id="home-top-header-tab-add-recipe" href="/recipes/new" className="secondary-tab-strip-item">
+              Add Recipe
+            </Link>
+          </div>
+        </header>
+
+        <header id="home-page-header" className="surface-panel p-6 sm:p-8">
+          <div id="home-header-content" className="space-y-5">
             <div id="home-hero-copy" className="max-w-3xl">
               <p id="home-hero-eyebrow" className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Family Recipe Archive</p>
               <h1
@@ -156,7 +181,11 @@ export default async function HomePage() {
                 notes, and tradition into the next generation.
               </p>
             </div>
-
+            <div id="home-hero-primary-action">
+              <Link id="home-add-recipe-link" href="/recipes/new" className={buttonClassName("primary")}>
+                + Add Family Recipe
+              </Link>
+            </div>
           </div>
 
           <div id="home-status-pills" className="mt-5 flex flex-wrap gap-2.5">

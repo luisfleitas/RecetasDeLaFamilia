@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
 
 type CreatedRecipe = {
@@ -50,6 +51,7 @@ const EMPTY_INGREDIENT: IngredientDraft = {
 const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 function toIngredientDraftsFromImportedDraft(draft: ImportedRecipeDraft): IngredientDraft[] {
   if (draft.ingredients.length === 0) {
     return [EMPTY_INGREDIENT];
@@ -370,51 +372,55 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
         </div>
 
         <form id="new-recipe-form" onSubmit={handleSubmit} className="space-y-4">
-          <div id="new-recipe-title-field">
-            <label id="new-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
-              Title
-            </label>
-            <input
-              id="title"
-              name="title"
-              required
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="input-base"
-            />
+          <div id="new-recipe-basic-info-section" className="surface-card recipe-form-section p-4">
+            <div id="new-recipe-basic-info-header" className="recipe-form-section-header">
+              <div id="new-recipe-basic-info-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-basic-info-title" className="recipe-form-section-title">Basic info</p>
+                <p id="new-recipe-basic-info-description" className="recipe-form-section-description">
+                  Start with the core details before building the ingredient list.
+                </p>
+              </div>
+            </div>
+
+            <div id="new-recipe-title-field">
+              <label id="new-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
+                Title
+              </label>
+              <input
+                id="title"
+                name="title"
+                required
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className="input-base"
+              />
+            </div>
+
+            <div id="new-recipe-description-field">
+              <label id="new-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
+                Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                rows={2}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="input-base"
+              />
+            </div>
           </div>
 
-          <div id="new-recipe-description-field">
-            <label id="new-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={2}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              className="input-base"
-            />
-          </div>
+          <div id="new-recipe-sharing-section" className="surface-card recipe-form-section p-4">
+            <div id="new-recipe-sharing-header" className="recipe-form-section-header">
+              <div id="new-recipe-sharing-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-sharing-title" className="recipe-form-section-title">Sharing</p>
+                <p id="new-recipe-sharing-description" className="recipe-form-section-description">
+                  Choose whether this recipe is public, private, or shared with one or more families.
+                </p>
+              </div>
+            </div>
 
-          <div id="new-recipe-steps-field">
-            <label id="new-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
-              Steps (Markdown)
-            </label>
-            <textarea
-              id="stepsMarkdown"
-              name="stepsMarkdown"
-              rows={6}
-              required
-              value={stepsMarkdown}
-              onChange={(event) => setStepsMarkdown(event.target.value)}
-              className="input-base"
-            />
-          </div>
-
-          <div id="new-recipe-sharing-section" className="surface-card space-y-3 p-4">
-            <p id="new-recipe-sharing-title" className="text-sm font-medium">Sharing</p>
             <div id="new-recipe-sharing-visibility-group" className="flex flex-wrap gap-4">
               <label id="new-recipe-sharing-public-label" className="text-sm">
                 <input
@@ -482,9 +488,24 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
             ) : null}
           </div>
 
-          <div id="new-recipe-images-section" className="surface-card p-4">
+          <IngredientEditor
+            addButtonId="new-recipe-add-ingredient"
+            baseId="new-recipe-ingredients"
+            ingredients={ingredients}
+            onAdd={addIngredientRow}
+            onRemove={removeIngredientRow}
+            onUpdate={updateIngredient}
+            title="Ingredients"
+          />
+
+          <div id="new-recipe-images-section" className="surface-card recipe-form-section p-4">
             <div id="new-recipe-images-header" className="mb-3 flex items-center justify-between">
-              <p id="new-recipe-images-title" className="text-sm font-medium">Recipe Images</p>
+              <div id="new-recipe-images-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-images-title" className="recipe-form-section-title">Recipe Images</p>
+                <p id="new-recipe-images-description" className="recipe-form-section-description">
+                  Add photos after the ingredients are in place, then choose the primary image.
+                </p>
+              </div>
               <span id="new-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{newImages.length}/{MAX_IMAGES}</span>
             </div>
 
@@ -547,87 +568,28 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
             </div>
           </div>
 
-          <div id="new-recipe-ingredients-section" className="surface-card p-4">
-            <div id="new-recipe-ingredients-header" className="mb-3 flex items-center justify-between">
-              <p id="new-recipe-ingredients-title" className="text-sm font-medium">Ingredients</p>
-              <button id="new-recipe-add-ingredient" type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
-                Add Ingredient
-              </button>
+          <div id="new-recipe-steps-section" className="surface-card recipe-form-section p-4">
+            <div id="new-recipe-steps-header" className="recipe-form-section-header">
+              <div id="new-recipe-steps-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-steps-title" className="recipe-form-section-title">Steps</p>
+                <p id="new-recipe-steps-description" className="recipe-form-section-description">
+                  Write the instructions last, after the recipe structure and ingredients are in place.
+                </p>
+              </div>
             </div>
-
-            <div id="new-recipe-ingredients-list" className="space-y-4">
-              {ingredients.map((ingredient, index) => (
-                <div id={`new-recipe-ingredient-row-${ingredient.rowId}`} key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-                  <div id={`new-recipe-ingredient-row-header-${ingredient.rowId}`} className="mb-2 flex items-center justify-between">
-                    <p id={`new-recipe-ingredient-row-title-${ingredient.rowId}`} className="text-sm font-medium">Row {index + 1}</p>
-                    <button
-                      id={`new-recipe-ingredient-remove-${ingredient.rowId}`}
-                      type="button"
-                      onClick={() => removeIngredientRow(ingredient.rowId)}
-                      disabled={ingredients.length === 1}
-                      className={buttonClassName("secondary")}
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <div id={`new-recipe-ingredient-fields-${ingredient.rowId}`} className="grid gap-3 sm:grid-cols-2">
-                    <div id={`new-recipe-ingredient-name-field-${ingredient.rowId}`} className="sm:col-span-2">
-                      <label id={`new-recipe-ingredient-name-label-${ingredient.rowId}`} htmlFor={`ingredientName-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Name
-                      </label>
-                      <input
-                        id={`ingredientName-${ingredient.rowId}`}
-                        required
-                        value={ingredient.name}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "name", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-
-                    <div id={`new-recipe-ingredient-qty-field-${ingredient.rowId}`}>
-                      <label id={`new-recipe-ingredient-qty-label-${ingredient.rowId}`} htmlFor={`qty-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Quantity
-                      </label>
-                      <input
-                        id={`qty-${ingredient.rowId}`}
-                        type="number"
-                        min={0.001}
-                        step={0.001}
-                        required
-                        value={ingredient.qty}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "qty", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-
-                    <div id={`new-recipe-ingredient-unit-field-${ingredient.rowId}`}>
-                      <label id={`new-recipe-ingredient-unit-label-${ingredient.rowId}`} htmlFor={`unit-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Unit
-                      </label>
-                      <input
-                        id={`unit-${ingredient.rowId}`}
-                        required
-                        value={ingredient.unit}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "unit", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-
-                    <div id={`new-recipe-ingredient-notes-field-${ingredient.rowId}`}>
-                      <label id={`new-recipe-ingredient-notes-label-${ingredient.rowId}`} htmlFor={`notes-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Notes
-                      </label>
-                      <input
-                        id={`notes-${ingredient.rowId}`}
-                        value={ingredient.notes}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "notes", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div id="new-recipe-steps-field">
+              <label id="new-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
+                Steps (Markdown)
+              </label>
+              <textarea
+                id="stepsMarkdown"
+                name="stepsMarkdown"
+                rows={6}
+                required
+                value={stepsMarkdown}
+                onChange={(event) => setStepsMarkdown(event.target.value)}
+                className="input-base"
+              />
             </div>
           </div>
 
