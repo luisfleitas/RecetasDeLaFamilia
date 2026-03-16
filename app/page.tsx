@@ -138,12 +138,6 @@ export default async function HomePage() {
                 </>
               ) : (
                 <>
-                  <Link id="home-manage-account-link" href="/account/change-password" className={buttonClassName("secondary")}>
-                    Manage Account
-                  </Link>
-                  <Link id="home-my-families-link" href="/account/families" className={buttonClassName("secondary")}>
-                    My Families
-                  </Link>
                   <LogoutButton />
                 </>
               )}
@@ -159,6 +153,11 @@ export default async function HomePage() {
             >
               {authUser ? "Account" : "Log In"}
             </Link>
+            {authUser ? (
+              <Link id="home-my-families-link" href="/account/families" className="secondary-tab-strip-item">
+                My Families
+              </Link>
+            ) : null}
             <Link id="home-top-header-tab-add-recipe" href="/recipes/new" className="secondary-tab-strip-item">
               Add Recipe
             </Link>
