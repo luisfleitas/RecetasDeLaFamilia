@@ -97,24 +97,28 @@ export default async function RecipeDetailPage({ params }: Params) {
   return (
     <main id="recipe-detail-main" className="app-shell max-w-5xl space-y-6">
       <section id="recipe-detail-header-section" className="surface-panel space-y-5 p-6 sm:p-8">
-        <div id="recipe-detail-header-row" className="flex flex-wrap items-center justify-between gap-3">
-          <h1 id="recipe-detail-title" className="text-2xl font-semibold sm:text-3xl">{recipe.title}</h1>
+        <div id="recipe-detail-header-row" className="page-header-bar">
+          <div id="recipe-detail-header-copy" className="page-header-copy">
+            <p id="recipe-detail-header-eyebrow" className="page-eyebrow">Recipe Detail</p>
+            <h1 id="recipe-detail-title" className="text-2xl font-semibold sm:text-3xl">{recipe.title}</h1>
+            <p id="recipe-detail-created-at" className="page-supporting-text">Created {new Date(recipe.createdAt).toLocaleString()}</p>
+          </div>
+
           <div id="recipe-detail-actions" className="flex flex-wrap items-center gap-2">
+            <Link id="recipe-detail-back-link" href="/" className={buttonClassName("secondary")}>
+              Back to list
+            </Link>
             {canManageRecipe ? (
               <>
-                <Link id="recipe-detail-edit-link" href={`/recipes/${recipe.id}/edit`} className={buttonClassName("secondary")}>
-                  Edit
+                <Link id="recipe-detail-edit-link" href={`/recipes/${recipe.id}/edit`} className={buttonClassName("primary")}>
+                  Edit Recipe
                 </Link>
                 <DeleteRecipeButton recipeId={recipe.id} />
               </>
             ) : null}
-            <Link id="recipe-detail-back-link" href="/" className={buttonClassName("secondary")}>
-              Back to list
-            </Link>
           </div>
         </div>
 
-        <p id="recipe-detail-created-at" className="text-sm text-[var(--color-text-muted)]">Created {new Date(recipe.createdAt).toLocaleString()}</p>
         <p id="recipe-detail-visibility" className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
           {recipe.visibility === "family"
             ? `Shared with: ${recipe.families.map((family) => family.name).join(", ")}`
@@ -122,7 +126,6 @@ export default async function RecipeDetailPage({ params }: Params) {
               ? "Private to owner"
               : "Public"}
         </p>
-
         {recipe.primaryImage ? (
           <img
             id="recipe-detail-primary-image"
@@ -133,6 +136,15 @@ export default async function RecipeDetailPage({ params }: Params) {
         ) : null}
 
         {recipe.description ? <p id="recipe-detail-description" className="text-[var(--color-text)]">{recipe.description}</p> : null}
+
+        <div id="recipe-detail-metadata-pills" className="detail-metadata-pills">
+          <span id="recipe-detail-ingredient-count-pill" className="detail-metadata-pill">
+            {recipe.ingredients.length} ingredient{recipe.ingredients.length === 1 ? "" : "s"}
+          </span>
+          <span id="recipe-detail-image-count-pill" className="detail-metadata-pill">
+            {recipe.images?.length ?? 0} image{recipe.images?.length === 1 ? "" : "s"}
+          </span>
+        </div>
       </section>
 
       {recipe.images && recipe.images.length > 0 ? (
@@ -157,12 +169,14 @@ export default async function RecipeDetailPage({ params }: Params) {
         <h2 id="recipe-detail-ingredients-title" className="mb-3 text-lg font-semibold">Ingredients</h2>
         <ul id="recipe-detail-ingredients-list" className="space-y-2">
           {recipe.ingredients.map((ingredient) => (
-            <li id={`recipe-detail-ingredient-${ingredient.id}`} key={ingredient.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-2">
-              <span id={`recipe-detail-ingredient-qty-${ingredient.id}`} className="font-medium">
-                {formatQuantity(ingredient.qty)} {ingredient.unit}
-              </span>{" "}
-              {ingredient.name}
-              {ingredient.notes ? <span id={`recipe-detail-ingredient-notes-${ingredient.id}`} className="text-[var(--color-text-muted)]"> ({ingredient.notes})</span> : null}
+            <li id={`recipe-detail-ingredient-${ingredient.id}`} key={ingredient.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+              <div id={`recipe-detail-ingredient-primary-${ingredient.id}`} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span id={`recipe-detail-ingredient-name-${ingredient.id}`} className="font-medium">{ingredient.name}</span>
+                <span id={`recipe-detail-ingredient-qty-${ingredient.id}`} className="text-[var(--color-text-muted)]">
+                  {formatQuantity(ingredient.qty)} {ingredient.unit}
+                </span>
+              </div>
+              {ingredient.notes ? <p id={`recipe-detail-ingredient-notes-${ingredient.id}`} className="mt-1 text-sm text-[var(--color-text-muted)]">{ingredient.notes}</p> : null}
             </li>
           ))}
         </ul>
