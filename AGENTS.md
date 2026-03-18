@@ -42,7 +42,7 @@
 
 ### Branching Rule For New UI Features
 - Start UI feature workflow from `pre-main`.
-- Run BA, research, design exploration, and implementation planning before creating a feature branch.
-- Create the working branch only after the implementation plan is approved and code changes are about to begin.
+- Create the working branch at the beginning of the approved UI feature effort from `pre-main`.
+- Run BA, research, design exploration, and implementation planning on that feature branch before coding begins.
 - Use the branch naming convention `codex/feature/<kebab-case-name>`.
 - Open the PR back into `pre-main`.

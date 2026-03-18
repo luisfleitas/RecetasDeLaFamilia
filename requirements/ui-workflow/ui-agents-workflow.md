@@ -55,12 +55,12 @@ When the workflow reaches planning or implementation:
 For new features in Recetas:
 
 - Start the workflow from `pre-main`.
-- Run BA, research, design exploration, and implementation planning before creating a feature branch.
-- Create the working branch only after the implementation plan is approved and code changes are about to begin.
+- Create the working branch at the beginning of the feature effort from `pre-main`.
+- Run BA, research, design exploration, and implementation planning on that feature branch before coding begins.
 - Use the branch naming convention `codex/feature/<kebab-case-name>`.
 - Open the PR back into `pre-main`.
 
-This keeps abandoned ideas out of the branch list and ensures the branch name matches the approved scope.
+This keeps the entire feature workflow scoped to one branch while still requiring approval before implementation begins.
 
 ## Roles
 
