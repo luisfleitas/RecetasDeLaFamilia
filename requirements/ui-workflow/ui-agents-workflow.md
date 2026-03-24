@@ -46,6 +46,7 @@ When the workflow reaches planning or implementation:
 
 - Inspect the actual codebase before making assumptions.
 - Reuse existing components, utilities, and styling patterns where possible.
+- Create all design documents inside the relevant `requirements/<feature>/` folder. Do not place feature design docs in ad hoc locations outside that feature's requirements directory.
 - Add stable `id` attributes to newly created or modified UI elements when appropriate.
 - Preserve accessibility basics.
 - Keep the implementation incremental and reviewable.
@@ -149,6 +150,7 @@ Critical Recetas UI rule:
 Recetas implementation constraints:
 - Respect the current codebase patterns and component structure.
 - Reuse existing components and utilities where possible.
+- Create all design documents inside the relevant `requirements/<feature>/` folder. Do not place feature design docs in ad hoc locations outside that feature's requirements directory.
 - For UI work, stable id attributes should be added to newly created or modified UI elements when appropriate.
 - Preserve accessibility basics.
 - Desktop and mobile behavior must both be defined.

@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
+import { parseImportMetadataJson } from "@/lib/application/recipes/import-session-metadata";
 import { buildImageStorageProvider } from "@/lib/infrastructure/images/storage-factory";
 import { getPrisma } from "@/lib/prisma";
 
 const storageProvider = buildImageStorageProvider();
 
 export type ImportSourceType = "txt" | "docx" | "doc" | "pdf" | "image" | "paste";
+
+export type RecipeSourceDocumentMetadata = {
+  inputMode: "document" | "handwritten";
+  publiclyVisible: boolean;
+  sourceImageVisibility: "private" | "public" | null;
+};
 
 type StageImportSourceDocumentInput = {
   userId: number;
@@ -57,6 +64,7 @@ export async function stageImportSourceDocument(input: StageImportSourceDocument
           sizeBytes: number;
           storageKey: string;
           sourceType: ImportSourceType;
+          metadataJson?: string | null;
         };
         select: {
           id: true;
@@ -81,6 +89,7 @@ export async function stageImportSourceDocument(input: StageImportSourceDocument
         sizeBytes: input.sizeBytes,
         storageKey: stagingKey,
         sourceType: input.sourceType,
+        metadataJson: null,
       },
       select: {
         id: true,
@@ -111,6 +120,12 @@ export async function promoteImportSessionSourceDocuments(input: {
 }) {
   const prisma = await getPrisma();
   const prismaDb = prisma as unknown as {
+    importSession: {
+      findUnique: (args: {
+        where: { id: string };
+        select: { metadataJson: true };
+      }) => Promise<{ metadataJson: string | null } | null>;
+    };
     recipeSourceDocument: {
       findMany: (args: {
         where: {
@@ -123,13 +138,25 @@ export async function promoteImportSessionSourceDocuments(input: {
           originalFilename: true;
           mimeType: true;
           storageKey: true;
+          sourceType: true;
         };
-      }) => Promise<Array<{ id: number; originalFilename: string; mimeType: string; storageKey: string }>>;
+      }) => Promise<Array<{ id: number; originalFilename: string; mimeType: string; storageKey: string; sourceType: string }>>;
       update: (args: {
         where: { id: number };
-        data: { recipeId: number; storageKey: string };
+        data: { recipeId: number; storageKey: string; metadataJson: string | null };
       }) => Promise<unknown>;
     };
+  };
+
+  const importSession = await prismaDb.importSession.findUnique({
+    where: { id: input.importSessionId },
+    select: { metadataJson: true },
+  });
+  const importSessionMetadata = parseImportMetadataJson(importSession?.metadataJson ?? null);
+  const recipeSourceDocumentMetadata: RecipeSourceDocumentMetadata = {
+    inputMode: importSessionMetadata?.inputMode ?? "document",
+    publiclyVisible: importSessionMetadata?.handwritten?.sourceImageVisibility === "public",
+    sourceImageVisibility: importSessionMetadata?.handwritten?.sourceImageVisibility ?? null,
   };
 
   const docs = await prismaDb.recipeSourceDocument.findMany({
@@ -143,6 +170,7 @@ export async function promoteImportSessionSourceDocuments(input: {
       originalFilename: true,
       mimeType: true,
       storageKey: true,
+      sourceType: true,
     },
   });
 
@@ -164,8 +192,37 @@ export async function promoteImportSessionSourceDocuments(input: {
       data: {
         recipeId: input.recipeId,
         storageKey: finalKey,
+        metadataJson:
+          doc.sourceType === "image"
+            ? JSON.stringify(recipeSourceDocumentMetadata)
+            : JSON.stringify({
+                inputMode: "document",
+                publiclyVisible: false,
+                sourceImageVisibility: null,
+              } satisfies RecipeSourceDocumentMetadata),
       },
     });
+  }
+}
+
+export function parseRecipeSourceDocumentMetadata(value: string | null): RecipeSourceDocumentMetadata | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<RecipeSourceDocumentMetadata> | null;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    return {
+      inputMode: parsed.inputMode === "handwritten" ? "handwritten" : "document",
+      publiclyVisible: parsed.publiclyVisible === true,
+      sourceImageVisibility: parsed.sourceImageVisibility === "public" ? "public" : parsed.sourceImageVisibility === "private" ? "private" : null,
+    };
+  } catch {
+    return null;
   }
 }
 

@@ -36,6 +36,7 @@
 ### Planning And Implementation Rules
 - Inspect the actual codebase before making assumptions.
 - Reuse existing components, utilities, and styling patterns where possible.
+- Create all design documents inside the relevant `requirements/<feature>/` folder. Do not place feature design docs in ad hoc locations outside that feature's requirements directory.
 - Add stable `id` attributes to newly created or modified UI elements when appropriate.
 - Preserve accessibility basics.
 - Keep the implementation incremental and reviewable.

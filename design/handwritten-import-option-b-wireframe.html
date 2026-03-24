@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recetas Wireframe - Handwritten Import Option B</title>
+    <style>
+      :root {
+        --bg: #f3f6f3;
+        --surface: #fbfdfb;
+        --surface-soft: #f1f6f1;
+        --surface-muted: #e6efe8;
+        --text: #1f2922;
+        --text-muted: #5d6c61;
+        --border: #c9d8cc;
+        --border-strong: #a9c0b1;
+        --primary: #3f6b4f;
+        --warning-soft: #fff5d6;
+        --danger-soft: #fce4e2;
+        --radius-sm: 10px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --shadow: 0 18px 40px rgba(31, 57, 41, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(110, 157, 126, 0.18), transparent 30%),
+          var(--bg);
+        color: var(--text);
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        padding: 28px;
+      }
+
+      .topbar,
+      .section-header,
+      .footer-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .supporting {
+        margin-top: 8px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        max-width: 700px;
+      }
+
+      .back-link {
+        color: var(--text-muted);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        white-space: nowrap;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-top: 24px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .tab {
+        border: 1px solid var(--border);
+        border-bottom: 3px solid transparent;
+        border-radius: var(--radius-sm);
+        background: var(--surface-muted);
+        padding: 12px 16px 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+
+      .tab.active {
+        background: var(--surface);
+        color: var(--text);
+        border-bottom-color: var(--primary);
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+        gap: 24px;
+        margin-top: 24px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        padding: 20px;
+      }
+
+      .card.soft {
+        background: var(--surface-soft);
+      }
+
+      .wire-label {
+        color: var(--text-muted);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .upload-box,
+      .status,
+      .warning,
+      .toggle-row,
+      .field,
+      .page-card {
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+      }
+
+      .upload-box {
+        background: linear-gradient(180deg, #f9fcf9, #eef5ef);
+        padding: 22px;
+        margin-top: 16px;
+      }
+
+      .upload-box h3 {
+        font-size: 21px;
+      }
+
+      .upload-copy {
+        margin-top: 8px;
+        color: var(--text-muted);
+        line-height: 1.55;
+      }
+
+      .capture-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 1fr 1fr;
+        margin: 18px 0 16px;
+      }
+
+      .capture-tip {
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        padding: 12px;
+        font-size: 13px;
+        color: var(--text-muted);
+      }
+
+      .button,
+      .button-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 11px;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .button {
+        background: var(--primary);
+        color: #f6fbf7;
+      }
+
+      .button-secondary {
+        border: 1px solid var(--border-strong);
+        background: var(--surface-soft);
+      }
+
+      .formats {
+        margin-top: 12px;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      .status-stack,
+      .field-stack,
+      .page-stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .status {
+        background: var(--surface);
+        padding: 14px;
+      }
+
+      .status.warning {
+        background: var(--warning-soft);
+      }
+
+      .status.error {
+        background: var(--danger-soft);
+      }
+
+      .page-card {
+        padding: 14px;
+        background: var(--surface-soft);
+      }
+
+      .page-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .thumb {
+        margin-top: 12px;
+        height: 108px;
+        border-radius: 10px;
+        background: repeating-linear-gradient(
+          0deg,
+          rgba(169, 192, 177, 0.12),
+          rgba(169, 192, 177, 0.12) 8px,
+          rgba(169, 192, 177, 0.28) 8px,
+          rgba(169, 192, 177, 0.28) 10px
+        );
+      }
+
+      .review-panel {
+        display: grid;
+        gap: 16px;
+      }
+
+      .warning {
+        background: var(--warning-soft);
+        padding: 14px 16px;
+      }
+
+      .toggle-row,
+      .field {
+        padding: 12px 14px;
+        background: var(--surface);
+      }
+
+      .field.large {
+        min-height: 136px;
+      }
+
+      .ingredients {
+        display: grid;
+        gap: 10px;
+      }
+
+      .ingredient-row {
+        display: grid;
+        grid-template-columns: 1.5fr 0.7fr 0.8fr 1.1fr auto;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-soft);
+      }
+
+      .ghost {
+        min-height: 42px;
+        border-radius: 8px;
+        background: repeating-linear-gradient(
+          -45deg,
+          rgba(169, 192, 177, 0.18),
+          rgba(169, 192, 177, 0.18) 10px,
+          rgba(169, 192, 177, 0.08) 10px,
+          rgba(169, 192, 177, 0.08) 20px
+        );
+      }
+
+      .mini-note {
+        margin-top: 6px;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      .footer-actions {
+        margin-top: 20px;
+      }
+
+      @media (max-width: 960px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .ingredient-row {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .panel {
+          padding: 20px;
+        }
+
+        .topbar,
+        .section-header,
+        .footer-actions {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .capture-grid,
+        .ingredient-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">Wireframe Option B</p>
+            <h1>Import Recipe</h1>
+            <p class="supporting">
+              Source-first workspace. The handwritten mode becomes a clearer two-step flow: add source on the left,
+              review draft on the right, while still reusing the current Recetas review structure.
+            </p>
+          </div>
+          <a class="back-link" href="./handwritten-import-wireframes.html">Back to comparison</a>
+        </div>
+
+        <div class="tabs" aria-label="Recipe import mode switch">
+          <div class="tab">Document Import</div>
+          <div class="tab active">Handwritten Notes</div>
+        </div>
+
+        <div class="workspace">
+          <section class="card">
+            <div class="section-header">
+              <div>
+                <p class="wire-label">Step 1</p>
+                <h2>Add source</h2>
+              </div>
+              <div class="button-secondary">Mode-specific empty state</div>
+            </div>
+
+            <div class="upload-box">
+              <h3>Upload photos or scans of your handwritten recipe</h3>
+              <p class="upload-copy">
+                This workspace is optimized for recipe cards, notebook pages, and handwritten sheets. Upload each page
+                in reading order so the draft can be merged correctly.
+              </p>
+
+              <div class="capture-grid">
+                <div class="capture-tip">Bright, even light produces cleaner OCR.</div>
+                <div class="capture-tip">Frame the page tightly and keep it flat.</div>
+                <div class="capture-tip">Avoid angled shots when possible.</div>
+                <div class="capture-tip">Multi-page recipes should stay in order.</div>
+              </div>
+
+              <div class="button">Choose handwritten images</div>
+              <div class="formats">Supported formats: JPG, PNG, WEBP, TIFF, BMP</div>
+            </div>
+
+            <div class="status-stack" style="margin-top: 16px">
+              <div class="status">
+                <strong>Loading state</strong>
+                <div class="mini-note">Reading handwriting and combining uploaded pages...</div>
+              </div>
+              <div class="status error">
+                <strong>Error state</strong>
+                <div class="mini-note">Page 2 could not be read well enough. Retake in better lighting or upload a sharper image.</div>
+              </div>
+            </div>
+
+            <div class="section-header" style="margin-top: 18px">
+              <div>
+                <p class="wire-label">Ordered Uploads</p>
+                <h3>Uploaded pages</h3>
+              </div>
+              <div class="button-secondary">Page order matters</div>
+            </div>
+
+            <div class="page-stack" style="margin-top: 12px">
+              <div class="page-card">
+                <div class="page-card-header">
+                  <strong>Page 1</strong>
+                  <span class="wire-label">Primary OCR source</span>
+                </div>
+                <div class="thumb"></div>
+              </div>
+              <div class="page-card">
+                <div class="page-card-header">
+                  <strong>Page 2</strong>
+                  <span class="wire-label">Merged after page 1</span>
+                </div>
+                <div class="thumb"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card soft">
+            <div class="section-header">
+              <div>
+                <p class="wire-label">Step 2</p>
+                <h2>Review draft</h2>
+              </div>
+              <div class="button-secondary">Same editor, clearer framing</div>
+            </div>
+
+            <div class="review-panel" style="margin-top: 16px">
+              <div class="warning">
+                <strong>Manual review recommended.</strong>
+                <div class="mini-note">
+                  Handwritten text can be ambiguous. This draft was created from 2 uploaded pages in order.
+                </div>
+              </div>
+
+              <div class="toggle-row">
+                <strong>Source image visibility</strong>
+                <div class="mini-note">Private by default. Optionally allow source images to be viewed with the recipe.</div>
+              </div>
+
+              <div class="field-stack">
+                <div>
+                  <p class="wire-label">Title</p>
+                  <div class="field">Grandma's Lemon Bars</div>
+                </div>
+                <div>
+                  <p class="wire-label">Description</p>
+                  <div class="field">Family recipe transcribed from an index card.</div>
+                </div>
+                <div>
+                  <p class="wire-label">Steps</p>
+                  <div class="field large"></div>
+                </div>
+              </div>
+
+              <div class="section-header">
+                <div>
+                  <p class="wire-label">Editable Draft</p>
+                  <h3>Ingredients</h3>
+                </div>
+                <div class="button-secondary">Add row</div>
+              </div>
+
+              <div class="ingredients">
+                <div class="ingredient-row">
+                  <div class="ghost"></div>
+                  <div class="ghost"></div>
+                  <div class="ghost"></div>
+                  <div class="ghost"></div>
+                  <div class="button-secondary">Remove</div>
+                </div>
+                <div class="ingredient-row">
+                  <div class="ghost"></div>
+                  <div class="ghost"></div>
+                  <div class="ghost"></div>
+                  <div class="ghost"></div>
+                  <div class="button-secondary">Remove</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="footer-actions">
+              <div class="mini-note">On mobile, Step 1 stays above Step 2 in one vertical flow.</div>
+              <div class="button">Continue to recipe form</div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,8 +1,18 @@
-import { isRecipeImportEnabled, shouldForceRecipeImportOpenAiOcr } from "@/lib/application/recipes/import-config";
+import {
+  isRecipeImportEnabled,
+  isRecipeImportHandwrittenEnabled,
+  shouldForceRecipeImportOpenAiOcr,
+} from "@/lib/application/recipes/import-config";
 import { RecipeImportError, toRecipeImportError } from "@/lib/application/recipes/import-errors";
 import type { RecipeImportExtractorResult } from "@/lib/application/recipes/import-extractor-provider";
 import { checkRecipeImportParseRateLimit } from "@/lib/application/recipes/import-rate-limit";
-import type { ImportSessionSourceRef } from "@/lib/application/recipes/import-session-metadata";
+import { parseHandwrittenImportRequest } from "@/lib/application/recipes/handwritten-import";
+import type {
+  HandwrittenImportMetadata,
+  ImportSessionMetadata,
+  ImportSessionSourceRef,
+  RecipeImportInputMode,
+} from "@/lib/application/recipes/import-session-metadata";
 import { recordRecipeImportTelemetry } from "@/lib/application/recipes/import-telemetry";
 import { validateImportedRecipeDraft } from "@/lib/application/recipes/import-parse-validation";
 import {
@@ -47,34 +57,56 @@ function isTxtFile(file: File): boolean {
 }
 
 type ParsedImportRequest = {
+  inputMode: RecipeImportInputMode;
   content: string;
   sourceType: "paste" | ImportSourceType;
   pdfExtractionMethod?: "text-layer" | "ocr-preview" | null;
   ocrDriver?: "local" | "openai" | null;
-  sourceDocument:
-    | {
-        bytes: Buffer;
-        sourceType: ImportSourceType;
-        originalFilename: string;
-        mimeType: string;
-        sizeBytes: number;
-      }
-    | null;
+  sourceDocuments: Array<{
+    bytes: Buffer;
+    sourceType: ImportSourceType;
+    originalFilename: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+  handwrittenMetadata?: HandwrittenImportMetadata | null;
 };
 
 async function parseContentFromMultipartRequest(request: Request): Promise<ParsedImportRequest> {
   const formData = await request.formData();
+  const inputMode = formData.get("inputMode");
+  const parsedInputMode: RecipeImportInputMode =
+    typeof inputMode === "string" && inputMode === "handwritten" ? "handwritten" : "document";
   const file = formData.get("file");
   const pastedText = formData.get("content");
   const forceOpenAiOcr = shouldForceRecipeImportOpenAiOcr();
 
+  if (parsedInputMode === "handwritten") {
+    if (!isRecipeImportHandwrittenEnabled()) {
+      throw new Error("Handwritten import is not enabled.");
+    }
+
+    const handwrittenResult = await parseHandwrittenImportRequest(formData);
+    return {
+      inputMode: "handwritten",
+      content: handwrittenResult.content,
+      sourceType: handwrittenResult.sourceType,
+      pdfExtractionMethod: null,
+      ocrDriver: handwrittenResult.ocrDriver,
+      sourceDocuments: handwrittenResult.sourceDocuments,
+      handwrittenMetadata: handwrittenResult.metadata,
+    };
+  }
+
   if (typeof pastedText === "string" && pastedText.trim().length > 0) {
     return {
+      inputMode: "document",
       content: pastedText,
       sourceType: "paste",
       pdfExtractionMethod: null,
       ocrDriver: null,
-      sourceDocument: null,
+      sourceDocuments: [],
+      handwrittenMetadata: null,
     };
   }
 
@@ -93,50 +125,56 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   if (!isTxtFile(file)) {
     if (isDocxFile(file)) {
       return {
+        inputMode: "document",
         content: await extractTextFromDocx(bytes),
         sourceType: "docx",
         pdfExtractionMethod: null,
         ocrDriver: null,
-        sourceDocument: {
+        sourceDocuments: [{
           bytes,
           sourceType: "docx",
           originalFilename,
           mimeType,
           sizeBytes: file.size,
-        },
+        }],
+        handwrittenMetadata: null,
       };
     }
 
     if (isDocFile(file)) {
       return {
+        inputMode: "document",
         content: await extractTextFromDocBestEffort(bytes),
         sourceType: "doc",
         pdfExtractionMethod: null,
         ocrDriver: null,
-        sourceDocument: {
+        sourceDocuments: [{
           bytes,
           sourceType: "doc",
           originalFilename,
           mimeType,
           sizeBytes: file.size,
-        },
+        }],
+        handwrittenMetadata: null,
       };
     }
 
     if (isPdfFile(file)) {
       const pdfResult = await extractTextFromPdfWithLocalOcr(bytes);
       return {
+        inputMode: "document",
         content: pdfResult.text,
         sourceType: "pdf",
         pdfExtractionMethod: pdfResult.extractionMethod,
         ocrDriver: pdfResult.ocrDriver,
-        sourceDocument: {
+        sourceDocuments: [{
           bytes,
           sourceType: "pdf",
           originalFilename,
           mimeType,
           sizeBytes: file.size,
-        },
+        }],
+        handwrittenMetadata: null,
       };
     }
 
@@ -157,17 +195,19 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
       });
 
       return {
+        inputMode: "document",
         content: fallbackResult.text,
         sourceType: "image",
         pdfExtractionMethod: null,
         ocrDriver: "openai",
-        sourceDocument: {
+        sourceDocuments: [{
           bytes,
           sourceType: "image",
           originalFilename,
           mimeType,
           sizeBytes: file.size,
-        },
+        }],
+        handwrittenMetadata: null,
       };
     }
 
@@ -192,17 +232,19 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
 
     if ("ocrDriver" in localOcrResult) {
       return {
+        inputMode: "document",
         content: localOcrResult.text,
         sourceType: "image",
         pdfExtractionMethod: null,
         ocrDriver: "openai",
-        sourceDocument: {
+        sourceDocuments: [{
           bytes,
           sourceType: "image",
           originalFilename,
           mimeType,
           sizeBytes: file.size,
-        },
+        }],
+        handwrittenMetadata: null,
       };
     }
 
@@ -213,32 +255,36 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
       });
 
       return {
+        inputMode: "document",
         content: fallbackResult.text,
         sourceType: "image",
         pdfExtractionMethod: null,
         ocrDriver: "openai",
-        sourceDocument: {
+        sourceDocuments: [{
           bytes,
           sourceType: "image",
           originalFilename,
           mimeType,
           sizeBytes: file.size,
-        },
+        }],
+        handwrittenMetadata: null,
       };
     }
 
     return {
+      inputMode: "document",
       content: localOcrResult.text,
       sourceType: "image",
       pdfExtractionMethod: null,
       ocrDriver: "local",
-      sourceDocument: {
+      sourceDocuments: [{
         bytes,
         sourceType: "image",
         originalFilename,
         mimeType,
         sizeBytes: file.size,
-      },
+      }],
+      handwrittenMetadata: null,
     };
   }
 
@@ -247,17 +293,19 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   }
 
   return {
+    inputMode: "document",
     content: bytes.toString("utf8"),
     sourceType: "txt",
     pdfExtractionMethod: null,
     ocrDriver: null,
-    sourceDocument: {
+    sourceDocuments: [{
       bytes,
       sourceType: "txt",
       originalFilename,
       mimeType,
       sizeBytes: file.size,
-    },
+    }],
+    handwrittenMetadata: null,
   };
 }
 
@@ -279,13 +327,43 @@ async function parseContentFromJsonRequest(request: Request): Promise<ParsedImpo
   }
 
   return {
+    inputMode: "document",
     content,
     sourceType: "paste",
     pdfExtractionMethod: null,
     ocrDriver: null,
-    sourceDocument: null,
+    sourceDocuments: [],
+    handwrittenMetadata: null,
   };
 }
+
+type ImportSessionDb = {
+  importSession: {
+    create: (args: {
+      data: {
+        userId: number;
+        status: "PARSED";
+        draftJson: string;
+        warningsJson: string;
+        sourceRefsJson: string;
+        metadataJson: string;
+        providerName: string | null;
+        providerModel: string | null;
+        promptVersion: string | null;
+        expiresAt: Date;
+      };
+      select: { id: true };
+    }) => Promise<{ id: string }>;
+    update: (args: {
+      where: { id: string };
+      data: Partial<{
+        sourceRefsJson: string;
+        metadataJson: string;
+      }>;
+    }) => Promise<unknown>;
+    delete: (args: { where: { id: string } }) => Promise<unknown>;
+  };
+};
 
 export async function POST(request: Request) {
   const requestId = getRequestId(request);
@@ -300,6 +378,7 @@ export async function POST(request: Request) {
 
   const startedAt = Date.now();
   const prisma = await getPrisma();
+  const prismaDb = prisma as unknown as ImportSessionDb;
 
   const rate = checkRecipeImportParseRateLimit(authUser.userId);
   if (!rate.allowed) {
@@ -369,13 +448,23 @@ export async function POST(request: Request) {
         );
         const warnings = getImportWarningsForDraft(draft);
         const sourceRefs: ImportSessionSourceRef[] = [];
-        const session = await prisma.importSession.create({
+        const metadata: ImportSessionMetadata = {
+          inputMode: parsedRequest.inputMode,
+          warnings,
+          sourceRefs,
+          providerName: extractionResult.providerName,
+          providerModel: extractionResult.providerModel,
+          promptVersion: extractionResult.promptVersion,
+          handwritten: parsedRequest.handwrittenMetadata ?? null,
+        };
+        const session = await prismaDb.importSession.create({
           data: {
             userId: authUser.userId,
             status: "PARSED",
             draftJson: JSON.stringify(draft),
             warningsJson: JSON.stringify(warnings),
             sourceRefsJson: JSON.stringify(sourceRefs),
+            metadataJson: JSON.stringify(metadata),
             providerName: extractionResult.providerName,
             providerModel: extractionResult.providerModel,
             promptVersion: extractionResult.promptVersion,
@@ -387,30 +476,34 @@ export async function POST(request: Request) {
         });
         createdSessionId = session.id;
 
-        if (parsedRequest.sourceDocument) {
+        for (const sourceDocumentInput of parsedRequest.sourceDocuments) {
           const sourceDocument = await stageImportSourceDocument({
             userId: authUser.userId,
             importSessionId: session.id,
-            originalFilename: parsedRequest.sourceDocument.originalFilename,
-            mimeType: parsedRequest.sourceDocument.mimeType,
-            sizeBytes: parsedRequest.sourceDocument.sizeBytes,
-            sourceType: parsedRequest.sourceDocument.sourceType,
-            bytes: parsedRequest.sourceDocument.bytes,
+            originalFilename: sourceDocumentInput.originalFilename,
+            mimeType: sourceDocumentInput.mimeType,
+            sizeBytes: sourceDocumentInput.sizeBytes,
+            sourceType: sourceDocumentInput.sourceType,
+            bytes: sourceDocumentInput.bytes,
           });
 
           sourceRefs.push({
             id: (sourceDocument as { id?: number }).id,
-            sourceType: parsedRequest.sourceDocument.sourceType,
-            originalFilename: parsedRequest.sourceDocument.originalFilename,
-            mimeType: parsedRequest.sourceDocument.mimeType,
-            sizeBytes: parsedRequest.sourceDocument.sizeBytes,
+            sourceType: sourceDocumentInput.sourceType,
+            originalFilename: sourceDocumentInput.originalFilename,
+            mimeType: sourceDocumentInput.mimeType,
+            sizeBytes: sourceDocumentInput.sizeBytes,
             storageKey: (sourceDocument as { storageKey?: string }).storageKey,
           });
+        }
 
-          await prisma.importSession.update({
+        if (sourceRefs.length > 0) {
+          metadata.sourceRefs = sourceRefs;
+          await prismaDb.importSession.update({
             where: { id: session.id },
             data: {
               sourceRefsJson: JSON.stringify(sourceRefs),
+              metadataJson: JSON.stringify(metadata),
             },
           });
         }
@@ -423,6 +516,7 @@ export async function POST(request: Request) {
           providerName: extractionResult.providerName,
           providerModel: extractionResult.providerModel,
           promptVersion: extractionResult.promptVersion,
+          metadata,
         });
         try {
           await recordRecipeImportTelemetry({
@@ -445,7 +539,8 @@ export async function POST(request: Request) {
         if (createdSessionId) {
           try {
             const prisma = await getPrisma();
-            await prisma.importSession.delete({ where: { id: createdSessionId } });
+            const prismaDb = prisma as unknown as ImportSessionDb;
+            await prismaDb.importSession.delete({ where: { id: createdSessionId } });
           } catch {
             // Preserve the original persistence error; cleanup is best effort.
           }

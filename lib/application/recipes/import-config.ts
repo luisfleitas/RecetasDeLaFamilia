@@ -5,6 +5,8 @@ const DEFAULT_RECIPE_IMPORT_OCR_CONFIDENCE_THRESHOLD = 0.8;
 const DEFAULT_RECIPE_IMPORT_OCR_OPENAI_MODEL = "gpt-4.1-mini";
 const DEFAULT_RECIPE_IMPORT_EXTRACTOR_DRIVER = "rule-based";
 const DEFAULT_OPENAI_RECIPE_IMPORT_MODEL = "gpt-4.1";
+const DEFAULT_RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER = "openai";
+const DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT = 6;
 
 function isEnabledFlag(raw: string | undefined): boolean {
   if (raw == null) {
@@ -92,4 +94,31 @@ export function getRecipeImportExtractorDriver(): string {
 export function getOpenAiRecipeImportModel(): string {
   const raw = process.env.OPENAI_RECIPE_IMPORT_MODEL?.trim();
   return raw && raw.length > 0 ? raw : DEFAULT_OPENAI_RECIPE_IMPORT_MODEL;
+}
+
+export function isRecipeImportHandwrittenEnabled(): boolean {
+  const raw = process.env.RECIPE_IMPORT_HANDWRITTEN_ENABLED;
+
+  if (raw == null) {
+    return false;
+  }
+
+  return isEnabledFlag(raw);
+}
+
+export function getRecipeImportHandwrittenPrimaryOcrProvider(): "openai" | "local" {
+  const raw = process.env.RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER?.trim().toLowerCase();
+  return raw === "local" ? "local" : DEFAULT_RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER;
+}
+
+export function getRecipeImportHandwrittenMaxImageCount(): number {
+  const raw = Number(
+    process.env.RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT ?? DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT,
+  );
+
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT;
+  }
+
+  return Math.floor(raw);
 }
