@@ -56,6 +56,27 @@ Environment variables:
 - `RECIPE_IMPORT_FORCE_OPENAI_OCR`:
   - when `true`, bypasses local OCR and forces the OpenAI OCR path
   - for PDFs, this also skips the text-layer shortcut and sends the rendered preview image to OpenAI
+- `RECIPE_IMPORT_HANDWRITTEN_ENABLED`:
+  - enables the handwritten recipe import mode on `/recipes/import`
+  - defaults to `false`
+- `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER`:
+  - selects the V1 handwritten OCR provider path
+  - supported values: `openai` (default), `local`
+- `RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT`:
+  - max number of handwritten images accepted in a single import
+  - defaults to `6`
+- `RECIPE_IMPORT_OCR_LANGS`:
+  - Tesseract language packs used by local OCR
+  - defaults to `eng+spa`
+- `RECIPE_IMPORT_OCR_TIMEOUT_MS`:
+  - timeout for local OCR execution
+  - defaults to `30000`
+
+Handwritten import V1 configuration notes:
+
+- If `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=openai`, `OPENAI_API_KEY` must be set.
+- If `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=local`, the host must have `tesseract` installed and available on `PATH`.
+- V1 handwritten import is intentionally scoped to the current `openai` or `local` provider path. There is no separate Google Vision fallback configuration.
 
 Example:
 
@@ -66,6 +87,11 @@ RECIPE_IMPORT_EXTRACTOR_DRIVER=rule-based
 RECIPE_IMPORT_OCR_CONFIDENCE_THRESHOLD=0.8
 RECIPE_IMPORT_OCR_OPENAI_MODEL=gpt-4.1-mini
 RECIPE_IMPORT_FORCE_OPENAI_OCR=true
+RECIPE_IMPORT_HANDWRITTEN_ENABLED=true
+RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=openai
+RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT=6
+RECIPE_IMPORT_OCR_LANGS=eng+spa
+RECIPE_IMPORT_OCR_TIMEOUT_MS=30000
 ```
 
 ## Image upload configuration

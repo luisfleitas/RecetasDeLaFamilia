@@ -18,6 +18,8 @@ type RecipeImage = {
   id: number;
   isPrimary: boolean;
   position: number;
+  fullUrl: string;
+  thumbnailUrl: string;
 };
 
 type Recipe = {
@@ -48,6 +50,7 @@ type NewImageDraft = {
 
 type ExistingImageDraft = {
   id: number;
+  thumbnailUrl: string;
 };
 
 type UpdateRecipeResponse = {
@@ -80,7 +83,10 @@ function toIngredientDrafts(ingredients: Ingredient[]): IngredientDraft[] {
 
 function toExistingImageDrafts(recipe: Recipe): ExistingImageDraft[] {
   const images = recipe.images ?? [];
-  return images.map((image) => ({ id: image.id }));
+  return images.map((image) => ({
+    id: image.id,
+    thumbnailUrl: image.thumbnailUrl,
+  }));
 }
 
 export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
@@ -491,7 +497,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
               <li id={`edit-recipe-existing-image-item-${image.id}`} key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
                 <img
                   id={`edit-recipe-existing-image-${image.id}`}
-                  src={`/api/recipe-images/${image.id}/file?variant=thumb`}
+                  src={image.thumbnailUrl}
                   alt="Recipe"
                   className="h-36 w-full rounded-[var(--radius-sm)] object-cover"
                 />

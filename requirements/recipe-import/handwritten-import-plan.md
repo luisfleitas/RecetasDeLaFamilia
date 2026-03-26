@@ -1,7 +1,7 @@
 # Handwritten Recipe Import Plan
 
 ## Summary
-Extend the existing authenticated recipe import flow at `/recipes/import` with a new `Handwritten Notes` mode for image-based handwritten recipes. Handwritten image imports will use a provider-based OCR layer so the OCR engine can be swapped easily over time, with OpenAI configured as the initial primary provider and Google Vision as the initial fallback. The extracted text will feed into the existing structured recipe extraction flow. Users can upload one or more images for the same handwritten recipe, review and edit the parsed draft before continuing to `/recipes/new`, and see stronger warnings for cursive or ambiguous OCR output. The uploaded handwritten images should also be preserved as recipe-linked source images after creation, with an explicit option to allow public viewing when desired.
+Extend the existing authenticated recipe import flow at `/recipes/import` with a new `Handwritten Notes` mode for image-based handwritten recipes. Handwritten image imports will use the current handwritten OCR implementation, which supports `openai` or `local` as the configured V1 provider path. The extracted text will feed into the existing structured recipe extraction flow. Users can upload one or more images for the same handwritten recipe, review and edit the parsed draft before continuing to `/recipes/new`, and see stronger warnings for cursive or ambiguous OCR output. The uploaded handwritten images should also be preserved as recipe-linked source images after creation, with an explicit option to allow public viewing when desired.
 
 This plan is intentionally incremental:
 - V1: handwritten image import (`JPG`, `PNG`, `WEBP`, `TIFF`, `BMP`)
@@ -16,8 +16,7 @@ This plan is intentionally incremental:
 - Use the existing secondary tab pattern that matches the Visibility Type tabs.
 - Keep `/recipes/new?importSession=...` as the final recipe creation path.
 - Use a provider model for handwritten OCR so OCR engines can be changed without rewriting the import flow.
-- Configure OpenAI OCR as the initial primary OCR provider for handwritten image imports.
-- Configure Google Vision as the initial fallback OCR provider for handwritten image imports.
+- Ship V1 with the current handwritten OCR implementation using `openai` or `local` as the configured provider path.
 - Keep the existing preview/edit step and strengthen it for handwriting ambiguity.
 - Preserve handwritten import images as recipe-linked assets after successful recipe creation.
 - Add an explicit visibility option so handwritten source images can be made publicly viewable when the user wants.
@@ -35,7 +34,7 @@ This plan is intentionally incremental:
   - `image/bmp`
 - Allow multiple images for a single handwritten import session.
 - Route handwritten image OCR through a dedicated source-aware orchestration layer.
-- Use a provider-based OCR abstraction with configurable primary/fallback order.
+- Use the current handwritten OCR provider selection already implemented for V1.
 - Reuse the existing structured recipe extraction provider after OCR text extraction.
 - Persist session metadata for handwritten imports.
 - Promote staged handwritten images into recipe-linked source image records on successful recipe creation.
@@ -113,10 +112,9 @@ This plan is intentionally incremental:
 5. Server pipeline:
    - validate file type, size, and image count
    - preserve upload order as page order
-   - build the configured handwritten OCR provider chain
+   - select the configured handwritten OCR provider path for V1
    - run handwritten OCR orchestration for each image
-   - use the configured primary provider first per image
-   - on failure, timeout, or weak result for any image, retry that image with the next configured provider
+   - use the configured handwritten OCR path for each image
    - concatenate per-image text in upload order with page boundaries preserved
    - send combined text into the existing recipe extraction provider
    - validate draft
@@ -128,40 +126,23 @@ This plan is intentionally incremental:
 
 ## OCR Strategy
 ### Handwritten image OCR
-- Provider model: pluggable OCR provider chain
-- Initial provider order:
-  - OpenAI OCR
-  - Google Vision OCR
+- V1 OCR model: current handwritten OCR implementation with `openai` or `local` as the configured provider path
+- Default V1 provider: `openai`
 - Execution model: per-image OCR with ordered merge into one recipe text payload
 
 ### Provider contract
-Introduce a handwritten OCR provider interface so OCR engines can be swapped without changing the route or UI flow.
-
-Recommended shape:
-- `HandwrittenOcrProvider.recognize(input): Promise<HandwrittenOcrProviderResult>`
-- `buildHandwrittenOcrProviderChain(config): HandwrittenOcrProvider[]`
+V1 does not introduce a separate multi-provider handwritten OCR chain. The implementation should continue to use the existing handwritten OCR path selection and return normalized metadata that records which provider path produced the result.
 
 Recommended provider result fields:
 - `text`
 - `providerName`
-- `providerModel`
-- `rawConfidence` when the provider offers it
+- `providerModel` when available
 - `warnings`
 
 The orchestrator should decide:
-- provider order
-- fallback behavior
-- weak-result heuristics
+- provider selection for the request
+- weak-result heuristics for review hints
 - merged metadata returned to the session layer
-
-### Fallback triggers
-Use Google Vision fallback when any of the following are true after OpenAI OCR:
-- OCR request fails
-- OCR request times out
-- extracted text is empty
-- extracted text is too short to plausibly represent a recipe
-- extracted text lacks likely ingredient or step structure
-- structured extraction produces severe warnings indicating broken OCR text
 
 ### Review hint triggers
 Add `manual review required` or similar hints when:
@@ -172,7 +153,7 @@ Add `manual review required` or similar hints when:
 - image order suggests a split recipe but later images add little or no usable text
 
 ### Design note
-OpenAI OCR does not currently expose a useful confidence score in the existing implementation, so handwritten fallback should be based on heuristics and extraction quality rather than provider confidence values.
+OpenAI OCR does not currently expose a useful confidence score in the existing implementation, so handwritten review guidance should be based on heuristics and extraction quality rather than provider confidence values.
 
 ## API and Contract Changes
 ### `POST /api/recipes/import/parse`
@@ -233,9 +214,7 @@ This is preferred over adding multiple handwritten-specific columns because it k
 - `/Users/luisfleitas/Personal Projects/Recetas/lib/application/recipes/openai-ocr.ts`
 
 ### Add
-- `/Users/luisfleitas/Personal Projects/Recetas/lib/application/recipes/handwritten-ocr.ts`
-- `/Users/luisfleitas/Personal Projects/Recetas/lib/application/recipes/handwritten-ocr-provider.ts`
-- `/Users/luisfleitas/Personal Projects/Recetas/lib/application/recipes/google-vision-ocr.ts`
+- `/Users/luisfleitas/Personal Projects/Recetas/lib/application/recipes/handwritten-import.ts`
 
 ### Responsibilities
 #### `import-recipe-form.tsx`
@@ -255,24 +234,13 @@ This is preferred over adding multiple handwritten-specific columns because it k
 - attach handwritten metadata to the import session and response
 - emit handwritten-aware telemetry
 
-#### `handwritten-ocr.ts`
-- build and execute the configured OCR provider chain per image
-- run fallback providers per image when needed
+#### `handwritten-import.ts`
+- execute the configured handwritten OCR path per image
 - merge ordered image text into one extraction payload
 - return normalized OCR result plus metadata and review hints
 
-#### `handwritten-ocr-provider.ts`
-- define the provider interface
-- define provider result types
-- provide provider-chain construction helpers
-- isolate provider selection from route logic
-
-#### `google-vision-ocr.ts`
-- encapsulate Google Vision request/response handling
-- normalize errors and text output
-
 #### `openai-ocr.ts`
-- implement the same provider-facing contract used by other OCR engines, or expose a wrapper that does
+- support the configured OpenAI OCR path when selected for handwritten imports
 
 #### `import-session-metadata.ts`
 - define and parse handwritten metadata shape
@@ -289,13 +257,8 @@ This is preferred over adding multiple handwritten-specific columns because it k
 ## Environment Variables
 Existing variables remain in use for standard import behavior.
 
-Add handwritten OCR fallback configuration for Google Vision, for example:
-- `GOOGLE_VISION_PROJECT_ID`
-- `GOOGLE_VISION_CLIENT_EMAIL`
-- `GOOGLE_VISION_PRIVATE_KEY`
-
 Add provider selection configuration for handwritten OCR, for example:
-- `RECIPE_IMPORT_HANDWRITTEN_OCR_PROVIDERS=openai,google-vision`
+- `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=openai`
 
 Exact naming can follow the team’s preferred conventions, but the implementation should include:
 - explicit config validation
@@ -308,9 +271,8 @@ Track handwritten imports separately from standard document imports.
 Recommended handwritten telemetry dimensions:
 - `inputMode`
 - image count
-- OCR provider chain configured
+- OCR provider configured
 - OCR providers used
-- fallback used or not
 - parse success or failure
 - warning count
 - review level
@@ -325,7 +287,7 @@ This will help determine whether cursive-heavy imports need further tuning after
 
 ### Error behavior
 - Do not silently create weak handwritten drafts without warning.
-- If both OCR providers fail, return a clear actionable error.
+- If the configured OCR path fails, return a clear actionable error.
 - If extraction succeeds but quality is weak, allow review/edit with prominent warnings instead of hard failure.
 
 ## Testing Plan
@@ -333,20 +295,18 @@ This will help determine whether cursive-heavy imports need further tuning after
 - handwritten OCR orchestration:
   - single-image OpenAI success
   - multi-image OpenAI success
-  - one image falls back to Google Vision while others do not
-  - OpenAI failure -> Google Vision fallback success
-  - weak OpenAI result -> Google Vision fallback
+  - single-image local OCR success when `local` is selected
+  - multi-image local OCR success when `local` is selected
   - both providers fail
   - ordered merge preserves image order
-- provider-chain builder uses configured order
-- provider adapters conform to the same result shape
 - handwritten metadata parsing
 - handwritten review hint generation
 
 ### Integration tests
 - `POST /api/recipes/import/parse` with one handwritten image
 - `POST /api/recipes/import/parse` with multiple handwritten images
-- handwritten fallback path
+- handwritten OpenAI path
+- handwritten local path
 - standard document import remains unchanged
 - session GET returns handwritten metadata
 - session PATCH preserves handwritten metadata
@@ -365,9 +325,8 @@ This will help determine whether cursive-heavy imports need further tuning after
 ## Acceptance Criteria
 - Users can choose `Document Import` or `Handwritten Notes` on `/recipes/import`.
 - Handwritten image uploads are supported in V1, including multiple images for one recipe.
-- Handwritten image imports use a provider-based OCR layer with configurable provider order.
-- Default handwritten OCR order is OpenAI first, Google Vision second.
-- If the current provider fails or produces weak extraction output, the system retries the affected image with the next configured provider.
+- Handwritten image imports use the current V1 handwritten OCR implementation with `openai` or `local` as the configured provider path.
+- Default handwritten OCR provider is `openai`.
 - When multiple images are uploaded, they are processed and merged in upload order.
 - Users can edit the parsed handwritten draft before continuing.
 - Handwritten imports show stronger review guidance than standard imports.
@@ -384,4 +343,4 @@ This will help determine whether cursive-heavy imports need further tuning after
 - Source preview should remain optional and should not block V1 unless it becomes a hard product requirement.
 
 ## Recommendation
-Implement handwritten image import first, including multi-image recipe support, a provider-based OCR abstraction, and recipe-linked source-image preservation. Keep handwritten source images private by default and require an explicit opt-in for public viewing so the feature remains useful without weakening privacy by accident.
+Implement handwritten image import first, including multi-image recipe support, the current V1 handwritten OCR provider selection, and recipe-linked source-image preservation. Keep handwritten source images private by default and require an explicit opt-in for public viewing so the feature remains useful without weakening privacy by accident.

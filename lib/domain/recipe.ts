@@ -27,6 +27,8 @@ export type RecipeImage = {
   recipeId: number;
   storageKey: string;
   thumbnailKey: string;
+  thumbnailUrl: string;
+  fullUrl: string;
   originalFilename: string;
   mimeType: string;
   sizeBytes: number;

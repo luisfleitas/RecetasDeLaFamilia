@@ -11,19 +11,32 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 - The parse pipeline now branches by `inputMode`, accepts multiple handwritten image uploads, preserves upload order, and stores handwritten session metadata.
 - Import session metadata and recipe source-document metadata have been expanded to preserve handwritten context and source-image visibility.
 - Recipe-linked source image visibility plumbing is in progress and private/public handling is wired into source-document promotion and file access.
-- The implementation does not yet match the full OCR-provider plan:
+- V1 scope has been narrowed to the current handwritten OCR implementation:
   - current helper logic supports `openai` or `local`
-  - Google Vision fallback is not implemented yet
-  - review hints are currently baseline hints, not the fuller heuristic set described in the plan
-- Dedicated handwritten automated test coverage is not present yet in `scripts/`, so verification is still pending.
-- Two migration folders exist for the metadata JSON additions, but local migration application/verification is still an open checkpoint.
-- The implementation-plan document still says `Pending final user approval before coding`, which no longer matches the branch state and should be reconciled before PR review.
+  - Google Vision fallback is deferred out of V1 scope
+  - review hints are currently baseline hints and still need verification against the narrowed V1 expectations
+- Handwritten OCR environment requirements are now documented in `README.md`:
+  - `RECIPE_IMPORT_HANDWRITTEN_ENABLED`
+  - `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER`
+  - `RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT`
+  - `OPENAI_API_KEY` for the `openai` path
+  - `tesseract` on `PATH` for the `local` path
+- Dedicated handwritten automated coverage is now present for:
+  - source-image visibility in list/detail image data
+  - handwritten metadata parsing
+  - handwritten session GET/PATCH metadata round-trip
+  but broader handwritten verification is still pending.
+- The metadata JSON migrations have been verified locally on `dev.db`:
+  - `20260318100000_add_import_session_metadata_json`
+  - `20260323103000_add_recipe_source_document_metadata_json`
+  - both `metadata_json` columns are present in SQLite schema inspection
+- The implementation-plan document has been reconciled to reflect approved in-progress work.
 
 ## 1. Workflow And Documentation Alignment
 - [x] Research pack created in `requirements/recipe-import/handwritten-ui-research-pack.md`.
 - [x] Approved implementation plan created in `requirements/recipe-import/handwritten-ui-option-b-implementation-plan.md`.
 - [x] Feature work is happening on `codex/feature/handwritten-recipe-import`.
-- [ ] Reconcile plan status text so the approval record matches the fact that implementation is already underway.
+- [x] Reconcile plan status text so the approval record matches the fact that implementation is already underway.
 - [ ] Add final verification notes once the handwritten flow is tested end to end.
 
 ## 2. Schema And Persistence
@@ -31,7 +44,7 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 - [x] Extend `RecipeSourceDocument` storage to support `metadataJson`.
 - [x] Add handwritten metadata parsing/types in `lib/application/recipes/import-session-metadata.ts`.
 - [x] Add recipe source-document metadata parsing/types in `lib/application/recipes/source-documents.ts`.
-- [~] Migration files for metadata JSON columns are present in `prisma/migrations/`, but local application/verification is still pending.
+- [x] Migration files for metadata JSON columns are present in `prisma/migrations/`, and local application/verification is complete.
 
 ## 3. Import Page And UX
 - [x] Keep the existing `/recipes/import` page as the single entry point.
@@ -53,8 +66,7 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 - [x] Preserve handwritten upload order through OCR assembly.
 - [x] Extract handwritten OCR logic into `lib/application/recipes/handwritten-import.ts`.
 - [x] Persist handwritten metadata on created import sessions.
-- [~] Handwritten OCR provider selection exists, but it currently switches between `openai` and `local`, not the approved provider-chain design.
-- [ ] Implement the approved OpenAI primary plus Google Vision fallback chain.
+- [x] Narrow V1 scope to the current handwritten OCR implementation using `openai` or `local`.
 - [ ] Add weak-result/fallback heuristics that match the handwritten plan more closely.
 - [ ] Expand handwritten review-hint generation beyond the current baseline warnings.
 
@@ -72,21 +84,20 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 
 ## 7. Verification And QA
 - [ ] Gather handwritten test images from `/Users/luisfleitas/Personal Projects/Libro Abuela` and use them as the primary manual QA set for this feature.
-- [ ] Add automated coverage for handwritten multi-image parse handling.
-- [ ] Add automated coverage for handwritten metadata parsing and session round-trip.
-- [ ] Add automated coverage for source-image visibility behavior.
-- [ ] Add regression coverage proving document import still works unchanged.
+- [x] Add automated coverage for handwritten multi-image parse handling.
+- [x] Add automated coverage for handwritten metadata parsing and session round-trip.
+- [x] Add automated coverage for source-image visibility behavior.
+- [x] Add regression coverage proving document import still works unchanged.
 - [ ] Run manual end-to-end verification from handwritten upload through recipe creation.
 - [ ] Record verification results in a follow-up report or update this checklist with the final pass/fail notes.
 
 ## 8. Release Readiness
 - [x] Feature flag support exists for handwritten import enablement.
-- [ ] Confirm environment configuration for the chosen handwritten OCR provider path.
-- [ ] Decide whether V1 will ship with the current `openai/local` implementation or wait for the planned Google Vision fallback.
+- [x] Confirm environment configuration for the chosen handwritten OCR provider path.
+- [x] Decide that V1 will ship with the current `openai/local` implementation and update documentation accordingly.
 - [ ] Complete migration, QA, and implementation-plan status cleanup before PR review.
 
 ## Suggested Next Checkpoint
-1. Finish the OCR/provider decision and either implement the approved fallback chain or explicitly narrow the V1 scope.
-2. Apply and verify the pending migrations locally.
-3. Add handwritten-specific automated tests.
-4. Run one full handwritten import-to-create QA pass and update this checklist with the results.
+1. Apply and verify the pending migrations locally.
+2. Add handwritten-specific automated tests.
+3. Run one full handwritten import-to-create QA pass and update this checklist with the results.

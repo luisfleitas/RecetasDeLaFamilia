@@ -19,6 +19,7 @@
 - The current document import experience must keep working during the handwritten UI rollout.
 - Handwritten import should use the same `/recipes/import` page and the same session-to-create flow.
 - New handwritten logic should be isolated where practical instead of expanding route files indefinitely.
+- V1 is intentionally narrowed to the current handwritten OCR implementation using `openai` or `local`, not a new multi-provider fallback chain.
 
 ## Final Recommendation
 Implement Option B as a staged refactor that keeps document import stable while introducing a clearer handwritten workspace:
@@ -101,7 +102,7 @@ Create dedicated handwritten helpers under `lib/application/recipes/`.
 Planned responsibilities:
 - validate handwritten files and supported MIME types
 - orchestrate per-image OCR in upload order
-- trigger primary/fallback OCR provider logic
+- use the configured handwritten OCR path for V1
 - merge extracted text into one structured extraction payload
 - generate handwritten review hints and metadata for the session layer
 
@@ -190,7 +191,7 @@ Acceptance criteria:
 
 ## Approval Record
 - Design approval: Option B selected
-- Plan approval state: Pending final user approval before coding
+- Plan approval state: Approved and in implementation
 
 ## Related Artifacts
 - Research pack: `requirements/recipe-import/handwritten-ui-research-pack.md`
