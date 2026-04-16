@@ -2,7 +2,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    // Allow Next/Image for local API-served recipe assets (with query params like ?variant=thumb).
+    localPatterns: [
+      {
+        pathname: "/api/recipe-images/**",
+      },
+      // Allow Next/Image for persisted family images under /uploads/families.
+      {
+        pathname: "/uploads/families/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

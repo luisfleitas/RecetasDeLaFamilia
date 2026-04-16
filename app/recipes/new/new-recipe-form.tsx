@@ -2,9 +2,11 @@
 // Client page for creating a recipe and ingredient rows.
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
+import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
 
 type CreatedRecipe = {
   id: number;
@@ -29,6 +31,15 @@ type NewImageDraft = {
   previewUrl: string;
 };
 
+type FamilyOption = {
+  id: number;
+  name: string;
+};
+
+type NewRecipeFormProps = {
+  isRecipeImportEnabled: boolean;
+};
+
 const EMPTY_INGREDIENT: IngredientDraft = {
   rowId: 1,
   name: "",
@@ -41,14 +52,99 @@ const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-export default function NewRecipeForm() {
+function toIngredientDraftsFromImportedDraft(draft: ImportedRecipeDraft): IngredientDraft[] {
+  if (draft.ingredients.length === 0) {
+    return [EMPTY_INGREDIENT];
+  }
+
+  return draft.ingredients.map((ingredient, index) => ({
+    rowId: index + 1,
+    name: ingredient.name,
+    qty: ingredient.qty.toString(),
+    unit: ingredient.unit,
+    notes: ingredient.notes ?? "",
+  }));
+}
+
+export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const importSessionId = searchParams.get("importSession");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [stepsMarkdown, setStepsMarkdown] = useState("");
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([EMPTY_INGREDIENT]);
   const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
   const [nextImageId, setNextImageId] = useState(1);
   const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
+  const [visibility, setVisibility] = useState<"public" | "private" | "family">("public");
+  const [familyOptions, setFamilyOptions] = useState<FamilyOption[]>([]);
+  const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    async function loadFamilies() {
+      try {
+        const response = await fetch("/api/families", { cache: "no-store" });
+        const data = (await response.json()) as {
+          families?: Array<{ id: number; name: string }>;
+          error?: string;
+        };
+
+        if (!response.ok || !data.families) {
+          return;
+        }
+
+        setFamilyOptions(data.families.map((family) => ({ id: family.id, name: family.name })));
+      } catch {
+        // Leave family options empty if fetch fails.
+      }
+    }
+
+    loadFamilies();
+  }, []);
+
+  useEffect(() => {
+    if (!importSessionId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const hydrateFromImportSession = async () => {
+      try {
+        const response = await fetch(`/api/recipes/import/sessions/${encodeURIComponent(importSessionId)}`, {
+          method: "GET",
+        });
+        const data = (await response.json()) as { draft?: ImportedRecipeDraft; error?: string };
+        if (!response.ok || !data.draft) {
+          if (!isCancelled) {
+            setError(data.error ?? "Could not hydrate imported draft.");
+          }
+          return;
+        }
+
+        if (!isCancelled) {
+          setTitle(data.draft.title ?? "");
+          setDescription(data.draft.description ?? "");
+          setStepsMarkdown(data.draft.stepsMarkdown ?? "");
+          setIngredients(toIngredientDraftsFromImportedDraft(data.draft));
+          setError(null);
+        }
+      } catch {
+        if (!isCancelled) {
+          setError("Could not hydrate imported draft.");
+        }
+      }
+    };
+
+    void hydrateFromImportSession();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [importSessionId]);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -141,16 +237,20 @@ export default function NewRecipeForm() {
     });
   }
 
+  function toggleSelectedFamily(familyId: number) {
+    setSelectedFamilyIds((current) =>
+      current.includes(familyId) ? current.filter((id) => id !== familyId) : [...current, familyId],
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
-
-    const title = String(formData.get("title") ?? "").trim();
-    const description = String(formData.get("description") ?? "").trim();
-    const stepsMarkdown = String(formData.get("stepsMarkdown") ?? "").trim();
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    const trimmedStepsMarkdown = stepsMarkdown.trim();
 
     if (ingredients.length === 0) {
       setError("Add at least one ingredient.");
@@ -187,11 +287,36 @@ export default function NewRecipeForm() {
       return;
     }
 
+    if (!trimmedTitle) {
+      setError("Title is required.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!trimmedStepsMarkdown) {
+      setError("Steps are required.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (visibility === "family" && selectedFamilyIds.length === 0) {
+      setError("Choose at least one family when sharing is set to Family.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const recipeFormData = new FormData();
-    recipeFormData.append("title", title);
-    recipeFormData.append("description", description);
-    recipeFormData.append("stepsMarkdown", stepsMarkdown);
+    recipeFormData.append("title", trimmedTitle);
+    recipeFormData.append("description", trimmedDescription);
+    recipeFormData.append("stepsMarkdown", trimmedStepsMarkdown);
+    recipeFormData.append("visibility", visibility);
     recipeFormData.append("ingredients", JSON.stringify(payloadIngredients));
+
+    if (visibility === "family") {
+      for (const familyId of selectedFamilyIds) {
+        recipeFormData.append("familyIds", String(familyId));
+      }
+    }
 
     for (const image of newImages) {
       recipeFormData.append("images", image.file);
@@ -202,6 +327,10 @@ export default function NewRecipeForm() {
       if (primaryIndex >= 0) {
         recipeFormData.append("primaryImageIndex", String(primaryIndex));
       }
+    }
+
+    if (importSessionId) {
+      recipeFormData.append("importSessionId", importSessionId);
     }
 
     try {
@@ -230,36 +359,153 @@ export default function NewRecipeForm() {
       <div id="new-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
         <div id="new-recipe-header" className="flex items-center justify-between">
           <h1 id="new-recipe-title" className="text-2xl font-semibold">Add Family Recipe</h1>
-          <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
-            Back to list
-          </Link>
+          <div id="new-recipe-header-links" className="flex items-center gap-3">
+            {isRecipeImportEnabled ? (
+              <Link id="new-recipe-import-link" href="/recipes/import" className="text-link text-sm">
+                Import Recipe
+              </Link>
+            ) : null}
+            <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
+              Back to list
+            </Link>
+          </div>
         </div>
 
         <form id="new-recipe-form" onSubmit={handleSubmit} className="space-y-4">
-          <div id="new-recipe-title-field">
-            <label id="new-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
-              Title
-            </label>
-            <input id="title" name="title" required className="input-base" />
+          <div id="new-recipe-basic-info-section" className="surface-card recipe-form-section p-4">
+            <div id="new-recipe-basic-info-header" className="recipe-form-section-header">
+              <div id="new-recipe-basic-info-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-basic-info-title" className="recipe-form-section-title">Basic info</p>
+                <p id="new-recipe-basic-info-description" className="recipe-form-section-description">
+                  Start with the core details before building the ingredient list.
+                </p>
+              </div>
+            </div>
+
+            <div id="new-recipe-title-field">
+              <label id="new-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
+                Title
+              </label>
+              <input
+                id="title"
+                name="title"
+                required
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className="input-base"
+              />
+            </div>
+
+            <div id="new-recipe-description-field">
+              <label id="new-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
+                Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                rows={2}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="input-base"
+              />
+            </div>
           </div>
 
-          <div id="new-recipe-description-field">
-            <label id="new-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
-              Description
-            </label>
-            <textarea id="description" name="description" rows={2} className="input-base" />
+          <div id="new-recipe-sharing-section" className="surface-card recipe-form-section p-4">
+            <div id="new-recipe-sharing-header" className="recipe-form-section-header">
+              <div id="new-recipe-sharing-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-sharing-title" className="recipe-form-section-title">Sharing</p>
+                <p id="new-recipe-sharing-description" className="recipe-form-section-description">
+                  Choose whether this recipe is public, private, or shared with one or more families.
+                </p>
+              </div>
+            </div>
+
+            <div id="new-recipe-sharing-visibility-group" className="flex flex-wrap gap-4">
+              <label id="new-recipe-sharing-public-label" className="text-sm">
+                <input
+                  id="new-recipe-sharing-public-input"
+                  type="radio"
+                  name="recipeVisibility"
+                  checked={visibility === "public"}
+                  onChange={() => setVisibility("public")}
+                  className="mr-2"
+                />
+                Public (everyone)
+              </label>
+              <label id="new-recipe-sharing-private-label" className="text-sm">
+                <input
+                  id="new-recipe-sharing-private-input"
+                  type="radio"
+                  name="recipeVisibility"
+                  checked={visibility === "private"}
+                  onChange={() => setVisibility("private")}
+                  className="mr-2"
+                />
+                Private (only you)
+              </label>
+              <label id="new-recipe-sharing-family-label" className="text-sm">
+                <input
+                  id="new-recipe-sharing-family-input"
+                  type="radio"
+                  name="recipeVisibility"
+                  checked={visibility === "family"}
+                  onChange={() => setVisibility("family")}
+                  className="mr-2"
+                />
+                Family
+              </label>
+            </div>
+
+            {visibility === "family" ? (
+              <div id="new-recipe-sharing-families-section" className="space-y-2">
+                <p id="new-recipe-sharing-families-title" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+                  Select families
+                </p>
+                {familyOptions.length > 0 ? (
+                  <ul id="new-recipe-sharing-families-list" className="space-y-2">
+                    {familyOptions.map((family) => (
+                      <li id={`new-recipe-sharing-family-item-${family.id}`} key={family.id}>
+                        <label id={`new-recipe-sharing-family-label-${family.id}`} className="text-sm">
+                          <input
+                            id={`new-recipe-sharing-family-input-${family.id}`}
+                            type="checkbox"
+                            checked={selectedFamilyIds.includes(family.id)}
+                            onChange={() => toggleSelectedFamily(family.id)}
+                            className="mr-2"
+                          />
+                          {family.name}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p id="new-recipe-sharing-families-empty" className="text-sm text-[var(--color-text-muted)]">
+                    You are not a member of any families yet.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
 
-          <div id="new-recipe-steps-field">
-            <label id="new-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
-              Steps (Markdown)
-            </label>
-            <textarea id="stepsMarkdown" name="stepsMarkdown" rows={6} required className="input-base" />
-          </div>
+          <IngredientEditor
+            addButtonId="new-recipe-add-ingredient"
+            baseId="new-recipe-ingredients"
+            ingredients={ingredients}
+            onAdd={addIngredientRow}
+            onRemove={removeIngredientRow}
+            onUpdate={updateIngredient}
+            title="Ingredients"
+          />
 
-          <div id="new-recipe-images-section" className="surface-card p-4">
+          <div id="new-recipe-images-section" className="surface-card recipe-form-section p-4">
             <div id="new-recipe-images-header" className="mb-3 flex items-center justify-between">
-              <p id="new-recipe-images-title" className="text-sm font-medium">Recipe Images</p>
+              <div id="new-recipe-images-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-images-title" className="recipe-form-section-title">Recipe Images</p>
+                <p id="new-recipe-images-description" className="recipe-form-section-description">
+                  Add photos after the ingredients are in place, then choose the primary image.
+                </p>
+              </div>
               <span id="new-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{newImages.length}/{MAX_IMAGES}</span>
             </div>
 
@@ -322,87 +568,28 @@ export default function NewRecipeForm() {
             </div>
           </div>
 
-          <div id="new-recipe-ingredients-section" className="surface-card p-4">
-            <div id="new-recipe-ingredients-header" className="mb-3 flex items-center justify-between">
-              <p id="new-recipe-ingredients-title" className="text-sm font-medium">Ingredients</p>
-              <button id="new-recipe-add-ingredient" type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
-                Add Ingredient
-              </button>
+          <div id="new-recipe-steps-section" className="surface-card recipe-form-section p-4">
+            <div id="new-recipe-steps-header" className="recipe-form-section-header">
+              <div id="new-recipe-steps-copy" className="recipe-form-section-copy">
+                <p id="new-recipe-steps-title" className="recipe-form-section-title">Steps</p>
+                <p id="new-recipe-steps-description" className="recipe-form-section-description">
+                  Write the instructions last, after the recipe structure and ingredients are in place.
+                </p>
+              </div>
             </div>
-
-            <div id="new-recipe-ingredients-list" className="space-y-4">
-              {ingredients.map((ingredient, index) => (
-                <div id={`new-recipe-ingredient-row-${ingredient.rowId}`} key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-                  <div id={`new-recipe-ingredient-row-header-${ingredient.rowId}`} className="mb-2 flex items-center justify-between">
-                    <p id={`new-recipe-ingredient-row-title-${ingredient.rowId}`} className="text-sm font-medium">Row {index + 1}</p>
-                    <button
-                      id={`new-recipe-ingredient-remove-${ingredient.rowId}`}
-                      type="button"
-                      onClick={() => removeIngredientRow(ingredient.rowId)}
-                      disabled={ingredients.length === 1}
-                      className={buttonClassName("secondary")}
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <div id={`new-recipe-ingredient-fields-${ingredient.rowId}`} className="grid gap-3 sm:grid-cols-2">
-                    <div id={`new-recipe-ingredient-name-field-${ingredient.rowId}`} className="sm:col-span-2">
-                      <label id={`new-recipe-ingredient-name-label-${ingredient.rowId}`} htmlFor={`ingredientName-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Name
-                      </label>
-                      <input
-                        id={`ingredientName-${ingredient.rowId}`}
-                        required
-                        value={ingredient.name}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "name", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-
-                    <div id={`new-recipe-ingredient-qty-field-${ingredient.rowId}`}>
-                      <label id={`new-recipe-ingredient-qty-label-${ingredient.rowId}`} htmlFor={`qty-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Quantity
-                      </label>
-                      <input
-                        id={`qty-${ingredient.rowId}`}
-                        type="number"
-                        min={0.001}
-                        step={0.001}
-                        required
-                        value={ingredient.qty}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "qty", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-
-                    <div id={`new-recipe-ingredient-unit-field-${ingredient.rowId}`}>
-                      <label id={`new-recipe-ingredient-unit-label-${ingredient.rowId}`} htmlFor={`unit-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Unit
-                      </label>
-                      <input
-                        id={`unit-${ingredient.rowId}`}
-                        required
-                        value={ingredient.unit}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "unit", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-
-                    <div id={`new-recipe-ingredient-notes-field-${ingredient.rowId}`}>
-                      <label id={`new-recipe-ingredient-notes-label-${ingredient.rowId}`} htmlFor={`notes-${ingredient.rowId}`} className="mb-1 block text-sm">
-                        Notes
-                      </label>
-                      <input
-                        id={`notes-${ingredient.rowId}`}
-                        value={ingredient.notes}
-                        onChange={(event) => updateIngredient(ingredient.rowId, "notes", event.target.value)}
-                        className="input-base"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div id="new-recipe-steps-field">
+              <label id="new-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
+                Steps (Markdown)
+              </label>
+              <textarea
+                id="stepsMarkdown"
+                name="stepsMarkdown"
+                rows={6}
+                required
+                value={stepsMarkdown}
+                onChange={(event) => setStepsMarkdown(event.target.value)}
+                className="input-base"
+              />
             </div>
           </div>
 

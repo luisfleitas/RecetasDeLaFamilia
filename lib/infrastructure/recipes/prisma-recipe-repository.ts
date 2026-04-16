@@ -14,6 +14,7 @@ import type {
   ListRecipeOptions,
   RecipeRepository,
 } from "@/lib/domain/recipe-repository";
+import type { Prisma, RecipeVisibility as PrismaRecipeVisibility } from "@prisma/client";
 
 function gcd(a: number, b: number): number {
   let x = Math.abs(a);
@@ -85,6 +86,39 @@ function toPrimaryImageRef(imageId: number): PrimaryImageRef {
   };
 }
 
+function toPrismaVisibility(value: CreateRecipeInput["visibility"]): PrismaRecipeVisibility {
+  return value as unknown as PrismaRecipeVisibility;
+}
+
+function buildRecipeAccessWhere(viewerUserId: number | null | undefined): Prisma.RecipeWhereInput {
+  if (!viewerUserId) {
+    return {
+      visibility: toPrismaVisibility("public"),
+    };
+  }
+
+  return {
+    OR: [
+      { visibility: toPrismaVisibility("public") },
+      { createdByUserId: viewerUserId },
+      {
+        visibility: toPrismaVisibility("family"),
+        familyLinks: {
+          some: {
+            family: {
+              memberships: {
+                some: {
+                  userId: viewerUserId,
+                },
+              },
+            },
+          },
+        },
+      },
+    ],
+  };
+}
+
 function toRecipeImage(image: {
   id: number;
   recipeId: number;
@@ -105,6 +139,8 @@ function toRecipeImage(image: {
     recipeId: image.recipeId,
     storageKey: image.storageKey,
     thumbnailKey: image.thumbnailKey,
+    thumbnailUrl: `/api/recipe-images/${image.id}/file?variant=thumb`,
+    fullUrl: `/api/recipe-images/${image.id}/file?variant=full`,
     originalFilename: image.originalFilename,
     mimeType: image.mimeType,
     sizeBytes: image.sizeBytes,
@@ -138,14 +174,27 @@ export class PrismaRecipeRepository implements RecipeRepository {
     const prisma = await getPrisma();
     const includePrimaryImage = Boolean(options?.includePrimaryImage);
     const includeImages = Boolean(options?.includeImages);
+    const accessWhere = buildRecipeAccessWhere(options?.viewerUserId);
     if (includePrimaryImage || includeImages) {
       const recipes = await prisma.recipe.findMany({
+        where: accessWhere,
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
           title: true,
+          visibility: true,
           createdByUserId: true,
           createdAt: true,
+          familyLinks: {
+            select: {
+              family: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
           images: {
             ...(includeImages
               ? {
@@ -166,8 +215,13 @@ export class PrismaRecipeRepository implements RecipeRepository {
         return {
           id: recipe.id,
           title: recipe.title,
+          visibility: recipe.visibility,
           createdByUserId: recipe.createdByUserId,
           createdAt: recipe.createdAt,
+          families: recipe.familyLinks.map((link) => ({
+            id: link.family.id,
+            name: link.family.name,
+          })),
           ...(includePrimaryImage
             ? {
                 primaryImage: primaryImage ? toPrimaryImageRef(primaryImage.id) : null,
@@ -183,14 +237,38 @@ export class PrismaRecipeRepository implements RecipeRepository {
     }
 
     return prisma.recipe.findMany({
+      where: accessWhere,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
         title: true,
+        visibility: true,
         createdByUserId: true,
         createdAt: true,
+        familyLinks: {
+          select: {
+            family: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
-    });
+    }).then((recipes) =>
+      recipes.map((recipe) => ({
+        id: recipe.id,
+        title: recipe.title,
+        visibility: recipe.visibility,
+        createdByUserId: recipe.createdByUserId,
+        createdAt: recipe.createdAt,
+        families: recipe.familyLinks.map((link) => ({
+          id: link.family.id,
+          name: link.family.name,
+        })),
+      })),
+    );
   }
 
   async getById(id: number, options?: GetRecipeByIdOptions): Promise<Recipe | null> {
@@ -198,23 +276,50 @@ export class PrismaRecipeRepository implements RecipeRepository {
     const includeImages = Boolean(options?.includeImages);
     const includePrimaryImage = Boolean(options?.includePrimaryImage);
     const shouldLoadImages = includeImages || includePrimaryImage;
+    const accessWhere = buildRecipeAccessWhere(options?.viewerUserId);
     const recipe = shouldLoadImages
-      ? await prisma.recipe.findUnique({
-          where: { id },
+      ? await prisma.recipe.findFirst({
+          where: {
+            id,
+            ...accessWhere,
+          },
           include: {
             ingredients: {
               orderBy: { position: "asc" },
+            },
+            familyLinks: {
+              select: {
+                family: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
             },
             images: {
               orderBy: { position: "asc" },
             },
           },
         })
-      : await prisma.recipe.findUnique({
-          where: { id },
+      : await prisma.recipe.findFirst({
+          where: {
+            id,
+            ...accessWhere,
+          },
           include: {
             ingredients: {
               orderBy: { position: "asc" },
+            },
+            familyLinks: {
+              select: {
+                family: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
             },
           },
         });
@@ -234,6 +339,11 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      visibility: recipe.visibility,
+      families: recipe.familyLinks.map((link) => ({
+        id: link.family.id,
+        name: link.family.name,
+      })),
       createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
@@ -260,22 +370,58 @@ export class PrismaRecipeRepository implements RecipeRepository {
 
   async create(input: CreateRecipeInput, createdByUserId: number): Promise<Recipe> {
     const prisma = await getPrisma();
+    const uniqueFamilyIds = [...new Set(input.familyIds)];
+    const familyConnect =
+      input.visibility === "family"
+        ? uniqueFamilyIds.map((familyId) => ({
+            familyId,
+          }))
+        : [];
 
-    const recipe = await prisma.recipe.create({
-      data: {
-        title: input.title,
-        description: input.description,
-        stepsMarkdown: input.stepsMarkdown,
-        createdByUserId,
-        ingredients: {
-          create: toCreateIngredientData(input.ingredients),
+    const recipe = await prisma.$transaction(async (tx) => {
+      if (input.visibility === "family") {
+        const membershipCount = await tx.familyMembership.count({
+          where: {
+            userId: createdByUserId,
+            familyId: {
+              in: uniqueFamilyIds,
+            },
+          },
+        });
+
+        if (membershipCount !== uniqueFamilyIds.length) {
+          throw new Error("FORBIDDEN_FAMILY_LINK");
+        }
+      }
+
+      return tx.recipe.create({
+        data: {
+          title: input.title,
+          description: input.description,
+          stepsMarkdown: input.stepsMarkdown,
+          visibility: toPrismaVisibility(input.visibility),
+          createdByUserId,
+          ingredients: {
+            create: toCreateIngredientData(input.ingredients),
+          },
+          familyLinks: familyConnect.length > 0 ? { create: familyConnect } : undefined,
         },
-      },
-      include: {
-        ingredients: {
-          orderBy: { position: "asc" },
+        include: {
+          ingredients: {
+            orderBy: { position: "asc" },
+          },
+          familyLinks: {
+            select: {
+              family: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
-      },
+      });
     });
 
     return {
@@ -283,6 +429,11 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      visibility: recipe.visibility,
+      families: recipe.familyLinks.map((link) => ({
+        id: link.family.id,
+        name: link.family.name,
+      })),
       createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
@@ -292,32 +443,70 @@ export class PrismaRecipeRepository implements RecipeRepository {
 
   async update(id: number, input: CreateRecipeInput): Promise<Recipe | null> {
     const prisma = await getPrisma();
-
     const existingRecipe = await prisma.recipe.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, createdByUserId: true },
     });
 
     if (!existingRecipe) {
       return null;
     }
+    const uniqueFamilyIds = [...new Set(input.familyIds)];
 
-    const recipe = await prisma.recipe.update({
-      where: { id },
-      data: {
-        title: input.title,
-        description: input.description,
-        stepsMarkdown: input.stepsMarkdown,
-        ingredients: {
-          deleteMany: {},
-          create: toCreateIngredientData(input.ingredients),
+    const recipe = await prisma.$transaction(async (tx) => {
+      if (input.visibility === "family") {
+        const membershipCount = await tx.familyMembership.count({
+          where: {
+            userId: existingRecipe.createdByUserId,
+            familyId: {
+              in: uniqueFamilyIds,
+            },
+          },
+        });
+
+        if (membershipCount !== uniqueFamilyIds.length) {
+          throw new Error("FORBIDDEN_FAMILY_LINK");
+        }
+      }
+
+      return tx.recipe.update({
+        where: { id },
+        data: {
+          title: input.title,
+          description: input.description,
+          stepsMarkdown: input.stepsMarkdown,
+          visibility: toPrismaVisibility(input.visibility),
+          ingredients: {
+            deleteMany: {},
+            create: toCreateIngredientData(input.ingredients),
+          },
+          familyLinks: {
+            deleteMany: {},
+            ...(input.visibility === "family"
+              ? {
+                  create: uniqueFamilyIds.map((familyId) => ({
+                    familyId,
+                  })),
+                }
+              : {}),
+          },
         },
-      },
-      include: {
-        ingredients: {
-          orderBy: { position: "asc" },
+        include: {
+          ingredients: {
+            orderBy: { position: "asc" },
+          },
+          familyLinks: {
+            select: {
+              family: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
-      },
+      });
     });
 
     return {
@@ -325,6 +514,11 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      visibility: recipe.visibility,
+      families: recipe.familyLinks.map((link) => ({
+        id: link.family.id,
+        name: link.family.name,
+      })),
       createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,

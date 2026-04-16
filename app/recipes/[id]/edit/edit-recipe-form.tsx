@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
 
 type Ingredient = {
   id: number;
@@ -17,6 +18,8 @@ type RecipeImage = {
   id: number;
   isPrimary: boolean;
   position: number;
+  fullUrl: string;
+  thumbnailUrl: string;
 };
 
 type Recipe = {
@@ -24,6 +27,8 @@ type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  visibility: "public" | "private" | "family";
+  families: Array<{ id: number; name: string }>;
   ingredients: Ingredient[];
   images?: RecipeImage[];
   primaryImage?: { id: number } | null;
@@ -45,11 +50,17 @@ type NewImageDraft = {
 
 type ExistingImageDraft = {
   id: number;
+  thumbnailUrl: string;
 };
 
 type UpdateRecipeResponse = {
   recipe?: { id: number };
   error?: string;
+};
+
+type FamilyOption = {
+  id: number;
+  name: string;
 };
 
 const MAX_IMAGES = 8;
@@ -72,7 +83,10 @@ function toIngredientDrafts(ingredients: Ingredient[]): IngredientDraft[] {
 
 function toExistingImageDrafts(recipe: Recipe): ExistingImageDraft[] {
   const images = recipe.images ?? [];
-  return images.map((image) => ({ id: image.id }));
+  return images.map((image) => ({
+    id: image.id,
+    thumbnailUrl: image.thumbnailUrl,
+  }));
 }
 
 export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
@@ -86,9 +100,37 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   const [nextImageId, setNextImageId] = useState(1);
   const [primaryExistingImageId, setPrimaryExistingImageId] = useState<number | null>(recipe.primaryImage?.id ?? null);
   const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
+  const [visibility, setVisibility] = useState<"public" | "private" | "family">(recipe.visibility);
+  const [familyOptions, setFamilyOptions] = useState<FamilyOption[]>([]);
+  const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>(recipe.families.map((family) => family.id));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRemovingImageId, setIsRemovingImageId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadFamilies() {
+      try {
+        const response = await fetch("/api/families", { cache: "no-store" });
+        const data = (await response.json()) as {
+          families?: Array<{ id: number; name: string }>;
+        };
+
+        if (!response.ok || !data.families) {
+          return;
+        }
+
+        const nextFamilyOptions = data.families.map((family) => ({ id: family.id, name: family.name }));
+        const familyIdSet = new Set(nextFamilyOptions.map((family) => family.id));
+
+        setFamilyOptions(nextFamilyOptions);
+        setSelectedFamilyIds((current) => current.filter((familyId) => familyIdSet.has(familyId)));
+      } catch {
+        // Keep options empty if unavailable.
+      }
+    }
+
+    loadFamilies();
+  }, []);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -201,6 +243,12 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     });
   }
 
+  function toggleSelectedFamily(familyId: number) {
+    setSelectedFamilyIds((current) =>
+      current.includes(familyId) ? current.filter((id) => id !== familyId) : [...current, familyId],
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -225,6 +273,11 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
     if (totalImageCount() > MAX_IMAGES) {
       setError(`You can upload up to ${MAX_IMAGES} images.`);
+      return;
+    }
+
+    if (visibility === "family" && selectedFamilyIds.length === 0) {
+      setError("Choose at least one family when sharing is set to Family.");
       return;
     }
 
@@ -254,7 +307,14 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     formData.append("title", trimmedTitle);
     formData.append("description", description.trim());
     formData.append("stepsMarkdown", trimmedSteps);
+    formData.append("visibility", visibility);
     formData.append("ingredients", JSON.stringify(payloadIngredients));
+
+    if (visibility === "family") {
+      for (const familyId of selectedFamilyIds) {
+        formData.append("familyIds", String(familyId));
+      }
+    }
 
     for (const image of newImages) {
       formData.append("newImages", image.file);
@@ -294,52 +354,140 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
   return (
     <form id="edit-recipe-form" onSubmit={handleSubmit} className="space-y-4">
-      <div id="edit-recipe-title-field">
-        <label id="edit-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
-          Title
-        </label>
-        <input
-          id="title"
-          name="title"
-          required
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          className="input-base"
-        />
+      <div id="edit-recipe-basic-info-section" className="surface-card recipe-form-section p-4">
+        <div id="edit-recipe-basic-info-header" className="recipe-form-section-header">
+          <div id="edit-recipe-basic-info-copy" className="recipe-form-section-copy">
+            <p id="edit-recipe-basic-info-title" className="recipe-form-section-title">Basic info</p>
+            <p id="edit-recipe-basic-info-description" className="recipe-form-section-description">
+              Keep the core recipe details together before the ingredient and image sections.
+            </p>
+          </div>
+        </div>
+
+        <div id="edit-recipe-title-field">
+          <label id="edit-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
+            Title
+          </label>
+          <input
+            id="title"
+            name="title"
+            required
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="input-base"
+          />
+        </div>
+
+        <div id="edit-recipe-description-field">
+          <label id="edit-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
+            Description
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            rows={2}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            className="input-base"
+          />
+        </div>
       </div>
 
-      <div id="edit-recipe-description-field">
-        <label id="edit-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
-          Description
-        </label>
-        <textarea
-          id="description"
-          name="description"
-          rows={2}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          className="input-base"
-        />
+      <div id="edit-recipe-sharing-section" className="surface-card recipe-form-section p-4">
+        <div id="edit-recipe-sharing-header" className="recipe-form-section-header">
+          <div id="edit-recipe-sharing-copy" className="recipe-form-section-copy">
+            <p id="edit-recipe-sharing-title" className="recipe-form-section-title">Sharing</p>
+            <p id="edit-recipe-sharing-description" className="recipe-form-section-description">
+              Update who can access this recipe without leaving the edit flow.
+            </p>
+          </div>
+        </div>
+
+        <div id="edit-recipe-sharing-visibility-group" className="flex flex-wrap gap-4">
+          <label id="edit-recipe-sharing-public-label" className="text-sm">
+            <input
+              id="edit-recipe-sharing-public-input"
+              type="radio"
+              name="editRecipeVisibility"
+              checked={visibility === "public"}
+              onChange={() => setVisibility("public")}
+              className="mr-2"
+            />
+            Public (everyone)
+          </label>
+          <label id="edit-recipe-sharing-private-label" className="text-sm">
+            <input
+              id="edit-recipe-sharing-private-input"
+              type="radio"
+              name="editRecipeVisibility"
+              checked={visibility === "private"}
+              onChange={() => setVisibility("private")}
+              className="mr-2"
+            />
+            Private (only you)
+          </label>
+          <label id="edit-recipe-sharing-family-label" className="text-sm">
+            <input
+              id="edit-recipe-sharing-family-input"
+              type="radio"
+              name="editRecipeVisibility"
+              checked={visibility === "family"}
+              onChange={() => setVisibility("family")}
+              className="mr-2"
+            />
+            Family
+          </label>
+        </div>
+
+        {visibility === "family" ? (
+          <div id="edit-recipe-sharing-families-section" className="space-y-2">
+            <p id="edit-recipe-sharing-families-title" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+              Select families
+            </p>
+            {familyOptions.length > 0 ? (
+              <ul id="edit-recipe-sharing-families-list" className="space-y-2">
+                {familyOptions.map((family) => (
+                  <li id={`edit-recipe-sharing-family-item-${family.id}`} key={family.id}>
+                    <label id={`edit-recipe-sharing-family-label-${family.id}`} className="text-sm">
+                      <input
+                        id={`edit-recipe-sharing-family-input-${family.id}`}
+                        type="checkbox"
+                        checked={selectedFamilyIds.includes(family.id)}
+                        onChange={() => toggleSelectedFamily(family.id)}
+                        className="mr-2"
+                      />
+                      {family.name}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p id="edit-recipe-sharing-families-empty" className="text-sm text-[var(--color-text-muted)]">
+                You are not a member of any families yet.
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
 
-      <div id="edit-recipe-steps-field">
-        <label id="edit-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
-          Steps (Markdown)
-        </label>
-        <textarea
-          id="stepsMarkdown"
-          name="stepsMarkdown"
-          rows={6}
-          required
-          value={stepsMarkdown}
-          onChange={(event) => setStepsMarkdown(event.target.value)}
-          className="input-base"
-        />
-      </div>
+      <IngredientEditor
+        addButtonId="edit-recipe-add-ingredient"
+        baseId="edit-recipe-ingredients"
+        ingredients={ingredients}
+        onAdd={addIngredientRow}
+        onRemove={removeIngredientRow}
+        onUpdate={updateIngredient}
+        title="Ingredients"
+      />
 
-      <div id="edit-recipe-images-section" className="surface-card space-y-3 p-4">
-        <div id="edit-recipe-images-header" className="mb-1 flex items-center justify-between">
-          <p id="edit-recipe-images-title" className="text-sm font-medium">Recipe Images</p>
+      <div id="edit-recipe-images-section" className="surface-card recipe-form-section space-y-3 p-4">
+        <div id="edit-recipe-images-header" className="recipe-form-section-header">
+          <div id="edit-recipe-images-copy" className="recipe-form-section-copy">
+            <p id="edit-recipe-images-title" className="recipe-form-section-title">Recipe Images</p>
+            <p id="edit-recipe-images-description" className="recipe-form-section-description">
+              Keep saved and new images organized after the ingredient section.
+            </p>
+          </div>
           <span id="edit-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{totalImageCount()}/{MAX_IMAGES}</span>
         </div>
 
@@ -349,7 +497,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
               <li id={`edit-recipe-existing-image-item-${image.id}`} key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
                 <img
                   id={`edit-recipe-existing-image-${image.id}`}
-                  src={`/api/recipe-images/${image.id}/file?variant=thumb`}
+                  src={image.thumbnailUrl}
                   alt="Recipe"
                   className="h-36 w-full rounded-[var(--radius-sm)] object-cover"
                 />
@@ -443,87 +591,28 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         ) : null}
       </div>
 
-      <div id="edit-recipe-ingredients-section" className="surface-card p-4">
-        <div id="edit-recipe-ingredients-header" className="mb-3 flex items-center justify-between">
-          <p id="edit-recipe-ingredients-title" className="text-sm font-medium">Ingredients</p>
-          <button id="edit-recipe-add-ingredient" type="button" onClick={addIngredientRow} className={buttonClassName("secondary")}>
-            Add Ingredient
-          </button>
+      <div id="edit-recipe-steps-section" className="surface-card recipe-form-section p-4">
+        <div id="edit-recipe-steps-header" className="recipe-form-section-header">
+          <div id="edit-recipe-steps-copy" className="recipe-form-section-copy">
+            <p id="edit-recipe-steps-title" className="recipe-form-section-title">Steps</p>
+            <p id="edit-recipe-steps-description" className="recipe-form-section-description">
+              Keep the recipe instructions in their own final section after ingredients and images.
+            </p>
+          </div>
         </div>
-
-        <div id="edit-recipe-ingredients-list" className="space-y-4">
-          {ingredients.map((ingredient, index) => (
-            <div id={`edit-recipe-ingredient-row-${ingredient.rowId}`} key={ingredient.rowId} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-              <div id={`edit-recipe-ingredient-row-header-${ingredient.rowId}`} className="mb-2 flex items-center justify-between">
-                <p id={`edit-recipe-ingredient-row-title-${ingredient.rowId}`} className="text-sm font-medium">Row {index + 1}</p>
-                <button
-                  id={`edit-recipe-ingredient-remove-${ingredient.rowId}`}
-                  type="button"
-                  onClick={() => removeIngredientRow(ingredient.rowId)}
-                  disabled={ingredients.length === 1}
-                  className={buttonClassName("secondary")}
-                >
-                  Remove
-                </button>
-              </div>
-
-              <div id={`edit-recipe-ingredient-fields-${ingredient.rowId}`} className="grid gap-3 sm:grid-cols-2">
-                <div id={`edit-recipe-ingredient-name-field-${ingredient.rowId}`} className="sm:col-span-2">
-                  <label id={`edit-recipe-ingredient-name-label-${ingredient.rowId}`} htmlFor={`ingredientName-${ingredient.rowId}`} className="mb-1 block text-sm">
-                    Name
-                  </label>
-                  <input
-                    id={`ingredientName-${ingredient.rowId}`}
-                    required
-                    value={ingredient.name}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "name", event.target.value)}
-                    className="input-base"
-                  />
-                </div>
-
-                <div id={`edit-recipe-ingredient-qty-field-${ingredient.rowId}`}>
-                  <label id={`edit-recipe-ingredient-qty-label-${ingredient.rowId}`} htmlFor={`qty-${ingredient.rowId}`} className="mb-1 block text-sm">
-                    Quantity
-                  </label>
-                  <input
-                    id={`qty-${ingredient.rowId}`}
-                    type="number"
-                    min={0.001}
-                    step={0.001}
-                    required
-                    value={ingredient.qty}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "qty", event.target.value)}
-                    className="input-base"
-                  />
-                </div>
-
-                <div id={`edit-recipe-ingredient-unit-field-${ingredient.rowId}`}>
-                  <label id={`edit-recipe-ingredient-unit-label-${ingredient.rowId}`} htmlFor={`unit-${ingredient.rowId}`} className="mb-1 block text-sm">
-                    Unit
-                  </label>
-                  <input
-                    id={`unit-${ingredient.rowId}`}
-                    required
-                    value={ingredient.unit}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "unit", event.target.value)}
-                    className="input-base"
-                  />
-                </div>
-
-                <div id={`edit-recipe-ingredient-notes-field-${ingredient.rowId}`}>
-                  <label id={`edit-recipe-ingredient-notes-label-${ingredient.rowId}`} htmlFor={`notes-${ingredient.rowId}`} className="mb-1 block text-sm">
-                    Notes
-                  </label>
-                  <input
-                    id={`notes-${ingredient.rowId}`}
-                    value={ingredient.notes}
-                    onChange={(event) => updateIngredient(ingredient.rowId, "notes", event.target.value)}
-                    className="input-base"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
+        <div id="edit-recipe-steps-field">
+          <label id="edit-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
+            Steps (Markdown)
+          </label>
+          <textarea
+            id="stepsMarkdown"
+            name="stepsMarkdown"
+            rows={6}
+            required
+            value={stepsMarkdown}
+            onChange={(event) => setStepsMarkdown(event.target.value)}
+            className="input-base"
+          />
         </div>
       </div>
 

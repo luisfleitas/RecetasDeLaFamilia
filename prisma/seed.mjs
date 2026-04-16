@@ -1,11 +1,12 @@
 /* Seed users and recipes with explicit ownership for MVP auth. */
-require("dotenv/config");
-const { PrismaClient } = require("@prisma/client");
-const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
-const bcrypt = require("bcryptjs");
-const { access, copyFile, mkdir, writeFile } = require("node:fs/promises");
-const { constants } = require("node:fs");
-const { dirname, join } = require("node:path");
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
+import { constants } from "node:fs";
+import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 const adapter = new PrismaBetterSqlite3({
   url: process.env.DATABASE_URL ?? "file:./dev.db",
@@ -87,6 +88,10 @@ async function main() {
   await prisma.ingredient.deleteMany();
   await prisma.recipeImage.deleteMany();
   await prisma.recipe.deleteMany();
+  await prisma.familyInviteDecision.deleteMany();
+  await prisma.familyInvite.deleteMany();
+  await prisma.familyMembership.deleteMany();
+  await prisma.family.deleteMany();
   await prisma.user.deleteMany({
     where: {
       email: {
@@ -129,6 +134,66 @@ async function main() {
     },
   });
 
+  const family = await prisma.family.create({
+    data: {
+      name: "Baker-Cook Family",
+      description: "Core household recipes for weeknight cooking.",
+      pictureStorageKey: null,
+      createdByUserId: alice.id,
+    },
+  });
+
+  await prisma.familyMembership.createMany({
+    data: [
+      {
+        familyId: family.id,
+        userId: alice.id,
+        role: "admin",
+      },
+      {
+        familyId: family.id,
+        userId: bob.id,
+        role: "member",
+      },
+    ],
+  });
+
+  const activeInviteToken = "seed-active-family-invite-token";
+  const declinedInviteToken = "seed-declined-family-invite-token";
+  const activeInvite = await prisma.familyInvite.create({
+    data: {
+      familyId: family.id,
+      tokenHash: createHash("sha256").update(activeInviteToken).digest("hex"),
+      createdByUserId: alice.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+  const declinedInvite = await prisma.familyInvite.create({
+    data: {
+      familyId: family.id,
+      tokenHash: createHash("sha256").update(declinedInviteToken).digest("hex"),
+      createdByUserId: alice.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  await prisma.familyInviteDecision.create({
+    data: {
+      inviteId: activeInvite.id,
+      userId: alice.id,
+      status: "pending",
+    },
+  });
+
+  await prisma.familyInviteDecision.create({
+    data: {
+      inviteId: declinedInvite.id,
+      userId: alice.id,
+      status: "declined",
+      decidedAt: new Date(),
+    },
+  });
+
   await prisma.recipe.create({
     data: {
       title: "Simple Tomato Pasta",
@@ -164,9 +229,7 @@ async function main() {
       title: "Beef Stir Fry",
       description: "Smoke test",
       stepsMarkdown: "Step 1",
-      ingredients: [
-        { name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 },
-      ],
+      ingredients: [{ name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 }],
       images: [
         {
           storageKeyTemplate: "recipes/12/img_a10e70da-0e9a-4a1e-a6d6-450a9803a920.jpg",
@@ -256,9 +319,7 @@ async function main() {
       title: "Chicken Tacos",
       description: "Should fail",
       stepsMarkdown: "Step 1",
-      ingredients: [
-        { name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 },
-      ],
+      ingredients: [{ name: "Salt", qtyNum: 1, qtyDen: 1, unit: "tsp", notes: null, position: 1 }],
       images: [
         {
           storageKeyTemplate: "recipes/14/img_fb15029c-6ddc-4f6f-a8e9-792f5acebb1f.jpg",

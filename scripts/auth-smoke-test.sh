@@ -67,7 +67,7 @@ fi
 
 echo "[4/11] Assert unauthenticated recipe detail hides Edit/Delete"
 UNAUTH_HTML=$(curl -s "$BASE_URL/recipes/$BOB_RECIPE_ID")
-if [[ "$UNAUTH_HTML" == *">Edit<"* || "$UNAUTH_HTML" == *">Delete<"* ]]; then
+if [[ "$UNAUTH_HTML" == *"id=\"recipe-detail-edit-link\""* || "$UNAUTH_HTML" == *"id=\"recipe-delete-button-$BOB_RECIPE_ID\""* ]]; then
   echo "Expected recipe detail to hide Edit/Delete for unauthenticated user"
   exit 1
 fi
@@ -95,7 +95,7 @@ fi
 echo "[6/11] Assert non-owner recipe detail hides Edit/Delete"
 ALICE_HTML=$(curl -s -b "$ALICE_COOKIE_JAR" "$BASE_URL/recipes/$BOB_RECIPE_ID")
 rm -f "$ALICE_COOKIE_JAR"
-if [[ "$ALICE_HTML" == *">Edit<"* || "$ALICE_HTML" == *">Delete<"* ]]; then
+if [[ "$ALICE_HTML" == *"id=\"recipe-detail-edit-link\""* || "$ALICE_HTML" == *"id=\"recipe-delete-button-$BOB_RECIPE_ID\""* ]]; then
   echo "Expected recipe detail to hide Edit/Delete for non-owner"
   exit 1
 fi
@@ -113,7 +113,7 @@ fi
 echo "[7/11] Assert owner recipe detail shows Edit/Delete"
 BOB_HTML=$(curl -s -b "$BOB_COOKIE_JAR" "$BASE_URL/recipes/$BOB_RECIPE_ID")
 rm -f "$BOB_COOKIE_JAR"
-if [[ "$BOB_HTML" != *">Edit<"* || "$BOB_HTML" != *">Delete<"* ]]; then
+if [[ "$BOB_HTML" != *"id=\"recipe-detail-edit-link\""* || "$BOB_HTML" != *"id=\"recipe-delete-button-$BOB_RECIPE_ID\""* ]]; then
   echo "Expected recipe detail to show Edit/Delete for owner"
   exit 1
 fi

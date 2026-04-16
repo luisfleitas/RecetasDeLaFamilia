@@ -42,6 +42,25 @@ class InMemoryStorageProvider implements ImageStorageProvider {
   }
 }
 
+class FailOnNthPutStorageProvider extends InMemoryStorageProvider {
+  private putCount = 0;
+  private readonly failOnPutNumber: number;
+
+  constructor(failOnPutNumber: number) {
+    super();
+    this.failOnPutNumber = failOnPutNumber;
+  }
+
+  async putObject(input: PutObjectInput) {
+    this.putCount += 1;
+    if (this.putCount === this.failOnPutNumber) {
+      throw new Error("Simulated storage write failure");
+    }
+
+    await super.putObject(input);
+  }
+}
+
 class FakeRecipeRepository implements RecipeRepository {
   private nextRecipeId = 1;
   private nextImageId = 1;
@@ -52,6 +71,8 @@ class FakeRecipeRepository implements RecipeRepository {
     return [...this.recipes.values()].map((recipe) => ({
       id: recipe.id,
       title: recipe.title,
+      visibility: recipe.visibility,
+      families: recipe.families,
       createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
     }));
@@ -95,6 +116,8 @@ class FakeRecipeRepository implements RecipeRepository {
       title: input.title,
       description: input.description,
       stepsMarkdown: input.stepsMarkdown,
+      visibility: input.visibility,
+      families: [],
       createdByUserId,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -126,6 +149,8 @@ class FakeRecipeRepository implements RecipeRepository {
       title: input.title,
       description: input.description,
       stepsMarkdown: input.stepsMarkdown,
+      visibility: input.visibility,
+      families: [],
       updatedAt: new Date(),
     };
     this.recipes.set(id, updated);
@@ -133,7 +158,16 @@ class FakeRecipeRepository implements RecipeRepository {
   }
 
   async delete(id: number): Promise<boolean> {
-    return this.recipes.delete(id);
+    const deleted = this.recipes.delete(id);
+    if (deleted) {
+      for (const [imageId, image] of this.images.entries()) {
+        if (image.recipeId === id) {
+          this.images.delete(imageId);
+        }
+      }
+    }
+
+    return deleted;
   }
 
   async addImage(recipeId: number, input: AddRecipeImageInput): Promise<RecipeImage> {
@@ -200,11 +234,32 @@ class FakeRecipeRepository implements RecipeRepository {
   }
 }
 
+class TrackingRecipeRepository extends FakeRecipeRepository {
+  public lastGetByIdOptions: GetRecipeByIdOptions | undefined;
+
+  async getById(id: number, options?: GetRecipeByIdOptions): Promise<Recipe | null> {
+    this.lastGetByIdOptions = options;
+    return super.getById(id, options);
+  }
+}
+
+class MissingAfterCreateRecipeRepository extends FakeRecipeRepository {
+  async getById(id: number, options?: GetRecipeByIdOptions): Promise<Recipe | null> {
+    if (options?.includeImages || options?.includePrimaryImage) {
+      return null;
+    }
+
+    return super.getById(id, options);
+  }
+}
+
 function sampleRecipeInput(): CreateRecipeInput {
   return {
     title: "Test",
     description: "desc",
     stepsMarkdown: "step",
+    visibility: "private",
+    familyIds: [],
     ingredients: [{ name: "salt", qty: 1, unit: "tsp", notes: null, position: 1 }],
   };
 }
@@ -298,4 +353,63 @@ test("createRecipeWithImages stores image and exposes retrievable asset keys", a
   assert.ok(asset);
   assert.ok(asset?.storageKey.includes("recipes/"));
   assert.ok(asset?.thumbnailKey.includes("recipes/"));
+});
+
+test("createRecipeWithImages rolls back recipe and storage when reload fails after create", async () => {
+  const repo = new MissingAfterCreateRecipeRepository();
+  const storage = new InMemoryStorageProvider();
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const image = await sampleImage();
+
+  await assert.rejects(
+    () =>
+      useCases.createRecipeWithImages(1, {
+        recipe: sampleRecipeInput(),
+        images: [image],
+        primaryImageIndex: 0,
+      }),
+    /Recipe not found after create/,
+  );
+
+  assert.equal(await repo.getById(1), null);
+  assert.equal(storage.objects.size, 0);
+});
+
+test("createRecipeWithImages rolls back recipe and storage when image persistence fails", async () => {
+  const repo = new FakeRecipeRepository();
+  const storage = new FailOnNthPutStorageProvider(2);
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const image = await sampleImage();
+
+  await assert.rejects(
+    () =>
+      useCases.createRecipeWithImages(1, {
+        recipe: sampleRecipeInput(),
+        images: [image],
+        primaryImageIndex: 0,
+      }),
+    /Simulated storage write failure/,
+  );
+
+  assert.equal(await repo.getById(1), null);
+  assert.equal(storage.objects.size, 0);
+});
+
+test("updateRecipeWithImages reload uses viewer context for private/family recipes", async () => {
+  const repo = new TrackingRecipeRepository();
+  const storage = new InMemoryStorageProvider();
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+
+  const recipe = await repo.create(sampleRecipeInput(), 42);
+
+  const result = await useCases.updateRecipeWithImages(42, recipe.id, {
+    recipe: { ...sampleRecipeInput(), visibility: "family", familyIds: [1] },
+    newImages: [],
+  });
+
+  assert.equal(result.forbidden, false);
+  assert.ok(result.recipe);
+  assert.equal(repo.lastGetByIdOptions?.viewerUserId, 42);
+  assert.equal(repo.lastGetByIdOptions?.includeImages, true);
+  assert.equal(repo.lastGetByIdOptions?.includePrimaryImage, true);
 });

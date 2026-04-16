@@ -7,9 +7,13 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
+    "test:import": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/import-*.test.ts scripts/local-ocr.test.ts scripts/office-document-import.test.ts scripts/pdf-import.test.ts scripts/text-document-import.test.ts",
     "test:phase0": "./scripts/phase0-checks.sh",
     "test:phase1": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase1-use-cases.test.ts",
-    "test:phase2": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase2-use-cases.test.ts"
+    "test:phase2": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase2-use-cases.test.ts scripts/recipe-family-link-sanitization.test.ts",
+    "test:phase3": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase3-ops.test.ts scripts/family-deletion-workflow.test.ts",
+    "import:cleanup": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs scripts/import-session-cleanup.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.0",
@@ -39,6 +43,6 @@
     "typescript": "^5"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.mjs"
   }
 }

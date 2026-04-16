@@ -56,6 +56,8 @@ class FakeRecipeRepository implements RecipeRepository {
     return [...this.recipes.values()].map((recipe) => ({
       id: recipe.id,
       title: recipe.title,
+      visibility: recipe.visibility,
+      families: recipe.families,
       createdByUserId: recipe.createdByUserId,
       createdAt: recipe.createdAt,
     }));
@@ -100,6 +102,8 @@ class FakeRecipeRepository implements RecipeRepository {
       title: input.title,
       description: input.description,
       stepsMarkdown: input.stepsMarkdown,
+      visibility: input.visibility,
+      families: [],
       createdByUserId,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -132,6 +136,8 @@ class FakeRecipeRepository implements RecipeRepository {
       title: input.title,
       description: input.description,
       stepsMarkdown: input.stepsMarkdown,
+      visibility: input.visibility,
+      families: [],
       updatedAt: new Date(),
     };
 
@@ -236,6 +242,8 @@ function sampleRecipeInput(): CreateRecipeInput {
     title: "Test",
     description: "desc",
     stepsMarkdown: "step",
+    visibility: "private",
+    familyIds: [],
     ingredients: [{ name: "salt", qty: 1, unit: "tsp", notes: null, position: 1 }],
   };
 }
