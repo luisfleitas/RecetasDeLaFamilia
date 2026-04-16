@@ -6,7 +6,12 @@ import {
 import { RecipeImportError, toRecipeImportError } from "@/lib/application/recipes/import-errors";
 import type { RecipeImportExtractorResult } from "@/lib/application/recipes/import-extractor-provider";
 import { checkRecipeImportParseRateLimit } from "@/lib/application/recipes/import-rate-limit";
-import { parseHandwrittenImportRequest } from "@/lib/application/recipes/handwritten-import";
+import {
+  appendHandwrittenFallbackHint,
+  buildHandwrittenFallbackDraft,
+  parseHandwrittenImportRequest,
+  shouldUseHandwrittenDraftFallback,
+} from "@/lib/application/recipes/handwritten-import";
 import type {
   HandwrittenImportMetadata,
   ImportSessionMetadata,
@@ -415,8 +420,26 @@ export async function POST(request: Request) {
           ? await parseContentFromMultipartRequest(request)
           : await parseContentFromJsonRequest(request);
 
-        extractionResult = await extractorProvider.extract(parsedRequest.content);
-        draft = validateImportedRecipeDraft(extractionResult.draft);
+        try {
+          extractionResult = await extractorProvider.extract(parsedRequest.content);
+          draft = validateImportedRecipeDraft(extractionResult.draft);
+        } catch (error) {
+          if (parsedRequest.inputMode === "handwritten" && shouldUseHandwrittenDraftFallback(error)) {
+            draft = buildHandwrittenFallbackDraft(parsedRequest.content);
+            extractionResult = {
+              draft,
+              providerName: "rule-based",
+              providerModel: null,
+              promptVersion: "handwritten-fallback-v1",
+            };
+            parsedRequest = {
+              ...parsedRequest,
+              handwrittenMetadata: appendHandwrittenFallbackHint(parsedRequest.handwrittenMetadata),
+            };
+          } else {
+            throw error;
+          }
+        }
       } catch (error) {
         const importError = toRecipeImportError(error);
         const errorResponse = NextResponse.json(

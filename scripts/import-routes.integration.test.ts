@@ -617,6 +617,7 @@ test("handwritten multi-image parse preserves upload order and metadata", async 
           imageCount: number;
           pageOrder: string[];
           ocrProviderUsed: string | null;
+          ocrFallbackUsed: boolean;
           ocrProvidersByImage: string[];
           sourceImageVisibility: string;
           reviewHints: string[];
@@ -641,6 +642,7 @@ test("handwritten multi-image parse preserves upload order and metadata", async 
     assert.equal(parsePayload.metadata.handwritten?.imageCount, 2);
     assert.deepEqual(parsePayload.metadata.handwritten?.pageOrder, ["card-front.jpg", "card-back.png"]);
     assert.equal(parsePayload.metadata.handwritten?.ocrProviderUsed, "openai");
+    assert.equal(parsePayload.metadata.handwritten?.ocrFallbackUsed, false);
     assert.deepEqual(parsePayload.metadata.handwritten?.ocrProvidersByImage, ["openai", "openai"]);
     assert.equal(parsePayload.metadata.handwritten?.sourceImageVisibility, "private");
     assert.equal(parsePayload.metadata.handwritten?.combinedInUploadOrder, true);
@@ -674,6 +676,7 @@ test("handwritten multi-image parse preserves upload order and metadata", async 
       inputMode?: string;
       handwritten?: {
         pageOrder?: string[];
+        ocrFallbackUsed?: boolean;
         ocrProvidersByImage?: string[];
         sourceImageVisibility?: string;
       };
@@ -682,11 +685,184 @@ test("handwritten multi-image parse preserves upload order and metadata", async 
 
     assert.equal(storedMetadata.inputMode, "handwritten");
     assert.deepEqual(storedMetadata.handwritten?.pageOrder, ["card-front.jpg", "card-back.png"]);
+    assert.equal(storedMetadata.handwritten?.ocrFallbackUsed, false);
     assert.deepEqual(storedMetadata.handwritten?.ocrProvidersByImage, ["openai", "openai"]);
     assert.equal(storedMetadata.handwritten?.sourceImageVisibility, "private");
     assert.deepEqual(
       storedSourceRefs.map((sourceRef) => sourceRef.originalFilename),
       ["card-front.jpg", "card-back.png"],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("handwritten parse adds weak-result review hints for sparse OCR output", async () => {
+  const { rootDir } = await setupIntegrationEnv({
+    handwrittenEnabled: true,
+    handwrittenPrimaryOcrProvider: "openai",
+    openAiApiKey: "test-openai-key",
+  });
+
+  const originalFetch = globalThis.fetch;
+
+  try {
+    const prisma = await getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        firstName: "Handwritten",
+        lastName: "Hints",
+        email: "handwritten-hints@example.com",
+        username: "handwritten-hints-user",
+        passwordHash: "hash",
+      },
+    });
+
+    const ocrTexts = ["Pie\nIngredients:\n- egg", "Steps:\n1. Mix"];
+    let fetchCallCount = 0;
+    globalThis.fetch = (async () => {
+      const text = ocrTexts[fetchCallCount] ?? "";
+      fetchCallCount += 1;
+
+      return new Response(
+        JSON.stringify({
+          output_text: text,
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+
+    const token = signAccessToken({ userId: user.id, username: user.username });
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+
+    const importFormData = new FormData();
+    importFormData.append("inputMode", "handwritten");
+    importFormData.append("files", new File(["front image bytes"], "card-front.jpg", { type: "image/jpeg" }));
+    importFormData.append("files", new File(["back image bytes"], "card-back.png", { type: "image/png" }));
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: importFormData,
+      }),
+    );
+    assert.equal(parseResponse.status, 200);
+
+    const parsePayload = (await parseResponse.json()) as {
+      metadata?: {
+        handwritten?: {
+          reviewHints?: string[];
+        } | null;
+      } | null;
+    };
+
+    assert.equal(fetchCallCount, 2);
+    assert.ok(
+      parsePayload.metadata?.handwritten?.reviewHints?.some((hint) => hint.includes("Very little text was detected")),
+    );
+    assert.ok(
+      parsePayload.metadata?.handwritten?.reviewHints?.some((hint) => hint.includes("page 1") && hint.includes("page 2")),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("handwritten parse falls back to a provisional draft when OCR text cannot produce ingredients", async () => {
+  const { rootDir } = await setupIntegrationEnv({
+    handwrittenEnabled: true,
+    handwrittenPrimaryOcrProvider: "openai",
+    openAiApiKey: "test-openai-key",
+  });
+
+  const originalFetch = globalThis.fetch;
+
+  try {
+    const prisma = await getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        firstName: "Handwritten",
+        lastName: "Fallback",
+        email: "handwritten-fallback@example.com",
+        username: "handwritten-fallback-user",
+        passwordHash: "hash",
+      },
+    });
+
+    const ocrTexts = [
+      "Pole tert nla.\nOng. teta\nATRIO",
+      "ee\nler",
+    ];
+    let fetchCallCount = 0;
+    globalThis.fetch = (async () => {
+      const text = ocrTexts[fetchCallCount] ?? "";
+      fetchCallCount += 1;
+
+      return new Response(
+        JSON.stringify({
+          output_text: text,
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+
+    const token = signAccessToken({ userId: user.id, username: user.username });
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+
+    const importFormData = new FormData();
+    importFormData.append("inputMode", "handwritten");
+    importFormData.append("files", new File(["front image bytes"], "card-front.jpg", { type: "image/jpeg" }));
+    importFormData.append("files", new File(["back image bytes"], "card-back.png", { type: "image/png" }));
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: importFormData,
+      }),
+    );
+    assert.equal(parseResponse.status, 200);
+
+    const parsePayload = (await parseResponse.json()) as {
+      providerName?: string | null;
+      promptVersion?: string | null;
+      draft: {
+        title: string;
+        ingredients: Array<unknown>;
+        stepsMarkdown: string;
+      };
+      metadata?: {
+        handwritten?: {
+          reviewHints?: string[];
+        } | null;
+      } | null;
+    };
+
+    assert.equal(fetchCallCount, 2);
+    assert.equal(parsePayload.providerName, "rule-based");
+    assert.equal(parsePayload.promptVersion, "handwritten-fallback-v1");
+    assert.equal(parsePayload.draft.title, "Pole tert nla.");
+    assert.equal(parsePayload.draft.ingredients.length, 0);
+    assert.match(parsePayload.draft.stepsMarkdown, /1\. Ong\. teta/i);
+    assert.ok(
+      parsePayload.metadata?.handwritten?.reviewHints?.some((hint) =>
+        hint.includes("add ingredients manually before continuing"),
+      ),
     );
   } finally {
     globalThis.fetch = originalFetch;

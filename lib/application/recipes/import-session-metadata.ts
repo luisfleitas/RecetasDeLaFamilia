@@ -16,6 +16,7 @@ export type HandwrittenImportMetadata = {
   imageCount: number;
   pageOrder: string[];
   ocrProviderUsed: string | null;
+  ocrFallbackUsed: boolean;
   ocrProvidersByImage: string[];
   sourceImageVisibility: HandwrittenSourceImageVisibility;
   reviewHints: string[];
@@ -111,6 +112,7 @@ export function parseImportMetadataJson(value: string | null): ImportSessionMeta
             pageOrder: handwrittenRaw.pageOrder.filter((item): item is string => typeof item === "string"),
             ocrProviderUsed:
               typeof handwrittenRaw.ocrProviderUsed === "string" ? handwrittenRaw.ocrProviderUsed : null,
+            ocrFallbackUsed: handwrittenRaw.ocrFallbackUsed === true,
             ocrProvidersByImage: Array.isArray(handwrittenRaw.ocrProvidersByImage)
               ? handwrittenRaw.ocrProvidersByImage.filter((item): item is string => typeof item === "string")
               : [],

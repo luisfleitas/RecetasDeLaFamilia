@@ -54,6 +54,7 @@ test("parseImportMetadataJson returns handwritten metadata from valid json", () 
         imageCount: 2,
         pageOrder: ["card-1.jpg", "card-2.jpg"],
         ocrProviderUsed: "local",
+        ocrFallbackUsed: true,
         ocrProvidersByImage: ["local", "local"],
         sourceImageVisibility: "public",
         reviewHints: ["Review carefully before continuing."],
@@ -68,6 +69,7 @@ test("parseImportMetadataJson returns handwritten metadata from valid json", () 
   assert.equal(metadata?.providerName, "rule-based");
   assert.equal(metadata?.handwritten?.imageCount, 2);
   assert.deepEqual(metadata?.handwritten?.pageOrder, ["card-1.jpg", "card-2.jpg"]);
+  assert.equal(metadata?.handwritten?.ocrFallbackUsed, true);
   assert.equal(metadata?.handwritten?.sourceImageVisibility, "public");
   assert.deepEqual(metadata?.handwritten?.ocrProvidersByImage, ["local", "local"]);
 });
@@ -80,6 +82,7 @@ test("parseImportMetadataJson defaults handwritten visibility to private for inv
         imageCount: 1,
         pageOrder: ["card-1.jpg"],
         ocrProviderUsed: null,
+        ocrFallbackUsed: "yes",
         ocrProvidersByImage: [],
         sourceImageVisibility: "friends-only",
         reviewHints: [],
@@ -89,5 +92,6 @@ test("parseImportMetadataJson defaults handwritten visibility to private for inv
   );
 
   assert.equal(metadata?.handwritten?.sourceImageVisibility, "private");
+  assert.equal(metadata?.handwritten?.ocrFallbackUsed, false);
   assert.equal(metadata?.handwritten?.combinedInUploadOrder, false);
 });
