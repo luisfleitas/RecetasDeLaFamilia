@@ -1,4 +1,5 @@
 // API handler for fetching and updating a single recipe by id.
+import { listVisibleRecipeSourceImages } from "@/lib/application/recipes/display-source-images";
 import { parseCreateRecipeInput, parseRecipeId } from "@/lib/application/recipes/validation";
 import { sanitizeRecipeFamilyLinksForUpdate } from "@/lib/application/recipes/family-link-sanitization";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
@@ -147,7 +148,22 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ error: "Recipe not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ recipe });
+    if (!includeImages) {
+      return NextResponse.json({ recipe });
+    }
+
+    const visibleSourceImagesByRecipeId = await listVisibleRecipeSourceImages(
+      [recipe],
+      authUser?.userId ?? null,
+    );
+    const visibleSourceImages = visibleSourceImagesByRecipeId.get(recipe.id) ?? [];
+
+    return NextResponse.json({
+      recipe: {
+        ...recipe,
+        images: [...(recipe.images ?? []), ...visibleSourceImages],
+      },
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected error while fetching recipe";

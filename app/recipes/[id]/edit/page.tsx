@@ -18,6 +18,8 @@ type RecipeImage = {
   id: number;
   isPrimary: boolean;
   position: number;
+  fullUrl: string;
+  thumbnailUrl: string;
 };
 
 type Recipe = {

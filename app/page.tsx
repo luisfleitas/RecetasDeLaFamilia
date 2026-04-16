@@ -129,6 +129,9 @@ export default async function HomePage() {
 
               {!authUser ? (
                 <>
+                  <span id="home-auth-status-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-text-muted)]">
+                    Guest preview mode
+                  </span>
                   <Link id="home-create-account-link" href="/register" className={buttonClassName("secondary")}>
                     Create Account
                   </Link>
@@ -139,6 +142,9 @@ export default async function HomePage() {
               ) : (
                 <>
                   <LogoutButton />
+                  <span id="home-auth-status-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-text-muted)]">
+                    Signed in as {authUser.username}
+                  </span>
                 </>
               )}
             </div>
@@ -167,7 +173,12 @@ export default async function HomePage() {
         <header id="home-page-header" className="surface-panel p-6 sm:p-8">
           <div id="home-header-content" className="space-y-5">
             <div id="home-hero-copy" className="max-w-3xl">
-              <p id="home-hero-eyebrow" className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Family Recipe Archive</p>
+              <div id="home-hero-eyebrow-row" className="flex flex-wrap items-center gap-2.5">
+                <p id="home-hero-eyebrow" className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Family Recipe Archive</p>
+                <span id="home-recipe-count-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
+                  {visibleRecipes.length} Heritage Recipe{visibleRecipes.length === 1 ? "" : "s"}
+                </span>
+              </div>
               <h1
                 id="home-hero-title"
                 className="mt-2 text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl"
@@ -180,20 +191,6 @@ export default async function HomePage() {
                 notes, and tradition into the next generation.
               </p>
             </div>
-            <div id="home-hero-primary-action">
-              <Link id="home-add-recipe-link" href="/recipes/new" className={buttonClassName("primary")}>
-                + Add Family Recipe
-              </Link>
-            </div>
-          </div>
-
-          <div id="home-status-pills" className="mt-5 flex flex-wrap gap-2.5">
-            <span id="home-recipe-count-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
-              {visibleRecipes.length} Heritage Recipe{visibleRecipes.length === 1 ? "" : "s"}
-            </span>
-            <span id="home-auth-status-pill" className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-text-muted)]">
-              {authUser ? `Signed in as ${authUser.username}` : "Guest preview mode"}
-            </span>
           </div>
         </header>
 

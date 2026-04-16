@@ -1,4 +1,5 @@
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { parseRecipeSourceDocumentMetadata } from "@/lib/application/recipes/source-documents";
 import { getPrisma } from "@/lib/prisma";
 import { buildRecipeUseCases } from "@/lib/recipes/factory";
 import { NextResponse } from "next/server";
@@ -20,6 +21,47 @@ function parseRecipeId(value: string): number | null {
   return id;
 }
 
+async function canAccessPrivateRecipeSources(recipeId: number, viewerUserId: number | null) {
+  if (!viewerUserId) {
+    return false;
+  }
+
+  const prisma = await getPrisma();
+  const recipe = await prisma.recipe.findUnique({
+    where: { id: recipeId },
+    select: {
+      createdByUserId: true,
+      visibility: true,
+      familyLinks: {
+        select: {
+          family: {
+            select: {
+              memberships: {
+                where: { userId: viewerUserId },
+                select: { id: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!recipe) {
+    return false;
+  }
+
+  if (recipe.createdByUserId === viewerUserId) {
+    return true;
+  }
+
+  if (recipe.visibility !== "family") {
+    return false;
+  }
+
+  return recipe.familyLinks.some((link) => link.family.memberships.length > 0);
+}
+
 export async function GET(request: Request, { params }: Params) {
   const authUser = getAuthUserFromRequest(request);
   const { id } = await params;
@@ -35,6 +77,7 @@ export async function GET(request: Request, { params }: Params) {
   }
 
   const prisma = await getPrisma();
+  const canViewPrivateSources = await canAccessPrivateRecipeSources(recipeId, authUser?.userId ?? null);
   const prismaDb = prisma as unknown as {
     recipeSourceDocument: {
       findMany: (args: {
@@ -46,6 +89,7 @@ export async function GET(request: Request, { params }: Params) {
           mimeType: true;
           sizeBytes: true;
           sourceType: true;
+          metadataJson: true;
           createdAt: true;
         };
       }) => Promise<Array<{
@@ -54,6 +98,7 @@ export async function GET(request: Request, { params }: Params) {
         mimeType: string;
         sizeBytes: number;
         sourceType: string;
+        metadataJson: string | null;
         createdAt: Date;
       }>>;
     };
@@ -68,20 +113,36 @@ export async function GET(request: Request, { params }: Params) {
       mimeType: true,
       sizeBytes: true,
       sourceType: true,
+      metadataJson: true,
       createdAt: true,
     },
   });
 
+  const visibleSourceDocuments = sourceDocuments.filter((doc) => {
+    if (canViewPrivateSources) {
+      return true;
+    }
+
+    const metadata = parseRecipeSourceDocumentMetadata(doc.metadataJson);
+    return metadata?.publiclyVisible === true;
+  });
+
   return NextResponse.json({
-    sourceDocuments: sourceDocuments.map((doc: {
+    sourceDocuments: visibleSourceDocuments.map((doc: {
       id: number;
       originalFilename: string;
       mimeType: string;
       sizeBytes: number;
       sourceType: string;
+      metadataJson: string | null;
       createdAt: Date;
     }) => ({
-      ...doc,
+      id: doc.id,
+      originalFilename: doc.originalFilename,
+      mimeType: doc.mimeType,
+      sizeBytes: doc.sizeBytes,
+      sourceType: doc.sourceType,
+      createdAt: doc.createdAt,
       fileUrl: `/api/recipes/${recipeId}/source-documents/${doc.id}/file`,
     })),
   });

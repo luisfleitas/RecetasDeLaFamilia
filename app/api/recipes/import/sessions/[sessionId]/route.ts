@@ -1,7 +1,10 @@
 import { isRecipeImportEnabled } from "@/lib/application/recipes/import-config";
 import {
+  parseImportMetadataJson,
   parseImportSourceRefsJson,
   parseImportWarningsJson,
+  type HandwrittenSourceImageVisibility,
+  type ImportSessionMetadata,
   type ImportSessionSourceRef,
 } from "@/lib/application/recipes/import-session-metadata";
 import { getImportWarningsForDraft, type ImportWarning } from "@/lib/application/recipes/import-warnings";
@@ -24,6 +27,7 @@ type ImportSessionResponse = {
   providerName: string | null;
   providerModel: string | null;
   promptVersion: string | null;
+  metadata: ImportSessionMetadata | null;
 };
 
 function parseDraftFromUnknown(value: unknown): ImportedRecipeDraft {
@@ -80,7 +84,48 @@ function parseDraftFromUnknown(value: unknown): ImportedRecipeDraft {
 
 async function readImportSession(sessionId: string) {
   const prisma = await getPrisma();
-  const session = await prisma.importSession.findUnique({
+  const prismaDb = prisma as unknown as {
+    importSession: {
+      findUnique: (args: {
+        where: { id: string };
+        select: {
+          id: true;
+          userId: true;
+          status: true;
+          draftJson: true;
+          warningsJson: true;
+          sourceRefsJson: true;
+          metadataJson: true;
+          providerName: true;
+          providerModel: true;
+          promptVersion: true;
+          expiresAt: true;
+        };
+      }) => Promise<{
+        id: string;
+        userId: number;
+        status: "PARSED" | "CONFIRMED" | "EXPIRED" | "FAILED";
+        draftJson: string;
+        warningsJson: string | null;
+        sourceRefsJson: string | null;
+        metadataJson: string | null;
+        providerName: string | null;
+        providerModel: string | null;
+        promptVersion: string | null;
+        expiresAt: Date;
+      } | null>;
+      update: (args: {
+        where: { id: string };
+        data: Partial<{
+          status: "EXPIRED";
+          draftJson: string;
+          warningsJson: string;
+          metadataJson: string;
+        }>;
+      }) => Promise<unknown>;
+    };
+  };
+  const session = await prismaDb.importSession.findUnique({
     where: { id: sessionId },
     select: {
       id: true,
@@ -89,6 +134,7 @@ async function readImportSession(sessionId: string) {
       draftJson: true,
       warningsJson: true,
       sourceRefsJson: true,
+      metadataJson: true,
       providerName: true,
       providerModel: true,
       promptVersion: true,
@@ -96,12 +142,16 @@ async function readImportSession(sessionId: string) {
     },
   });
 
-  return { prisma, session };
+  return { prisma: prismaDb, session };
 }
 
 async function maybeExpireSession(
   session: { id: string; status: "PARSED" | "CONFIRMED" | "EXPIRED" | "FAILED"; expiresAt: Date },
-  prisma: Awaited<ReturnType<typeof getPrisma>>,
+  prisma: {
+    importSession: {
+      update: (args: { where: { id: string }; data: { status: "EXPIRED" } }) => Promise<unknown>;
+    };
+  },
 ) {
   const isExpired = session.status === "EXPIRED" || session.expiresAt.getTime() < Date.now();
   if (!isExpired) {
@@ -163,8 +213,58 @@ export async function GET(request: Request, { params }: Params) {
     providerName: session.providerName,
     providerModel: session.providerModel,
     promptVersion: session.promptVersion,
+    metadata: parseImportMetadataJson(session.metadataJson),
   };
   return NextResponse.json(response);
+}
+
+function mergeImportSessionMetadata(
+  currentMetadata: ImportSessionMetadata | null,
+  update: unknown,
+  warnings: ImportWarning[],
+  sourceRefs: ImportSessionSourceRef[],
+  providerName: string | null,
+  providerModel: string | null,
+  promptVersion: string | null,
+): ImportSessionMetadata {
+  const base: ImportSessionMetadata = currentMetadata ?? {
+    inputMode: "document",
+    warnings,
+    sourceRefs,
+    providerName,
+    providerModel,
+    promptVersion,
+    handwritten: null,
+  };
+
+  const next: ImportSessionMetadata = {
+    ...base,
+    warnings,
+    sourceRefs,
+    providerName,
+    providerModel,
+    promptVersion,
+  };
+
+  if (!update || typeof update !== "object") {
+    return next;
+  }
+
+  const typed = update as {
+    handwritten?: {
+      sourceImageVisibility?: unknown;
+    };
+  };
+
+  const sourceImageVisibility = typed.handwritten?.sourceImageVisibility;
+  if (next.handwritten && (sourceImageVisibility === "private" || sourceImageVisibility === "public")) {
+    next.handwritten = {
+      ...next.handwritten,
+      sourceImageVisibility: sourceImageVisibility as HandwrittenSourceImageVisibility,
+    };
+  }
+
+  return next;
 }
 
 export async function PATCH(request: Request, { params }: Params) {
@@ -189,7 +289,8 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const draftInput = (body as { draft?: unknown }).draft;
+  const typedBody = body as { draft?: unknown; metadata?: unknown };
+  const draftInput = typedBody.draft;
   let draft: ImportedRecipeDraft;
   try {
     draft = parseDraftFromUnknown(draftInput);
@@ -217,22 +318,36 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
+  const warnings = getImportWarningsForDraft(draft);
+  const sourceRefs = parseImportSourceRefsJson(session.sourceRefsJson);
+  const currentMetadata = parseImportMetadataJson(session.metadataJson);
+  const metadata = mergeImportSessionMetadata(
+    currentMetadata,
+    typedBody.metadata,
+    warnings,
+    sourceRefs,
+    session.providerName,
+    session.providerModel,
+    session.promptVersion,
+  );
+
   await prisma.importSession.update({
     where: { id: session.id },
     data: {
       draftJson: JSON.stringify(draft),
-      warningsJson: JSON.stringify(getImportWarningsForDraft(draft)),
+      warningsJson: JSON.stringify(warnings),
+      metadataJson: JSON.stringify(metadata),
     },
   });
 
-  const warnings = getImportWarningsForDraft(draft);
   return NextResponse.json({
     importSessionId: session.id,
     draft,
     warnings,
-    sourceRefs: parseImportSourceRefsJson(session.sourceRefsJson),
+    sourceRefs,
     providerName: session.providerName,
     providerModel: session.providerModel,
     promptVersion: session.promptVersion,
+    metadata,
   } satisfies ImportSessionResponse);
 }

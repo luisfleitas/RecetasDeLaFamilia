@@ -81,6 +81,7 @@ model ImportSession {
   draftJson String              @map("draft_json")
   warningsJson String?          @map("warnings_json")
   sourceRefsJson String?        @map("source_refs_json")
+  metadataJson String?          @map("metadata_json")
   providerName String?          @map("provider_name")
   providerModel String?         @map("provider_model")
   promptVersion String?         @map("prompt_version")
@@ -106,6 +107,7 @@ model RecipeSourceDocument {
   sizeBytes        Int      @map("size_bytes")
   storageKey       String   @map("storage_key")
   sourceType       String   @map("source_type")
+  metadataJson     String?  @map("metadata_json")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

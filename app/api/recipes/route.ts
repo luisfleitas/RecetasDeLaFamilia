@@ -1,4 +1,5 @@
 // API handlers for listing and creating recipes.
+import { listVisibleRecipeSourceImages } from "@/lib/application/recipes/display-source-images";
 import { parseCreateRecipeInput } from "@/lib/application/recipes/validation";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
 import { promoteImportSessionSourceDocuments } from "@/lib/application/recipes/source-documents";
@@ -221,8 +222,18 @@ export async function GET(request: Request) {
       includePrimaryImage,
       includeImages,
     });
+    const visibleSourceImagesByRecipeId = includeImages
+      ? await listVisibleRecipeSourceImages(recipes, authUser?.userId ?? null)
+      : new Map();
 
-    return NextResponse.json({ recipes });
+    const recipesWithVisibleSourceImages = includeImages
+      ? recipes.map((recipe) => ({
+          ...recipe,
+          images: [...(recipe.images ?? []), ...(visibleSourceImagesByRecipeId.get(recipe.id) ?? [])],
+        }))
+      : recipes;
+
+    return NextResponse.json({ recipes: recipesWithVisibleSourceImages });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while listing recipes";
     return NextResponse.json({ error: message }, { status: 500 });

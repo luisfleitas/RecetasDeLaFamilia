@@ -19,6 +19,9 @@ type Ingredient = {
 type RecipeImage = {
   id: number;
   isPrimary: boolean;
+  position: number;
+  fullUrl: string;
+  thumbnailUrl: string;
 };
 
 type Recipe = {
@@ -155,7 +158,7 @@ export default async function RecipeDetailPage({ params }: Params) {
               <li id={`recipe-detail-gallery-item-${image.id}`} key={image.id}>
                 <img
                   id={`recipe-detail-gallery-image-${image.id}`}
-                  src={`/api/recipe-images/${image.id}/file?variant=thumb`}
+                  src={image.thumbnailUrl}
                   alt={image.isPrimary ? "Primary recipe image" : "Recipe image"}
                   className="h-28 w-full rounded-[var(--radius-sm)] object-cover"
                 />

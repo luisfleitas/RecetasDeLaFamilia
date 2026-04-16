@@ -139,6 +139,8 @@ function toRecipeImage(image: {
     recipeId: image.recipeId,
     storageKey: image.storageKey,
     thumbnailKey: image.thumbnailKey,
+    thumbnailUrl: `/api/recipe-images/${image.id}/file?variant=thumb`,
+    fullUrl: `/api/recipe-images/${image.id}/file?variant=full`,
     originalFilename: image.originalFilename,
     mimeType: image.mimeType,
     sizeBytes: image.sizeBytes,

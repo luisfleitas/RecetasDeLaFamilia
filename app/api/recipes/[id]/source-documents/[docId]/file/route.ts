@@ -1,4 +1,5 @@
 import { Readable } from "node:stream";
+import { parseRecipeSourceDocumentMetadata } from "@/lib/application/recipes/source-documents";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { buildImageStorageProvider } from "@/lib/infrastructure/images/storage-factory";
 import { getPrisma } from "@/lib/prisma";
@@ -28,6 +29,47 @@ function toContentDispositionFilename(value: string): string {
   return normalized.length > 0 ? normalized : "source-document";
 }
 
+async function canAccessPrivateRecipeSources(recipeId: number, viewerUserId: number | null) {
+  if (!viewerUserId) {
+    return false;
+  }
+
+  const prisma = await getPrisma();
+  const recipe = await prisma.recipe.findUnique({
+    where: { id: recipeId },
+    select: {
+      createdByUserId: true,
+      visibility: true,
+      familyLinks: {
+        select: {
+          family: {
+            select: {
+              memberships: {
+                where: { userId: viewerUserId },
+                select: { id: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!recipe) {
+    return false;
+  }
+
+  if (recipe.createdByUserId === viewerUserId) {
+    return true;
+  }
+
+  if (recipe.visibility !== "family") {
+    return false;
+  }
+
+  return recipe.familyLinks.some((link) => link.family.memberships.length > 0);
+}
+
 export async function GET(request: Request, { params }: Params) {
   const authUser = getAuthUserFromRequest(request);
   const { id, docId } = await params;
@@ -44,6 +86,7 @@ export async function GET(request: Request, { params }: Params) {
   }
 
   const prisma = await getPrisma();
+  const canViewPrivateSources = await canAccessPrivateRecipeSources(recipeId, authUser?.userId ?? null);
   const prismaDb = prisma as unknown as {
     recipeSourceDocument: {
       findFirst: (args: {
@@ -53,12 +96,14 @@ export async function GET(request: Request, { params }: Params) {
           originalFilename: true;
           mimeType: true;
           storageKey: true;
+          metadataJson: true;
         };
       }) => Promise<{
         id: number;
         originalFilename: string;
         mimeType: string;
         storageKey: string;
+        metadataJson: string | null;
       } | null>;
     };
   };
@@ -72,10 +117,16 @@ export async function GET(request: Request, { params }: Params) {
       originalFilename: true,
       mimeType: true,
       storageKey: true,
+      metadataJson: true,
     },
   });
 
   if (!sourceDocument) {
+    return NextResponse.json({ error: "Source document not found" }, { status: 404 });
+  }
+
+  const metadata = parseRecipeSourceDocumentMetadata(sourceDocument.metadataJson);
+  if (!canViewPrivateSources && metadata?.publiclyVisible !== true) {
     return NextResponse.json({ error: "Source document not found" }, { status: 404 });
   }
 
@@ -86,7 +137,7 @@ export async function GET(request: Request, { params }: Params) {
       headers: {
         "Content-Type": sourceDocument.mimeType || "application/octet-stream",
         "Content-Disposition": `attachment; filename="${toContentDispositionFilename(sourceDocument.originalFilename)}"`,
-        "Cache-Control": "private, no-store",
+        "Cache-Control": metadata?.publiclyVisible ? "public, max-age=300" : "private, no-store",
       },
     });
   } catch {
