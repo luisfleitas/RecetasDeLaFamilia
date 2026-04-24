@@ -194,7 +194,7 @@ if [[ "$ALREADY_MEMBER_CODE" != "ALREADY_MEMBER" ]]; then
 fi
 echo "PASS [bob-accept-again]: ALREADY_MEMBER"
 
-# 11) Admin role changes: promote and demote bob
+# 11) Admin role changes: promote bob and verify Phase 1 demotion is rejected
 PROMOTE_BOB_BODY="$TMP_DIR/promote-bob.json"
 PROMOTE_BOB_CODE="$(request PATCH "$BASE_URL/api/families/$FAMILY_ID/members/$BOB_USER_ID" "$PROMOTE_BOB_BODY" \
   -b "$ALICE_COOKIE" \
@@ -207,7 +207,15 @@ DEMOTE_BOB_CODE="$(request PATCH "$BASE_URL/api/families/$FAMILY_ID/members/$BOB
   -b "$ALICE_COOKIE" \
   -H "Content-Type: application/json" \
   -d '{"role":"member"}')"
-expect_code "$DEMOTE_BOB_CODE" "200" "demote-bob"
+expect_code "$DEMOTE_BOB_CODE" "409" "demote-bob-rejected"
+
+DEMOTE_BOB_ERROR_CODE="$(json_field "$DEMOTE_BOB_BODY" "code" || true)"
+if [[ "$DEMOTE_BOB_ERROR_CODE" != "ADMIN_INVARIANT_VIOLATION" ]]; then
+  echo "FAIL [demote-bob-rejected]: expected ADMIN_INVARIANT_VIOLATION"
+  cat "$DEMOTE_BOB_BODY"
+  exit 1
+fi
+echo "PASS [demote-bob-rejected]: ADMIN_INVARIANT_VIOLATION"
 
 # 12) Remove bob as member
 REMOVE_BOB_BODY="$TMP_DIR/remove-bob.json"

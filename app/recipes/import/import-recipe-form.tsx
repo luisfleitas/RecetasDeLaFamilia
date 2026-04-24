@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
+import LocaleSwitcher from "@/app/_components/locale-switcher";
+import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import RecipeLanguageControl from "@/app/recipes/_components/recipe-language-control";
 import {
   getImportWarningsForDraft,
   type ImportWarning,
@@ -15,6 +18,7 @@ import type {
   RecipeImportInputMode,
 } from "@/lib/application/recipes/import-session-metadata";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
+import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 
 type ParseResponse = {
   importSessionId?: string;
@@ -49,6 +53,8 @@ function toEditableIngredients(draft: ImportedRecipeDraft): IngredientDraft[] {
 
 export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFormProps) {
   const router = useRouter();
+  const locale = useLocale();
+  const messages = useMessages();
   const [inputMode, setInputMode] = useState<RecipeImportInputMode>("document");
   const [rawText, setRawText] = useState("");
   const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
@@ -60,6 +66,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [stepsMarkdown, setStepsMarkdown] = useState("");
+  const [recipeLanguage, setRecipeLanguage] = useState<RecipeLanguage>("en");
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -84,6 +91,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
       title: title.trim(),
       description: description.trim().length > 0 ? description.trim() : null,
       stepsMarkdown: stepsMarkdown.trim(),
+      language: recipeLanguage,
       ingredients: ingredients.map((ingredient, index) => ({
         name: ingredient.name.trim(),
         qty: Number(ingredient.qty),
@@ -92,7 +100,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
         position: index + 1,
       })),
     });
-  }, [description, draft, ingredients, stepsMarkdown, title]);
+  }, [description, draft, ingredients, recipeLanguage, stepsMarkdown, title]);
 
   const handwrittenReviewHints = metadata?.handwritten?.reviewHints ?? [];
   const mergedPageNote =
@@ -112,6 +120,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
     setTitle(nextDraft.title);
     setDescription(nextDraft.description ?? "");
     setStepsMarkdown(nextDraft.stepsMarkdown);
+    setRecipeLanguage(nextDraft.language);
     setIngredients(toEditableIngredients(nextDraft));
   }
 
@@ -187,7 +196,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
       const data = (await response.json()) as ParseResponse;
       if (!response.ok || !data.draft || !data.importSessionId) {
         resetParsedState();
-        setError(data.error ?? "Could not parse this recipe.");
+        setError(data.error ?? messages.recipe.errors.parseRecipeFailed);
         return;
       }
 
@@ -198,7 +207,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
       applyDraft(data.draft);
     } catch {
       resetParsedState();
-      setError("Could not parse this recipe.");
+      setError(messages.recipe.errors.parseRecipeFailed);
     } finally {
       setIsParsing(false);
     }
@@ -213,6 +222,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
       title: title.trim(),
       description: description.trim().length > 0 ? description.trim() : null,
       stepsMarkdown: stepsMarkdown.trim(),
+      language: recipeLanguage,
       ingredients: ingredients.map((ingredient, index) => ({
         name: ingredient.name.trim(),
         qty: Number(ingredient.qty),
@@ -231,7 +241,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
     );
 
     if (!payload.title || !payload.stepsMarkdown || payload.ingredients.length === 0 || hasInvalidIngredient) {
-      setError("Complete title, steps, and ingredient fields before continuing.");
+      setError(messages.recipe.errors.completeDraftFields);
       return;
     }
 
@@ -256,7 +266,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
 
       const data = (await response.json()) as { error?: string; metadata?: ImportSessionMetadata | null };
       if (!response.ok) {
-        setError(data.error ?? "Could not save imported draft.");
+        setError(data.error ?? messages.recipe.errors.saveImportedDraftFailed);
         return;
       }
 
@@ -265,7 +275,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
       }
       router.push(`/recipes/new?importSession=${encodeURIComponent(importSessionId)}`);
     } catch {
-      setError("Could not save imported draft.");
+      setError(messages.recipe.errors.saveImportedDraftFailed);
     } finally {
       setIsContinuing(false);
     }
@@ -279,28 +289,43 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
     return getWarningsForField(`ingredients.${index}.${field}`);
   }
 
+  function getWarningMessage(warning: ImportWarning) {
+    switch (warning.code) {
+      case "DESCRIPTION_MISSING":
+        return messages.recipe.warnings.descriptionMissing;
+      case "STEPS_MAY_BE_INCOMPLETE":
+        return messages.recipe.warnings.stepsIncomplete;
+      case "INGREDIENT_UNIT_NEEDS_REVIEW":
+        return messages.recipe.warnings.ingredientUnitNeedsReview;
+      default:
+        return warning.message;
+    }
+  }
+
   return (
     <main id="recipe-import-main" className="app-shell max-w-6xl">
       <div id="recipe-import-panel" className="surface-panel space-y-6 p-6 sm:p-8">
         <div id="recipe-import-header" className="page-header-bar">
           <div id="recipe-import-header-copy" className="page-header-copy">
             <p id="recipe-import-header-eyebrow" className="page-eyebrow">
-              Recipe Import
+              {messages.recipe.importTitle}
             </p>
             <h1 id="recipe-import-title" className="text-2xl font-semibold">
-              Import Recipe
+              {messages.recipe.importTitle}
             </h1>
             <p id="recipe-import-header-supporting-text" className="page-supporting-text max-w-3xl">
-              Import recipes from text, files, or handwritten notes, then review the draft before continuing to the
-              full recipe form.
+              {messages.recipe.importSupport}
             </p>
           </div>
-          <Link id="recipe-import-back-link" href="/" className="text-link text-sm">
-            Back to list
-          </Link>
+          <div id="recipe-import-header-actions" className="flex flex-wrap items-center justify-end gap-3">
+            <LocaleSwitcher locale={locale} />
+            <Link id="recipe-import-back-link" href="/" className="text-link text-sm">
+              {messages.common.backToRecipes}
+            </Link>
+          </div>
         </div>
 
-        <div id="recipe-import-mode-tabs" className="secondary-tab-strip" role="tablist" aria-label="Import input mode">
+        <div id="recipe-import-mode-tabs" className="secondary-tab-strip" role="tablist" aria-label={messages.recipe.importTitle}>
           <button
             id="recipe-import-mode-tab-document"
             type="button"
@@ -311,7 +336,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
             className="secondary-tab-strip-item"
             onClick={() => handleModeChange("document")}
           >
-            Document Import
+            {messages.recipe.importDocumentTab}
           </button>
           {handwrittenEnabled ? (
             <button
@@ -324,7 +349,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
               className="secondary-tab-strip-item"
               onClick={() => handleModeChange("handwritten")}
             >
-              Handwritten Notes
+              {messages.recipe.importHandwrittenTab}
             </button>
           ) : null}
         </div>
@@ -343,10 +368,10 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
             <div id="recipe-import-source-header" className="recipe-form-section-header">
               <div id="recipe-import-source-copy" className="recipe-form-section-copy">
                 <p id="recipe-import-source-step-label" className="page-eyebrow">
-                  Step 1
+                  {messages.recipe.sourceStep}
                 </p>
                 <h2 id="recipe-import-source-title" className="text-lg font-semibold">
-                  Add source
+                  {messages.recipe.sourceTitle}
                 </h2>
               </div>
             </div>
@@ -355,19 +380,18 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
               {inputMode === "handwritten" ? (
                 <div id="recipe-import-handwritten-source-panel" className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-5">
                   <h3 id="recipe-import-handwritten-upload-title" className="text-xl font-semibold">
-                    Upload photos or scans of your handwritten recipe
+                    {messages.recipe.uploadTitle}
                   </h3>
                   <p id="recipe-import-handwritten-upload-copy" className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-                    This workspace is optimized for recipe cards, notebook pages, and handwritten sheets. Upload each
-                    page in reading order so the draft can be merged correctly.
+                    {messages.recipe.uploadCopy}
                   </p>
 
                   <div id="recipe-import-handwritten-tips-grid" className="mt-4 grid gap-3 sm:grid-cols-2">
                     {[
-                      "Bright, even light produces cleaner OCR.",
-                      "Frame the page tightly and keep it flat.",
-                      "Avoid angled shots when possible.",
-                      "Multi-page recipes should stay in order.",
+                      messages.recipe.handwrittenTip1,
+                      messages.recipe.handwrittenTip2,
+                      messages.recipe.handwrittenTip3,
+                      messages.recipe.handwrittenTip4,
                     ].map((tip) => (
                       <div
                         id={`recipe-import-handwritten-tip-${tip.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
@@ -384,7 +408,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     htmlFor="recipe-import-handwritten-files-input"
                     className="mt-5 block text-sm font-medium"
                   >
-                    Handwritten image uploads
+                    {messages.recipe.uploadField}
                   </label>
                   <input
                     id="recipe-import-handwritten-files-input"
@@ -398,7 +422,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     id="recipe-import-handwritten-supported-formats"
                     className="mt-2 text-xs text-[var(--color-text-muted)]"
                   >
-                    Supported formats: JPG, PNG, WEBP, TIFF, BMP
+                    {messages.recipe.uploadFormats}
                   </p>
                 </div>
               ) : (
@@ -409,7 +433,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       htmlFor="recipe-import-textarea"
                       className="mb-1 block text-sm font-medium"
                     >
-                      Paste recipe text
+                      {messages.recipe.pasteRecipeText}
                     </label>
                     <textarea
                       id="recipe-import-textarea"
@@ -417,7 +441,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       onChange={(event) => setRawText(event.target.value)}
                       rows={12}
                       className="input-base"
-                      placeholder="Paste a full recipe text with title, ingredients, and steps."
+                      placeholder={messages.recipe.pasteRecipePlaceholder}
                     />
                   </div>
 
@@ -427,7 +451,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       htmlFor="recipe-import-file-input"
                       className="mb-1 block text-sm font-medium"
                     >
-                      Or upload TXT, DOCX, DOC, PDF, or image document
+                      {messages.recipe.uploadDocumentLabel}
                     </label>
                     <input
                       id="recipe-import-file-input"
@@ -446,7 +470,9 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                 disabled={!canParse || isParsing}
                 className={buttonClassName("primary")}
               >
-                {isParsing ? (inputMode === "handwritten" ? "Reading handwriting..." : "Parsing...") : inputMode === "handwritten" ? "Read handwriting" : "Parse recipe"}
+                {isParsing
+                  ? (inputMode === "handwritten" ? messages.recipe.readingHandwriting : messages.recipe.parsingSubmit)
+                  : (inputMode === "handwritten" ? messages.recipe.readHandwriting : messages.recipe.parseSubmit)}
               </button>
             </form>
 
@@ -455,10 +481,10 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                 <div id="recipe-import-handwritten-pages-header" className="recipe-form-section-header">
                   <div id="recipe-import-handwritten-pages-copy" className="recipe-form-section-copy">
                     <p id="recipe-import-handwritten-pages-label" className="page-eyebrow">
-                      Ordered Uploads
+                      {messages.recipe.orderedUploads}
                     </p>
                     <h3 id="recipe-import-handwritten-pages-title" className="text-base font-semibold">
-                      Uploaded pages
+                      {messages.recipe.uploadedPages}
                     </h3>
                   </div>
                 </div>
@@ -472,12 +498,12 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                         className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-4"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <strong id={`recipe-import-handwritten-page-title-${index + 1}`}>Page {index + 1}</strong>
+                          <strong id={`recipe-import-handwritten-page-title-${index + 1}`}>{messages.recipe.pageLabel} {index + 1}</strong>
                           <span
                             id={`recipe-import-handwritten-page-order-note-${index + 1}`}
                             className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]"
                           >
-                            Upload order preserved
+                            {messages.recipe.uploadOrderPreserved}
                           </span>
                         </div>
                         <p
@@ -494,7 +520,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     id="recipe-import-handwritten-pages-empty"
                     className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-4 py-6 text-sm text-[var(--color-text-muted)]"
                   >
-                    Uploaded pages will appear here in the order they will be merged.
+                    {messages.recipe.uploadedPagesEmpty}
                   </p>
                 )}
               </div>
@@ -505,10 +531,10 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
             <div id="recipe-import-review-header" className="recipe-form-section-header">
               <div id="recipe-import-review-copy" className="recipe-form-section-copy">
                 <p id="recipe-import-review-step-label" className="page-eyebrow">
-                  Step 2
+                  {messages.recipe.reviewStep}
                 </p>
                 <h2 id="recipe-import-review-title" className="text-lg font-semibold">
-                  Review draft
+                  {messages.recipe.reviewTitle}
                 </h2>
               </div>
             </div>
@@ -518,7 +544,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                 id="recipe-import-review-empty"
                 className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-4 py-10 text-sm text-[var(--color-text-muted)]"
               >
-                Parse a source to generate an editable recipe draft here.
+                {messages.recipe.reviewEmpty}
               </p>
             ) : (
               <>
@@ -528,7 +554,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
                   >
                     <p id="recipe-import-handwritten-warning-title" className="font-medium">
-                      Manual review recommended.
+                      {messages.recipe.manualReviewRecommended}
                     </p>
                     <ul id="recipe-import-handwritten-warning-list" className="mt-2 space-y-1">
                       {handwrittenReviewHints.map((hint, index) => (
@@ -547,12 +573,12 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
                   >
                     <p id="recipe-import-warning-summary-title" className="font-medium">
-                      Review detected fields before continuing.
+                      {messages.recipe.reviewDetectedFields}
                     </p>
                     <ul id="recipe-import-warning-summary-list" className="mt-2 space-y-1">
                       {draftWarnings.map((warning, index) => (
                         <li id={`recipe-import-warning-summary-item-${index + 1}`} key={`${warning.code}-${warning.field ?? "global"}`}>
-                          {warning.message}
+                          {getWarningMessage(warning)}
                         </li>
                       ))}
                     </ul>
@@ -569,11 +595,10 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       htmlFor="recipe-import-source-visibility-select"
                       className="block text-sm font-medium"
                     >
-                      Source image visibility
+                      {messages.recipe.sourceImageVisibilityLabel}
                     </label>
                     <p id="recipe-import-source-visibility-copy" className="mt-1 text-sm text-[var(--color-text-muted)]">
-                      Handwritten source images stay private by default. You can choose to make them viewable with the
-                      recipe later.
+                      {messages.recipe.sourceImageVisibilityDescription}
                     </p>
                     <select
                       id="recipe-import-source-visibility-select"
@@ -584,10 +609,10 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       className="input-base mt-3"
                     >
                       <option id="recipe-import-source-visibility-option-private" value="private">
-                        Keep source images private
+                        {messages.recipe.sourceVisibilityPrivate}
                       </option>
                       <option id="recipe-import-source-visibility-option-public" value="public">
-                        Allow source images to be viewable with the recipe
+                        {messages.recipe.sourceVisibilityPublic}
                       </option>
                     </select>
                   </div>
@@ -596,7 +621,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                 {sourceRefs.length > 0 ? (
                   <div id="recipe-import-source-files-summary" className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-4">
                     <p id="recipe-import-source-files-summary-title" className="text-sm font-medium">
-                      Imported source files
+                      {messages.recipe.importedSourceFiles}
                     </p>
                     <ul id="recipe-import-source-files-summary-list" className="mt-2 space-y-1 text-sm text-[var(--color-text-muted)]">
                       {sourceRefs.map((sourceRef, index) => (
@@ -610,7 +635,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
 
                 <div id="recipe-import-title-field">
                   <label id="recipe-import-title-label" htmlFor="recipe-import-title-input" className="mb-1 block text-sm font-medium">
-                    Title
+                    {messages.recipe.titleLabel}
                   </label>
                   <input
                     id="recipe-import-title-input"
@@ -622,7 +647,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
 
                 <div id="recipe-import-description-field">
                   <label id="recipe-import-description-label" htmlFor="recipe-import-description-input" className="mb-1 block text-sm font-medium">
-                    Description
+                    {messages.recipe.descriptionLabel}
                   </label>
                   <textarea
                     id="recipe-import-description-input"
@@ -637,14 +662,20 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       key={`${warning.code}-${index}`}
                       className="mt-1 text-sm text-amber-800"
                     >
-                      {warning.message}
+                      {getWarningMessage(warning)}
                     </p>
                   ))}
                 </div>
 
+                <RecipeLanguageControl
+                  baseId="recipe-import-language"
+                  value={recipeLanguage}
+                  onChange={setRecipeLanguage}
+                />
+
                 <div id="recipe-import-steps-field">
                   <label id="recipe-import-steps-label" htmlFor="recipe-import-steps-input" className="mb-1 block text-sm font-medium">
-                    Steps (Markdown)
+                    {messages.recipe.stepsLabel}
                   </label>
                   <textarea
                     id="recipe-import-steps-input"
@@ -659,7 +690,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       key={`${warning.code}-${index}`}
                       className="mt-1 text-sm text-amber-800"
                     >
-                      {warning.message}
+                      {getWarningMessage(warning)}
                     </p>
                   ))}
                 </div>
@@ -667,7 +698,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                 <div id="recipe-import-ingredients-section" className="space-y-2">
                   <div id="recipe-import-ingredients-header" className="flex items-center justify-between">
                     <h3 id="recipe-import-ingredients-title" className="text-sm font-semibold">
-                      Ingredients
+                      {messages.recipe.ingredientsTitle}
                     </h3>
                     <button
                       id="recipe-import-add-ingredient-btn"
@@ -675,7 +706,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                       onClick={addIngredientRow}
                       className={buttonClassName("secondary")}
                     >
-                      Add row
+                      {messages.recipe.addIngredient}
                     </button>
                   </div>
 
@@ -690,7 +721,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                           id={`recipe-import-ingredient-name-input-${ingredient.rowId}`}
                           value={ingredient.name}
                           onChange={(event) => updateIngredient(ingredient.rowId, "name", event.target.value)}
-                          placeholder="Name"
+                          placeholder={messages.recipe.nameLabel}
                           className="input-base"
                         />
                       </div>
@@ -699,7 +730,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                           id={`recipe-import-ingredient-qty-input-${ingredient.rowId}`}
                           value={ingredient.qty}
                           onChange={(event) => updateIngredient(ingredient.rowId, "qty", event.target.value)}
-                          placeholder="Qty"
+                          placeholder={messages.recipe.quantityLabel}
                           className="input-base"
                         />
                       </div>
@@ -708,7 +739,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                           id={`recipe-import-ingredient-unit-input-${ingredient.rowId}`}
                           value={ingredient.unit}
                           onChange={(event) => updateIngredient(ingredient.rowId, "unit", event.target.value)}
-                          placeholder="Unit"
+                          placeholder={messages.recipe.unitLabel}
                           className="input-base"
                         />
                         {getWarningsForIngredientField(ingredientIndex, "unit").map((warning, index) => (
@@ -717,7 +748,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                             key={`${warning.code}-${index}`}
                             className="mt-1 text-xs text-[var(--color-text-muted)]"
                           >
-                            {warning.message}
+                            {getWarningMessage(warning)}
                           </p>
                         ))}
                       </div>
@@ -726,7 +757,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                           id={`recipe-import-ingredient-notes-input-${ingredient.rowId}`}
                           value={ingredient.notes}
                           onChange={(event) => updateIngredient(ingredient.rowId, "notes", event.target.value)}
-                          placeholder="Notes"
+                          placeholder={messages.recipe.notesLabel}
                           className="input-base"
                         />
                       </div>
@@ -736,7 +767,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                         onClick={() => removeIngredientRow(ingredient.rowId)}
                         className={buttonClassName("danger")}
                       >
-                        Remove
+                        {messages.recipe.remove}
                       </button>
                     </div>
                   ))}
@@ -749,7 +780,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                   disabled={isContinuing}
                   className={buttonClassName("primary")}
                 >
-                  {isContinuing ? "Saving..." : "Continue to recipe form"}
+                  {isContinuing ? messages.recipe.savingSubmit : messages.recipe.continueToForm}
                 </button>
               </>
             )}

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import LocaleSwitcher from "@/app/_components/locale-switcher";
+import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type Family = {
@@ -85,32 +87,41 @@ type FamilyInviteLink = {
 type FamiliesResponse = {
   families?: Family[];
   error?: string;
+  code?: string;
 };
 
 type InvitesResponse = {
   invites?: Invite[];
   error?: string;
+  code?: string;
 };
 
 type FamilyInviteLinksResponse = {
   invites?: FamilyInviteLink[];
   error?: string;
+  code?: string;
 };
 
 type CreateFamilyInviteResponse = {
   invite?: FamilyInviteLink & { inviteUrl: string };
   error?: string;
+  code?: string;
 };
 
 type RevokeFamilyInviteResponse = {
   invite?: FamilyInviteLink;
   error?: string;
+  code?: string;
 };
 
 type ManageFamilyTabId = "members" | "inviteCodes" | "deletion";
 type InviteUsageType = "single_use" | "multi_use";
 
 export default function FamiliesDashboard() {
+  const locale = useLocale();
+  const messages = useMessages();
+  const familyMessages = messages.family;
+  const familyErrors = familyMessages.errors;
   const [families, setFamilies] = useState<Family[]>([]);
   const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -130,14 +141,44 @@ export default function FamiliesDashboard() {
   const [familyErrorById, setFamilyErrorById] = useState<Record<number, string | null>>({});
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
 
-  async function readError(response: Response, fallback: string) {
+  const formatTimestamp = useCallback(
+    (value: string) => new Date(value).toLocaleString(locale),
+    [locale],
+  );
+
+  const getErrorForCode = useCallback((code: string | undefined, fallback: string) => {
+    switch (code) {
+      case "UNAUTHORIZED":
+        return familyErrors.unauthorized;
+      case "FORBIDDEN":
+        return familyErrors.forbidden;
+      case "NOT_FOUND":
+        return familyErrors.notFound;
+      case "VALIDATION_ERROR":
+        return familyErrors.validation;
+      case "RATE_LIMITED":
+        return familyErrors.rateLimited;
+      case "INVITE_INVALID":
+        return familyErrors.inviteInvalid;
+      case "INVITE_REVOKED":
+        return familyErrors.inviteRevoked;
+      case "INVITE_CONSUMED":
+        return familyErrors.inviteConsumed;
+      case "INVITE_EXPIRED":
+        return familyErrors.inviteExpired;
+      default:
+        return fallback;
+    }
+  }, [familyErrors]);
+
+  const readError = useCallback(async (response: Response, fallback: string) => {
     try {
-      const data = (await response.json()) as { error?: string };
-      return data.error ?? fallback;
+      const data = (await response.json()) as { code?: string; errorCode?: string };
+      return getErrorForCode(data.errorCode ?? data.code, fallback);
     } catch {
       return fallback;
     }
-  }
+  }, [getErrorForCode]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -153,12 +194,12 @@ export default function FamiliesDashboard() {
       const invitesData = (await invitesResponse.json()) as InvitesResponse;
 
       if (!familiesResponse.ok) {
-        setError(familiesData.error ?? "Failed to load families");
+        setError(getErrorForCode(familiesData.code, familyErrors.loadFamilies));
         return;
       }
 
       if (!invitesResponse.ok) {
-        setError(invitesData.error ?? "Failed to load pending invites");
+        setError(getErrorForCode(invitesData.code, familyErrors.loadPendingInvites));
         return;
       }
 
@@ -169,11 +210,11 @@ export default function FamiliesDashboard() {
         current && !nextFamilies.some((family) => family.id === current) ? null : current
       ));
     } catch {
-      setError("Failed to load family dashboard");
+      setError(familyErrors.loadDashboard);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [familyErrors.loadDashboard, familyErrors.loadFamilies, familyErrors.loadPendingInvites, getErrorForCode]);
 
   useEffect(() => {
     void loadData();
@@ -188,7 +229,7 @@ export default function FamiliesDashboard() {
       const detailResponse = await fetch(`/api/families/${familyId}`, { cache: "no-store" });
 
       if (!detailResponse.ok) {
-        const detailError = await readError(detailResponse, "Failed to load family details");
+        const detailError = await readError(detailResponse, familyErrors.loadDetails);
         setFamilyErrorById((current) => ({
           ...current,
           [familyId]: detailError,
@@ -206,7 +247,7 @@ export default function FamiliesDashboard() {
         const deletionResponse = await fetch(`/api/families/${familyId}/deletion-requests/active`, { cache: "no-store" });
 
         if (!deletionResponse.ok) {
-          const deletionError = await readError(deletionResponse, "Failed to load deletion request state");
+          const deletionError = await readError(deletionResponse, familyErrors.loadDeletionRequest);
           setFamilyErrorById((current) => ({
             ...current,
             [familyId]: deletionError,
@@ -231,7 +272,7 @@ export default function FamiliesDashboard() {
         const inviteLinksData = (await inviteLinksResponse.json()) as FamilyInviteLinksResponse;
 
         if (!inviteLinksResponse.ok) {
-          const inviteError = inviteLinksData.error ?? "Failed to load invite links";
+          const inviteError = getErrorForCode(inviteLinksData.code, familyErrors.loadInviteLinks);
           setFamilyErrorById((current) => ({
             ...current,
             [familyId]: inviteError,
@@ -252,7 +293,7 @@ export default function FamiliesDashboard() {
     } catch {
       setFamilyErrorById((current) => ({
         ...current,
-        [familyId]: "Failed to load family context",
+        [familyId]: familyErrors.loadContext,
       }));
     } finally {
       setLoadingFamilyId((current) => (current === familyId ? null : current));
@@ -316,16 +357,16 @@ export default function FamiliesDashboard() {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as { code?: string };
       if (!response.ok) {
-        setError(data.error ?? "Failed to create family");
+        setError(getErrorForCode(data.code, familyErrors.createFamily));
         return;
       }
 
       form.reset();
       await loadData();
     } catch {
-      setError("Failed to create family");
+      setError(familyErrors.createFamily);
     } finally {
       setIsCreating(false);
     }
@@ -357,7 +398,7 @@ export default function FamiliesDashboard() {
           },
           body: JSON.stringify({ confirmDelete: true }),
         }),
-      "Failed to leave family",
+      familyErrors.leaveFamily,
     );
 
     if (ok && selectedFamilyId === familyId) {
@@ -377,7 +418,7 @@ export default function FamiliesDashboard() {
           },
           body: JSON.stringify({ role: "admin" }),
         }),
-      "Failed to promote member",
+      familyErrors.promoteMember,
     );
   }
 
@@ -389,7 +430,7 @@ export default function FamiliesDashboard() {
         fetch(`/api/families/${familyId}/members/${userId}`, {
           method: "DELETE",
         }),
-      "Failed to remove member",
+      familyErrors.removeMember,
     );
   }
 
@@ -401,7 +442,7 @@ export default function FamiliesDashboard() {
         fetch(`/api/families/${familyId}/deletion-requests`, {
           method: "POST",
         }),
-      "Failed to create deletion request",
+      familyErrors.createDeletionRequest,
     );
 
     if (ok && selectedFamilyId === familyId) {
@@ -420,7 +461,7 @@ export default function FamiliesDashboard() {
         fetch(`/api/families/${familyId}/deletion-requests/${requestId}/${vote}`, {
           method: "POST",
         }),
-      `Failed to ${vote} deletion request`,
+      vote === "approve" ? familyErrors.approveDeletionRequest : familyErrors.denyDeletionRequest,
     );
   }
 
@@ -432,7 +473,7 @@ export default function FamiliesDashboard() {
         fetch(`/api/families/${familyId}/deletion-requests/${requestId}/cancel`, {
           method: "POST",
         }),
-      "Failed to cancel deletion request",
+      familyErrors.cancelDeletionRequest,
     );
   }
 
@@ -455,7 +496,7 @@ export default function FamiliesDashboard() {
       if (!response.ok || !data.invite) {
         setFamilyErrorById((current) => ({
           ...current,
-          [familyId]: data.error ?? "Failed to create invite link",
+          [familyId]: getErrorForCode(data.code, familyErrors.createInviteLink),
         }));
         return;
       }
@@ -467,12 +508,13 @@ export default function FamiliesDashboard() {
       await loadFamilyContext(familyId);
       setFamilyMessageById((current) => ({
         ...current,
-        [familyId]: usageType === "single_use" ? "Single-use invite link created." : "Multi-use invite link created.",
+        [familyId]:
+          usageType === "single_use" ? familyMessages.singleUseInviteCreated : familyMessages.multiUseInviteCreated,
       }));
     } catch {
       setFamilyErrorById((current) => ({
         ...current,
-        [familyId]: "Failed to create invite link",
+        [familyId]: familyErrors.createInviteLink,
       }));
     } finally {
       setBusyActionKey((current) => (current === `invite-create-${familyId}` ? null : current));
@@ -493,7 +535,7 @@ export default function FamiliesDashboard() {
       if (!response.ok || !data.invite) {
         setFamilyErrorById((current) => ({
           ...current,
-          [familyId]: data.error ?? "Failed to revoke invite link",
+          [familyId]: getErrorForCode(data.code, familyErrors.revokeInviteLink),
         }));
         return;
       }
@@ -501,12 +543,12 @@ export default function FamiliesDashboard() {
       await loadFamilyContext(familyId);
       setFamilyMessageById((current) => ({
         ...current,
-        [familyId]: "Invite link revoked.",
+        [familyId]: familyMessages.inviteLinkRevoked,
       }));
     } catch {
       setFamilyErrorById((current) => ({
         ...current,
-        [familyId]: "Failed to revoke invite link",
+        [familyId]: familyErrors.revokeInviteLink,
       }));
     } finally {
       setBusyActionKey((current) => (current === `invite-revoke-${familyId}-${inviteId}` ? null : current));
@@ -518,7 +560,7 @@ export default function FamiliesDashboard() {
     if (!inviteUrl) {
       setFamilyErrorById((current) => ({
         ...current,
-        [familyId]: "No invite URL available to copy. Create a new invite link first.",
+        [familyId]: familyMessages.missingInviteUrl,
       }));
       return;
     }
@@ -527,44 +569,47 @@ export default function FamiliesDashboard() {
       await navigator.clipboard.writeText(inviteUrl);
       setFamilyMessageById((current) => ({
         ...current,
-        [familyId]: "Invite URL copied.",
+        [familyId]: familyMessages.inviteUrlCopied,
       }));
     } catch {
       setFamilyErrorById((current) => ({
         ...current,
-        [familyId]: "Failed to copy invite URL",
+        [familyId]: familyErrors.copyInviteUrl,
       }));
     }
   }
 
   return (
     <main id="families-dashboard-main" className="app-shell max-w-4xl space-y-6">
-      <section id="families-dashboard-header-section" className="surface-panel space-y-4 p-6 sm:p-8">
+      <section id="families-dashboard-header-section" data-motion-order="1" className="families-motion-section surface-panel space-y-4 p-6 sm:p-8">
         <div id="families-dashboard-header-row" className="flex items-center justify-between gap-3">
-          <h1 id="families-dashboard-title" className="text-2xl font-semibold">My Families</h1>
-          <Link id="families-dashboard-back-link" href="/" className="text-link text-sm">
-            Back to recipes
-          </Link>
+          <h1 id="families-dashboard-title" className="text-2xl font-semibold">{messages.common.myFamilies}</h1>
+          <div id="families-dashboard-header-actions" className="flex flex-wrap items-center justify-end gap-2">
+            <LocaleSwitcher locale={locale} />
+            <Link id="families-dashboard-back-link" href="/" className="text-link text-sm">
+              {messages.common.backToRecipes}
+            </Link>
+          </div>
         </div>
 
         <form id="families-dashboard-create-form" onSubmit={handleCreateFamily} className="space-y-3">
           <div id="families-dashboard-create-name-field">
             <label id="families-dashboard-create-name-label" htmlFor="family_name" className="mb-1 block text-sm font-medium">
-              Family name
+              {familyMessages.createNameLabel}
             </label>
             <input id="family_name" name="name" required className="input-base" />
           </div>
 
           <div id="families-dashboard-create-description-field">
             <label id="families-dashboard-create-description-label" htmlFor="family_description" className="mb-1 block text-sm font-medium">
-              Family description
+              {familyMessages.createDescriptionLabel}
             </label>
             <textarea id="family_description" name="description" rows={2} className="input-base" />
           </div>
 
           <div id="families-dashboard-create-picture-field">
             <label id="families-dashboard-create-picture-label" htmlFor="family_picture_storage_key" className="mb-1 block text-sm font-medium">
-              Family picture storage key (optional)
+              {familyMessages.createPictureLabel}
             </label>
             <input id="family_picture_storage_key" name="pictureStorageKey" className="input-base" />
           </div>
@@ -572,20 +617,20 @@ export default function FamiliesDashboard() {
           {error ? <p id="families-dashboard-error-message" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
 
           <button id="families-dashboard-create-submit-btn" type="submit" disabled={isCreating} className={buttonClassName("primary")}>
-            {isCreating ? "Creating..." : "Create family"}
+            {isCreating ? familyMessages.creatingSubmit : familyMessages.createSubmit}
           </button>
         </form>
       </section>
 
-      <section id="families-dashboard-list-section" className="surface-panel space-y-4 p-6 sm:p-8">
-        <h2 id="families-dashboard-list-title" className="text-xl font-semibold">Families you belong to</h2>
+      <section id="families-dashboard-list-section" data-motion-order="2" className="families-motion-section surface-panel space-y-4 p-6 sm:p-8">
+        <h2 id="families-dashboard-list-title" className="text-xl font-semibold">{familyMessages.listTitle}</h2>
         {isLoading ? (
-          <p id="families-dashboard-list-loading" className="text-sm text-[var(--color-text-muted)]">Loading families...</p>
+          <p id="families-dashboard-list-loading" className="text-sm text-[var(--color-text-muted)]">{familyMessages.listLoading}</p>
         ) : families.length === 0 ? (
-          <p id="families-dashboard-list-empty" className="text-sm text-[var(--color-text-muted)]">No families yet. Create your first one above.</p>
+          <p id="families-dashboard-list-empty" className="text-sm text-[var(--color-text-muted)]">{familyMessages.listEmpty}</p>
         ) : (
           <ul id="families-dashboard-list" className="space-y-3">
-            {families.map((family) => {
+            {families.map((family, index) => {
               const isSelected = selectedFamilyId === family.id;
               const detail = familyDetailsById[family.id];
               const deletionRequest = familyDeletionRequestById[family.id] ?? null;
@@ -601,9 +646,9 @@ export default function FamiliesDashboard() {
                   : null;
               const isAdmin = detail?.currentUserRole === "admin";
               const manageTabs: Array<{ id: ManageFamilyTabId; label: string }> = [
-                { id: "members", label: "Manage Family Members" },
-                { id: "inviteCodes", label: "Invite Codes" },
-                { id: "deletion", label: "Deletion" },
+                { id: "members", label: familyMessages.membersTab },
+                { id: "inviteCodes", label: familyMessages.inviteCodesTab },
+                { id: "deletion", label: familyMessages.deletionTab },
               ];
               const activeManageTab = manageTabByFamilyId[family.id] ?? "members";
 
@@ -613,14 +658,19 @@ export default function FamiliesDashboard() {
                 (!cooldownUntil || new Date(cooldownUntil) <= new Date());
 
               return (
-                <li id={`families-dashboard-list-item-${family.id}`} key={family.id} className="surface-card space-y-4 p-4">
+                <li
+                  id={`families-dashboard-list-item-${family.id}`}
+                  key={family.id}
+                  className="families-motion-card surface-card space-y-4 p-4"
+                  style={{ animationDelay: `${140 + index * 55}ms` }}
+                >
                   <div id={`families-dashboard-list-item-summary-${family.id}`} className="flex items-start justify-between gap-4">
                     <div id={`families-dashboard-list-item-content-${family.id}`} className="space-y-1">
                       <p id={`families-dashboard-list-item-name-${family.id}`} className="text-lg font-semibold">{family.name}</p>
                       {family.description ? (
                         <p id={`families-dashboard-list-item-description-${family.id}`} className="text-sm text-[var(--color-text-muted)]">{family.description}</p>
                       ) : (
-                        <p id={`families-dashboard-list-item-description-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">No description yet</p>
+                        <p id={`families-dashboard-list-item-description-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">{familyMessages.descriptionEmpty}</p>
                       )}
                       <p id={`families-dashboard-list-item-role-${family.id}`} className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
                         {family.role}
@@ -638,7 +688,7 @@ export default function FamiliesDashboard() {
                       />
                     ) : (
                       <div id={`families-dashboard-list-item-picture-placeholder-${family.id}`} className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] text-xs text-[var(--color-text-muted)]">
-                        No image
+                        {familyMessages.pictureEmpty}
                       </div>
                     )}
                   </div>
@@ -652,7 +702,11 @@ export default function FamiliesDashboard() {
                         void handleToggleFamilyManage(family.id);
                       }}
                     >
-                      {isSelected ? "Hide details" : family.role === "admin" ? "Manage family" : "View family members"}
+                      {isSelected
+                        ? familyMessages.hideDetails
+                        : family.role === "admin"
+                          ? familyMessages.manageFamily
+                          : familyMessages.viewMembers}
                     </button>
                     <button
                       id={`families-dashboard-list-item-leave-btn-${family.id}`}
@@ -663,14 +717,14 @@ export default function FamiliesDashboard() {
                         void handleLeaveFamily(family.id);
                       }}
                     >
-                      {busyActionKey === `leave-${family.id}` ? "Leaving..." : "Leave family"}
+                      {busyActionKey === `leave-${family.id}` ? familyMessages.leavingFamily : familyMessages.leaveFamily}
                     </button>
                   </div>
 
                   {isSelected ? (
-                    <section id={`families-dashboard-list-item-manage-section-${family.id}`} className="space-y-4 border-t border-[var(--color-border)] pt-4">
+                    <section id={`families-dashboard-list-item-manage-section-${family.id}`} className="families-manage-panel space-y-4 border-t border-[var(--color-border)] pt-4">
                       {loadingFamilyId === family.id ? (
-                        <p id={`families-dashboard-list-item-manage-loading-${family.id}`} className="text-sm text-[var(--color-text-muted)]">Loading family details...</p>
+                        <p id={`families-dashboard-list-item-manage-loading-${family.id}`} className="text-sm text-[var(--color-text-muted)]">{familyMessages.familyDetailsLoading}</p>
                       ) : detail ? (
                         <>
                           {isAdmin ? (
@@ -721,7 +775,7 @@ export default function FamiliesDashboard() {
                               aria-labelledby={isAdmin ? `families-dashboard-list-item-manage-secondary-menu-tab-${family.id}-members` : undefined}
                               className="space-y-2"
                             >
-                              <h3 id={`families-dashboard-list-item-members-title-${family.id}`} className="text-base font-semibold">Family members</h3>
+                              <h3 id={`families-dashboard-list-item-members-title-${family.id}`} className="text-base font-semibold">{familyMessages.membersTitle}</h3>
                               <ul id={`families-dashboard-list-item-members-list-${family.id}`} className="space-y-2">
                                 {detail.members.map((member) => {
                                   const canPromote = detail.currentUserRole === "admin" && member.role !== "admin";
@@ -748,7 +802,9 @@ export default function FamiliesDashboard() {
                                               void handlePromoteMember(family.id, member.userId);
                                             }}
                                           >
-                                            {busyActionKey === `promote-${family.id}-${member.userId}` ? "Promoting..." : "Promote to admin"}
+                                            {busyActionKey === `promote-${family.id}-${member.userId}`
+                                              ? familyMessages.promotingMember
+                                              : familyMessages.promoteToAdmin}
                                           </button>
                                         ) : null}
                                         {canRemove ? (
@@ -761,7 +817,9 @@ export default function FamiliesDashboard() {
                                               void handleRemoveMember(family.id, member.userId);
                                             }}
                                           >
-                                            {busyActionKey === `remove-${family.id}-${member.userId}` ? "Removing..." : "Remove"}
+                                            {busyActionKey === `remove-${family.id}-${member.userId}`
+                                              ? familyMessages.removingMember
+                                              : familyMessages.removeMember}
                                           </button>
                                         ) : null}
                                       </div>
@@ -780,7 +838,7 @@ export default function FamiliesDashboard() {
                               className="space-y-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3"
                             >
                               <div id={`families-dashboard-list-item-invites-header-${family.id}`} className="flex flex-wrap items-center justify-between gap-2">
-                                <h3 id={`families-dashboard-list-item-invites-title-${family.id}`} className="text-base font-semibold">Invite codes</h3>
+                                <h3 id={`families-dashboard-list-item-invites-title-${family.id}`} className="text-base font-semibold">{familyMessages.inviteCodesTitle}</h3>
                                 <button
                                   id={`families-dashboard-list-item-invites-create-btn-${family.id}`}
                                   type="button"
@@ -790,13 +848,15 @@ export default function FamiliesDashboard() {
                                     void handleCreateInviteLink(family.id);
                                   }}
                                 >
-                                  {busyActionKey === `invite-create-${family.id}` ? "Generating..." : "Generate invite link"}
+                                  {busyActionKey === `invite-create-${family.id}`
+                                    ? familyMessages.generatingInviteLink
+                                    : familyMessages.generateInviteLink}
                                 </button>
                               </div>
 
                               <fieldset id={`families-dashboard-list-item-invites-usage-fieldset-${family.id}`} className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
                                 <legend id={`families-dashboard-list-item-invites-usage-legend-${family.id}`} className="px-1 text-sm font-medium">
-                                  How should this invite link be used?
+                                  {familyMessages.inviteUsageLegend}
                                 </legend>
                                 <div id={`families-dashboard-list-item-invites-usage-options-${family.id}`} className="flex flex-wrap gap-3">
                                   <label id={`families-dashboard-list-item-invites-usage-single-label-${family.id}`} htmlFor={`families-dashboard-list-item-invites-usage-single-input-${family.id}`} className="flex items-center gap-2 text-sm">
@@ -810,7 +870,7 @@ export default function FamiliesDashboard() {
                                         setInviteUsageTypeByFamilyId((current) => ({ ...current, [family.id]: "single_use" }));
                                       }}
                                     />
-                                    One-time use
+                                    {familyMessages.inviteSingleUse}
                                   </label>
                                   <label id={`families-dashboard-list-item-invites-usage-multi-label-${family.id}`} htmlFor={`families-dashboard-list-item-invites-usage-multi-input-${family.id}`} className="flex items-center gap-2 text-sm">
                                     <input
@@ -823,7 +883,7 @@ export default function FamiliesDashboard() {
                                         setInviteUsageTypeByFamilyId((current) => ({ ...current, [family.id]: "multi_use" }));
                                       }}
                                     />
-                                    Multiple uses
+                                    {familyMessages.inviteMultiUse}
                                   </label>
                                 </div>
                               </fieldset>
@@ -831,7 +891,7 @@ export default function FamiliesDashboard() {
                               {latestInviteUrl ? (
                                 <div id={`families-dashboard-list-item-invites-latest-url-${family.id}`} className="space-y-2">
                                   <label id={`families-dashboard-list-item-invites-latest-url-label-${family.id}`} htmlFor={`families-dashboard-list-item-invites-latest-url-input-${family.id}`} className="block text-sm font-medium">
-                                    Latest generated invite URL
+                                    {familyMessages.latestInviteUrlLabel}
                                   </label>
                                   <div id={`families-dashboard-list-item-invites-latest-url-row-${family.id}`} className="flex flex-wrap items-center gap-2">
                                     <input
@@ -848,18 +908,18 @@ export default function FamiliesDashboard() {
                                         void handleCopyInviteUrl(family.id);
                                       }}
                                     >
-                                      Copy URL
+                                      {familyMessages.copyUrl}
                                     </button>
                                   </div>
                                   <p id={`families-dashboard-list-item-invites-latest-url-note-${family.id}`} className="text-xs text-[var(--color-text-muted)]">
-                                    Existing invite URLs are not retrievable later. Save the URL when generated.
+                                    {familyMessages.latestInviteUrlNote}
                                   </p>
                                 </div>
                               ) : null}
 
                               {inviteLinks.length === 0 ? (
                                 <p id={`families-dashboard-list-item-invites-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">
-                                  No invite links yet.
+                                  {familyMessages.inviteLinksEmpty}
                                 </p>
                               ) : (
                                 <ul id={`families-dashboard-list-item-invites-list-${family.id}`} className="space-y-2">
@@ -874,13 +934,16 @@ export default function FamiliesDashboard() {
                                           {inviteLink.state}
                                         </p>
                                         <p id={`families-dashboard-list-item-invites-item-created-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
-                                          Created: {new Date(inviteLink.createdAt).toLocaleString()}
+                                          {familyMessages.inviteCreatedLabel}: {formatTimestamp(inviteLink.createdAt)}
                                         </p>
                                         <p id={`families-dashboard-list-item-invites-item-usage-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
-                                          Usage: {inviteLink.usageType === "single_use" ? "One-time use" : "Multiple uses"}
+                                          {familyMessages.inviteUsageLabel}:{" "}
+                                          {inviteLink.usageType === "single_use"
+                                            ? familyMessages.inviteSingleUse
+                                            : familyMessages.inviteMultiUse}
                                         </p>
                                         <p id={`families-dashboard-list-item-invites-item-expires-${family.id}-${inviteLink.id}`} className="text-sm text-[var(--color-text-muted)]">
-                                          Expires: {new Date(inviteLink.expiresAt).toLocaleString()}
+                                          {familyMessages.inviteExpiresLabel}: {formatTimestamp(inviteLink.expiresAt)}
                                         </p>
                                       </div>
                                       <div id={`families-dashboard-list-item-invites-item-actions-${family.id}-${inviteLink.id}`} className="mt-2 flex flex-wrap gap-2">
@@ -893,7 +956,9 @@ export default function FamiliesDashboard() {
                                             void handleRevokeInviteLink(family.id, inviteLink.id);
                                           }}
                                         >
-                                          {busyActionKey === `invite-revoke-${family.id}-${inviteLink.id}` ? "Revoking..." : "Revoke"}
+                                          {busyActionKey === `invite-revoke-${family.id}-${inviteLink.id}`
+                                            ? familyMessages.revokingInvite
+                                            : familyMessages.revokeInvite}
                                         </button>
                                       </div>
                                     </li>
@@ -910,17 +975,19 @@ export default function FamiliesDashboard() {
                               aria-labelledby={`families-dashboard-list-item-manage-secondary-menu-tab-${family.id}-deletion`}
                               className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3"
                             >
-                              <h3 id={`families-dashboard-list-item-deletion-title-${family.id}`} className="text-base font-semibold">Delete family</h3>
+                              <h3 id={`families-dashboard-list-item-deletion-title-${family.id}`} className="text-base font-semibold">{familyMessages.deleteFamilyTitle}</h3>
 
                               {deletionRequest ? (
                                 <>
                                   <p id={`families-dashboard-list-item-deletion-status-${family.id}`} className="text-sm text-[var(--color-text-muted)]">
-                                    Request is active. {deletionRequest.approveCount}/{deletionRequest.requiredApprovals} approvals. Expires {new Date(deletionRequest.expiresAt).toLocaleString()}.
+                                    {familyMessages.deletionRequestPrefix} {deletionRequest.approveCount}/{deletionRequest.requiredApprovals}{" "}
+                                    {familyMessages.deletionApprovalsSuffix} {familyMessages.deletionExpiresPrefix}{" "}
+                                    {formatTimestamp(deletionRequest.expiresAt)}.
                                   </p>
 
                                   {currentUserVote ? (
                                     <p id={`families-dashboard-list-item-deletion-my-vote-${family.id}`} className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
-                                      Your vote: {currentUserVote.vote}
+                                      {familyMessages.yourVote}: {currentUserVote.vote}
                                     </p>
                                   ) : (
                                     <div id={`families-dashboard-list-item-deletion-vote-actions-${family.id}`} className="flex gap-2">
@@ -933,7 +1000,9 @@ export default function FamiliesDashboard() {
                                           void handleVoteDeletionRequest(family.id, deletionRequest.id, "approve");
                                         }}
                                       >
-                                        {busyActionKey === `delete-request-vote-approve-${family.id}-${deletionRequest.id}` ? "Submitting..." : "Approve"}
+                                        {busyActionKey === `delete-request-vote-approve-${family.id}-${deletionRequest.id}`
+                                          ? familyMessages.submittingVote
+                                          : familyMessages.approveDeletion}
                                       </button>
                                       <button
                                         id={`families-dashboard-list-item-deletion-deny-btn-${family.id}`}
@@ -944,7 +1013,9 @@ export default function FamiliesDashboard() {
                                           void handleVoteDeletionRequest(family.id, deletionRequest.id, "deny");
                                         }}
                                       >
-                                        {busyActionKey === `delete-request-vote-deny-${family.id}-${deletionRequest.id}` ? "Submitting..." : "Deny"}
+                                        {busyActionKey === `delete-request-vote-deny-${family.id}-${deletionRequest.id}`
+                                          ? familyMessages.submittingVote
+                                          : familyMessages.denyDeletion}
                                       </button>
                                     </div>
                                   )}
@@ -959,7 +1030,9 @@ export default function FamiliesDashboard() {
                                         void handleCancelDeletionRequest(family.id, deletionRequest.id);
                                       }}
                                     >
-                                      {busyActionKey === `delete-request-cancel-${family.id}-${deletionRequest.id}` ? "Cancelling..." : "Cancel request"}
+                                      {busyActionKey === `delete-request-cancel-${family.id}-${deletionRequest.id}`
+                                        ? familyMessages.cancellingDeletion
+                                        : familyMessages.cancelDeletionRequest}
                                     </button>
                                   ) : null}
                                 </>
@@ -967,7 +1040,8 @@ export default function FamiliesDashboard() {
                                 <>
                                   {cooldownUntil && new Date(cooldownUntil) > new Date() ? (
                                     <p id={`families-dashboard-list-item-deletion-cooldown-${family.id}`} className="text-sm text-[var(--color-text-muted)]">
-                                      New deletion requests are blocked until {new Date(cooldownUntil).toLocaleString()}.
+                                      {familyMessages.deletionCooldownPrefix} {formatTimestamp(cooldownUntil)}
+                                      {familyMessages.deletionCooldownSuffix}
                                     </p>
                                   ) : (
                                     <button
@@ -979,7 +1053,9 @@ export default function FamiliesDashboard() {
                                         void handleInitiateDeletionRequest(family.id);
                                       }}
                                     >
-                                      {busyActionKey === `delete-request-create-${family.id}` ? "Creating..." : "Request family deletion"}
+                                      {busyActionKey === `delete-request-create-${family.id}`
+                                        ? familyMessages.creatingSubmit
+                                        : familyMessages.requestFamilyDeletion}
                                     </button>
                                   )}
                                 </>
@@ -996,7 +1072,7 @@ export default function FamiliesDashboard() {
                           ) : null}
                         </>
                       ) : (
-                        <p id={`families-dashboard-list-item-manage-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">No family details available.</p>
+                        <p id={`families-dashboard-list-item-manage-empty-${family.id}`} className="text-sm text-[var(--color-text-muted)]">{familyMessages.familyDetailsEmpty}</p>
                       )}
                     </section>
                   ) : null}
@@ -1007,19 +1083,24 @@ export default function FamiliesDashboard() {
         )}
       </section>
 
-      <section id="families-dashboard-pending-invites-section" className="surface-panel space-y-4 p-6 sm:p-8">
-        <h2 id="families-dashboard-pending-invites-title" className="text-xl font-semibold">Pending invites</h2>
+      <section id="families-dashboard-pending-invites-section" data-motion-order="3" className="families-motion-section surface-panel space-y-4 p-6 sm:p-8">
+        <h2 id="families-dashboard-pending-invites-title" className="text-xl font-semibold">{familyMessages.pendingInvitesTitle}</h2>
         {isLoading ? (
-          <p id="families-dashboard-pending-invites-loading" className="text-sm text-[var(--color-text-muted)]">Loading pending invites...</p>
+          <p id="families-dashboard-pending-invites-loading" className="text-sm text-[var(--color-text-muted)]">{familyMessages.pendingInvitesLoading}</p>
         ) : pendingInvites.length === 0 ? (
-          <p id="families-dashboard-pending-invites-empty" className="text-sm text-[var(--color-text-muted)]">No pending invites.</p>
+          <p id="families-dashboard-pending-invites-empty" className="text-sm text-[var(--color-text-muted)]">{familyMessages.pendingInvitesEmpty}</p>
         ) : (
           <ul id="families-dashboard-pending-invites-list" className="space-y-3">
-            {pendingInvites.map((item) => (
-              <li id={`families-dashboard-pending-invite-item-${item.inviteId}`} key={item.inviteId} className="surface-card p-4">
+            {pendingInvites.map((item, index) => (
+              <li
+                id={`families-dashboard-pending-invite-item-${item.inviteId}`}
+                key={item.inviteId}
+                className="families-motion-card surface-card p-4"
+                style={{ animationDelay: `${210 + index * 55}ms` }}
+              >
                 <p id={`families-dashboard-pending-invite-family-name-${item.inviteId}`} className="font-semibold">{item.family.name}</p>
                 <p id={`families-dashboard-pending-invite-family-description-${item.inviteId}`} className="text-sm text-[var(--color-text-muted)]">
-                  {item.family.description ?? "No description"}
+                  {item.family.description ?? familyMessages.pendingInviteDescriptionEmpty}
                 </p>
                 <p id={`families-dashboard-pending-invite-status-${item.inviteId}`} className="mt-2 text-xs uppercase tracking-wide text-[var(--color-primary)]">
                   {item.decisionStatus} / {item.invite.state}

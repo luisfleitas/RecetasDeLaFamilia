@@ -1,5 +1,6 @@
 import { RecipeImportError } from "@/lib/application/recipes/import-errors";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
+import { normalizeRecipeLanguage } from "@/lib/domain/recipe-language";
 
 export function validateImportedRecipeDraft(draft: ImportedRecipeDraft): ImportedRecipeDraft {
   const title = draft.title.trim();
@@ -39,6 +40,7 @@ export function validateImportedRecipeDraft(draft: ImportedRecipeDraft): Importe
     title,
     description,
     stepsMarkdown,
+    language: normalizeRecipeLanguage(draft.language),
     ingredients,
   };
 }

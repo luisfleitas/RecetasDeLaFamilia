@@ -101,6 +101,71 @@ a {
   box-shadow: var(--shadow-card);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes families-rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes families-panel-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .families-motion-section {
+    opacity: 0;
+    animation: families-rise-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .families-motion-section[data-motion-order="1"] {
+    animation-delay: 40ms;
+  }
+
+  .families-motion-section[data-motion-order="2"] {
+    animation-delay: 110ms;
+  }
+
+  .families-motion-section[data-motion-order="3"] {
+    animation-delay: 180ms;
+  }
+
+  .families-motion-card {
+    opacity: 0;
+    animation: families-rise-in 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease;
+    will-change: transform, box-shadow;
+  }
+
+  .families-motion-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .families-manage-panel {
+    transform-origin: top center;
+    animation: families-panel-reveal 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
 .input-base {
   width: 100%;
   border: 1px solid var(--color-border-strong);
@@ -196,6 +261,22 @@ a {
   border-bottom-color: var(--color-primary);
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+#global-locale-switcher > summary {
+  list-style: none;
+}
+
+#global-locale-switcher > summary::-webkit-details-marker {
+  display: none;
+}
+
+.locale-switcher-menu {
+  display: none;
+}
+
+#global-locale-switcher[open] > .locale-switcher-menu {
+  display: block;
 }
 
 .recipe-form-section {

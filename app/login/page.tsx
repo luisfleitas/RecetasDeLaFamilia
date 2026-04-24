@@ -3,17 +3,30 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import LocaleSwitcher from "@/app/_components/locale-switcher";
+import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import { type AuthMessageCode } from "@/lib/application/auth/errors";
 
 type ApiResponse = {
-  error?: string;
+  errorCode?: AuthMessageCode;
 };
 
 export default function LoginPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const messages = useMessages();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function getErrorMessage(code?: AuthMessageCode) {
+    if (!code) {
+      return messages.auth.errors.unexpected_login_error;
+    }
+
+    return messages.auth.errors[code] ?? messages.auth.errors.unexpected_login_error;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,17 +53,17 @@ export default function LoginPage() {
       const data = (await response.json()) as ApiResponse;
 
       if (!response.ok) {
-        setError(data.error ?? "Failed to login");
+        setError(getErrorMessage(data.errorCode));
         return;
       }
 
-      setMessage("Session active.");
+      setMessage(messages.auth.sessionActive);
       const next = new URLSearchParams(window.location.search).get("next");
       const redirectTo = next && next.startsWith("/") ? next : "/";
       router.push(redirectTo);
       router.refresh();
     } catch {
-      setError("Failed to login");
+      setError(messages.auth.errors.unexpected_login_error);
     } finally {
       setIsSubmitting(false);
     }
@@ -62,10 +75,10 @@ export default function LoginPage() {
 
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      setMessage("Session cleared.");
+      setMessage(messages.auth.sessionCleared);
       router.refresh();
     } catch {
-      setError("Failed to logout");
+      setError(messages.auth.errors.unexpected_logout_error);
     }
   }
 
@@ -73,23 +86,26 @@ export default function LoginPage() {
     <main id="login-page-main" className="app-shell max-w-xl space-y-6">
       <div id="login-page-panel" className="surface-panel space-y-6 p-6 sm:p-8">
         <div id="login-page-header" className="flex items-center justify-between gap-3">
-          <h1 id="login-page-title" className="text-2xl font-semibold">Log In</h1>
-          <Link id="login-page-back-link" href="/" className="text-link text-sm">
-            Back to recipes
-          </Link>
+          <h1 id="login-page-title" className="text-2xl font-semibold">{messages.auth.loginTitle}</h1>
+          <div id="login-page-header-actions" className="flex flex-wrap items-center justify-end gap-2">
+            <LocaleSwitcher locale={locale} />
+            <Link id="login-page-back-link" href="/" className="text-link text-sm">
+              {messages.common.backToRecipes}
+            </Link>
+          </div>
         </div>
 
         <form id="login-page-form" onSubmit={handleSubmit} className="space-y-4">
           <div id="login-page-username-field">
             <label id="login-page-username-label" htmlFor="username_or_email" className="mb-1 block text-sm font-medium">
-              Username or email
+              {messages.auth.usernameOrEmailLabel}
             </label>
             <input id="username_or_email" name="username_or_email" required className="input-base" />
           </div>
 
           <div id="login-page-password-field">
             <label id="login-page-password-label" htmlFor="password" className="mb-1 block text-sm font-medium">
-              Password
+              {messages.auth.passwordLabel}
             </label>
             <input id="password" name="password" type="password" required className="input-base" />
           </div>
@@ -99,10 +115,10 @@ export default function LoginPage() {
 
           <div id="login-page-actions" className="flex flex-wrap items-center gap-3">
             <button id="login-page-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
-              {isSubmitting ? "Signing in..." : "Sign in"}
+              {isSubmitting ? messages.auth.signingIn : messages.auth.signIn}
             </button>
             <button id="login-page-logout" type="button" onClick={handleLogout} className={buttonClassName("secondary")}>
-              Logout
+              {messages.auth.logout}
             </button>
           </div>
         </form>

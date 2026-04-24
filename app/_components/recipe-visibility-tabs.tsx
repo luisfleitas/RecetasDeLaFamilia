@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { type KeyboardEvent, useMemo, useRef, useState } from "react";
+import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import RecipeCardCarousel from "@/app/_components/recipe-card-carousel";
+import { formatDate } from "@/lib/i18n/format";
 
 type PrimaryImageRef = {
   id: number;
@@ -31,19 +33,23 @@ type RecipeVisibilityTabsProps = {
   groups: RecipeVisibilityTabGroup[];
 };
 
-function getRecipeVisibilitySummary(recipe: RecipeListItem) {
+function getRecipeVisibilitySummary(recipe: RecipeListItem, messages: ReturnType<typeof useMessages>) {
   if (recipe.visibility === "public") {
-    return "Public";
+    return messages.home.publicVisibility;
   }
 
   if (recipe.visibility === "private") {
-    return "Private";
+    return messages.home.privateVisibility;
   }
 
-  return `Shared with ${recipe.families.length} ${recipe.families.length === 1 ? "family" : "families"}`;
+  return `${messages.home.sharedWith} ${recipe.families.length} ${
+    recipe.families.length === 1 ? messages.home.familySingular : messages.home.familyPlural
+  }`;
 }
 
 export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsProps) {
+  const locale = useLocale();
+  const messages = useMessages();
   const firstTabId = useMemo(() => {
     const firstNonEmpty = groups.find((group) => group.recipes.length > 0);
     return firstNonEmpty?.id ?? groups[0]?.id ?? "";
@@ -92,7 +98,7 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
       <div
         id="home-visibility-tabs-list"
         role="tablist"
-        aria-label="Recipe visibility groups"
+        aria-label={messages.home.visibilityGroupsAriaLabel}
         className="sticky top-2 z-10 -mx-1 flex gap-3 overflow-x-auto border-b border-[var(--color-border)] bg-[var(--color-surface)] px-1 pb-0.5 pt-0.5"
       >
         {groups.map((group, index) => {
@@ -132,11 +138,11 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
           tabIndex={0}
         >
           <p id={`home-visibility-tabs-active-group-${activeGroup.id}`} className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
-            Showing {activeGroup.label} recipes ({activeGroup.recipes.length})
+            {messages.home.showingGroupRecipes} {activeGroup.label} {messages.home.groupRecipesSuffix} ({activeGroup.recipes.length})
           </p>
           {activeGroup.recipes.length === 0 ? (
             <p id={`home-visibility-tabs-empty-${activeGroup.id}`} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-6 text-center text-sm text-[var(--color-text-muted)]">
-              No recipes in this group yet.
+              {messages.home.emptyGroup}
             </p>
           ) : (
             <ul id={`home-visibility-tabs-recipes-${activeGroup.id}`} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -157,10 +163,10 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
                       {recipe.title}
                     </Link>
                     <p id={`home-visibility-tabs-date-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs text-[var(--color-text-muted)]">
-                      Added {new Date(recipe.createdAt).toLocaleDateString()}
+                      {messages.home.addedOn} {formatDate(recipe.createdAt, locale)}
                     </p>
                     <p id={`home-visibility-tabs-summary-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--color-primary)]">
-                      {getRecipeVisibilitySummary(recipe)}
+                      {getRecipeVisibilitySummary(recipe, messages)}
                     </p>
                   </div>
                 </li>

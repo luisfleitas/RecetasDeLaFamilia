@@ -1,3 +1,4 @@
+import { AUTH_MESSAGE_CODES, AuthConflictError, AuthInvalidCredentialsError } from "@/lib/application/auth/errors";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signAccessToken } from "@/lib/auth/jwt";
 import { UserRepository } from "@/lib/domain/user-repository";
@@ -21,9 +22,6 @@ type ChangePasswordInput = {
   currentPassword: string;
   newPassword: string;
 };
-
-export class AuthConflictError extends Error {}
-export class AuthInvalidCredentialsError extends Error {}
 
 function toPublicUser(input: {
   id: number;
@@ -58,11 +56,11 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
       ]);
 
       if (existingByEmail) {
-        throw new AuthConflictError("email already in use");
+        throw new AuthConflictError(AUTH_MESSAGE_CODES.EMAIL_IN_USE);
       }
 
       if (existingByUsername) {
-        throw new AuthConflictError("username already in use");
+        throw new AuthConflictError(AUTH_MESSAGE_CODES.USERNAME_IN_USE);
       }
 
       const passwordHash = await hashPassword(input.password);
@@ -86,12 +84,12 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
           : await userRepository.getByUsername(lookup)) ??
         null;
       if (!user) {
-        throw new AuthInvalidCredentialsError("invalid credentials");
+        throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.INVALID_CREDENTIALS);
       }
 
       const validPassword = await verifyPassword(input.password, user.passwordHash);
       if (!validPassword) {
-        throw new AuthInvalidCredentialsError("invalid credentials");
+        throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.INVALID_CREDENTIALS);
       }
 
       const accessToken = signAccessToken({
@@ -105,12 +103,12 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
     async changePassword(input: ChangePasswordInput) {
       const user = await userRepository.getById(input.userId);
       if (!user) {
-        throw new AuthInvalidCredentialsError("invalid credentials");
+        throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.INVALID_CREDENTIALS);
       }
 
       const validPassword = await verifyPassword(input.currentPassword, user.passwordHash);
       if (!validPassword) {
-        throw new AuthInvalidCredentialsError("current password is incorrect");
+        throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.CURRENT_PASSWORD_INCORRECT);
       }
 
       const passwordHash = await hashPassword(input.newPassword);

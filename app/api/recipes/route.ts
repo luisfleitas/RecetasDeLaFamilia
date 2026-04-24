@@ -39,6 +39,7 @@ function parseRecipePayloadFromFormData(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description"),
     stepsMarkdown: formData.get("stepsMarkdown"),
+    language: formData.get("language"),
     visibility: formData.get("visibility"),
     familyIds: formData.getAll("familyIds").map((value) => Number(value)),
     ingredients,

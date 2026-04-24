@@ -14,7 +14,11 @@ import type {
   ListRecipeOptions,
   RecipeRepository,
 } from "@/lib/domain/recipe-repository";
-import type { Prisma, RecipeVisibility as PrismaRecipeVisibility } from "@prisma/client";
+import type {
+  Prisma,
+  RecipeLanguage as PrismaRecipeLanguage,
+  RecipeVisibility as PrismaRecipeVisibility,
+} from "@prisma/client";
 
 function gcd(a: number, b: number): number {
   let x = Math.abs(a);
@@ -88,6 +92,10 @@ function toPrimaryImageRef(imageId: number): PrimaryImageRef {
 
 function toPrismaVisibility(value: CreateRecipeInput["visibility"]): PrismaRecipeVisibility {
   return value as unknown as PrismaRecipeVisibility;
+}
+
+function toPrismaLanguage(value: CreateRecipeInput["language"]): PrismaRecipeLanguage {
+  return value as unknown as PrismaRecipeLanguage;
 }
 
 function buildRecipeAccessWhere(viewerUserId: number | null | undefined): Prisma.RecipeWhereInput {
@@ -339,6 +347,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      language: recipe.language,
       visibility: recipe.visibility,
       families: recipe.familyLinks.map((link) => ({
         id: link.family.id,
@@ -399,6 +408,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
           title: input.title,
           description: input.description,
           stepsMarkdown: input.stepsMarkdown,
+          language: toPrismaLanguage(input.language),
           visibility: toPrismaVisibility(input.visibility),
           createdByUserId,
           ingredients: {
@@ -429,6 +439,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      language: recipe.language,
       visibility: recipe.visibility,
       families: recipe.familyLinks.map((link) => ({
         id: link.family.id,
@@ -475,6 +486,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
           title: input.title,
           description: input.description,
           stepsMarkdown: input.stepsMarkdown,
+          language: toPrismaLanguage(input.language),
           visibility: toPrismaVisibility(input.visibility),
           ingredients: {
             deleteMany: {},
@@ -514,6 +526,7 @@ export class PrismaRecipeRepository implements RecipeRepository {
       title: recipe.title,
       description: recipe.description,
       stepsMarkdown: recipe.stepsMarkdown,
+      language: recipe.language,
       visibility: recipe.visibility,
       families: recipe.familyLinks.map((link) => ({
         id: link.family.id,

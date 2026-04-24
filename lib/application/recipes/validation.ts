@@ -1,4 +1,9 @@
 import type { CreateIngredientInput, CreateRecipeInput, RecipeVisibility } from "@/lib/domain/recipe";
+import {
+  DEFAULT_RECIPE_LANGUAGE,
+  isRecipeLanguage,
+  type RecipeLanguage,
+} from "@/lib/domain/recipe-language";
 
 type IncomingIngredient = {
   name?: unknown;
@@ -12,6 +17,7 @@ type IncomingRecipe = {
   title?: unknown;
   description?: unknown;
   stepsMarkdown?: unknown;
+  language?: unknown;
   visibility?: unknown;
   familyIds?: unknown;
   ingredients?: unknown;
@@ -98,6 +104,18 @@ function parseVisibility(value: unknown): RecipeVisibility {
   throw new Error("visibility must be one of: public, private, family");
 }
 
+function parseLanguage(value: unknown): RecipeLanguage {
+  if (value == null) {
+    return DEFAULT_RECIPE_LANGUAGE;
+  }
+
+  if (isRecipeLanguage(value)) {
+    return value;
+  }
+
+  throw new Error("language must be one of: en, es");
+}
+
 function parseFamilyIds(input: unknown): number[] {
   if (input == null) {
     return [];
@@ -139,6 +157,7 @@ export function parseCreateRecipeInput(input: unknown): CreateRecipeInput {
   }
 
   const visibility = parseVisibility(recipe.visibility);
+  const language = parseLanguage(recipe.language);
   const familyIds = parseFamilyIds(recipe.familyIds);
 
   if (visibility === "family" && familyIds.length === 0) {
@@ -149,6 +168,7 @@ export function parseCreateRecipeInput(input: unknown): CreateRecipeInput {
     title: recipe.title.trim(),
     description,
     stepsMarkdown: recipe.stepsMarkdown.trim(),
+    language,
     visibility,
     familyIds,
     ingredients: parseIngredients(recipe.ingredients),

@@ -1,5 +1,7 @@
 "use client";
 
+import { useMessages } from "@/app/_components/locale-provider";
+
 type IngredientDraft = {
   rowId: number;
   name: string;
@@ -27,19 +29,21 @@ export function IngredientEditor({
   onUpdate,
   title,
 }: IngredientEditorProps) {
+  const messages = useMessages();
+
   return (
     <div id={`${baseId}-section`} className="surface-card recipe-form-section p-4">
       <div id={`${baseId}-header`} className="recipe-form-section-header">
         <div id={`${baseId}-copy`} className="recipe-form-section-copy">
           <p id={`${baseId}-title`} className="recipe-form-section-title">{title}</p>
           <p id={`${baseId}-description`} className="recipe-form-section-description">
-            Keep the ingredient list easy to scan, easy to edit, and easy to use on smaller screens.
+            {messages.recipe.ingredientListDescription}
           </p>
         </div>
         <button id={addButtonId} type="button" onClick={onAdd} className="min-w-[10rem]">
-          <span className="sr-only">Add ingredient row</span>
+          <span className="sr-only">{messages.recipe.addIngredientRow}</span>
           <span className="inline-flex w-full items-center justify-center rounded-[11px] border border-[var(--color-border-strong)] bg-[var(--color-surface-soft)] px-4 py-2.5 text-[15px] font-bold leading-none text-[var(--color-text)] transition-colors duration-150 hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-muted)]">
-            Add Ingredient
+            {messages.recipe.addIngredient}
           </span>
         </button>
       </div>
@@ -49,7 +53,7 @@ export function IngredientEditor({
           <div id={`${baseId}-row-${ingredient.rowId}`} key={ingredient.rowId} className="ingredient-editor-row">
             <div id={`${baseId}-row-header-${ingredient.rowId}`} className="ingredient-editor-row-header">
               <p id={`${baseId}-row-title-${ingredient.rowId}`} className="ingredient-editor-row-title">
-                Ingredient {index + 1}
+                {messages.recipe.ingredientRow} {index + 1}
               </p>
               <button
                 id={`${baseId}-remove-${ingredient.rowId}`}
@@ -58,14 +62,14 @@ export function IngredientEditor({
                 disabled={ingredients.length === 1}
                 className="inline-flex items-center justify-center rounded-[11px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-4 py-2 text-sm font-bold text-[var(--color-text)] transition-colors duration-150 hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-muted)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Remove
+                {messages.recipe.remove}
               </button>
             </div>
 
             <div id={`${baseId}-name-field-${ingredient.rowId}`} className="field">
               <label id={`${baseId}-name-label-${ingredient.rowId}`} htmlFor={`${baseId}-name-input-${ingredient.rowId}`} className="mb-1 block text-sm font-medium">
-                Name
-              </label>
+                {messages.recipe.nameLabel}
+                </label>
               <input
                 id={`${baseId}-name-input-${ingredient.rowId}`}
                 required
@@ -78,7 +82,7 @@ export function IngredientEditor({
             <div id={`${baseId}-primary-grid-${ingredient.rowId}`} className="ingredient-editor-grid">
               <div id={`${baseId}-qty-field-${ingredient.rowId}`} className="field">
                 <label id={`${baseId}-qty-label-${ingredient.rowId}`} htmlFor={`${baseId}-qty-input-${ingredient.rowId}`} className="mb-1 block text-sm font-medium">
-                  Quantity
+                  {messages.recipe.quantityLabel}
                 </label>
                 <input
                   id={`${baseId}-qty-input-${ingredient.rowId}`}
@@ -94,7 +98,7 @@ export function IngredientEditor({
 
               <div id={`${baseId}-unit-field-${ingredient.rowId}`} className="field">
                 <label id={`${baseId}-unit-label-${ingredient.rowId}`} htmlFor={`${baseId}-unit-input-${ingredient.rowId}`} className="mb-1 block text-sm font-medium">
-                  Unit
+                  {messages.recipe.unitLabel}
                 </label>
                 <input
                   id={`${baseId}-unit-input-${ingredient.rowId}`}
@@ -107,7 +111,7 @@ export function IngredientEditor({
 
               <div id={`${baseId}-notes-field-${ingredient.rowId}`} className="field">
                 <label id={`${baseId}-notes-label-${ingredient.rowId}`} htmlFor={`${baseId}-notes-input-${ingredient.rowId}`} className="mb-1 block text-sm font-medium">
-                  Notes
+                  {messages.recipe.notesLabel}
                 </label>
                 <input
                   id={`${baseId}-notes-input-${ingredient.rowId}`}
@@ -128,7 +132,7 @@ export function IngredientEditor({
           onClick={onAdd}
           className="inline-flex items-center justify-center rounded-[11px] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface-soft)] px-4 py-2.5 text-sm font-bold text-[var(--color-primary)] transition-colors duration-150 hover:bg-[var(--color-surface-muted)]"
         >
-          Add Another Ingredient
+          {messages.recipe.addAnotherIngredient}
         </button>
       </div>
     </div>
