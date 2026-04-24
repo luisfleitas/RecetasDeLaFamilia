@@ -2,9 +2,9 @@
 
 ## Current State
 - Branch: `codex/feature/multi-language-support`
-- Workflow phase: Phase 7 implementation and QA hardening
+- Workflow phase: Final verification and PR preparation
 - The proof-scope multilingual implementation is largely in place across locale plumbing, shared chrome, auth, recipe language, recipe flows, and family dashboard localization.
-- The branch is not yet merge-ready until remaining mobile QA and invite accept/decline localization checks are resolved or explicitly deferred.
+- The branch is ready for final verification and PR preparation.
 
 ## Completed
 - Added `AGENTS.md` new-chat handoff guidance.
@@ -14,21 +14,21 @@
 - Added persisted recipe `language` field, Prisma migration, domain types, validation, create/update/read persistence, and import handoff support.
 - Added recipe-language controls to new recipe, edit recipe, and import review flows.
 - Added recipe-language metadata pill to recipe detail.
+- Localized the standalone family invite accept/decline page and mapped its API codes to localized UI copy.
+- Completed mobile Spanish viewport QA for the remaining proof-scope pages and family dashboard manage tabs/actions.
+- Completed rendered invite accept/decline/undo/accept localization QA outside the dashboard summary.
+- Added stable `INTERNAL_ERROR` codes to generic family API 500 catch-all responses and covered them with a regression test.
 - Added design and planning artifacts under `requirements/multi-language-support/` plus browser-reviewable wireframes under `design/`.
 
 ## In Progress
-- Family proof-scope hardening outside the dashboard summary.
-- Polish and QA hardening for longer Spanish copy on mobile.
+- PR preparation.
 
 ## Next Action
-- Run or complete mobile viewport QA for Spanish header wrapping, recipe forms, recipe metadata pills, and family dashboard tabs/actions.
-- Run a rendered-page localization pass for invite accept/decline pages outside the dashboard pending-invites summary.
-- Update `requirements/multi-language-support/qa-checklist.md` with those results.
+- Commit and push the verified branch, then open the PR back into `pre-main`.
 
 ## Known Issues
-- Family API route audit may still find raw API English errors without stable `code` values.
-- Invite accept/decline pages still need rendered localization verification.
-- Mobile wrapping under longer Spanish labels still needs a focused pass.
+- Generic family API 500 responses now include stable `INTERNAL_ERROR` codes; the response `error` value still includes the diagnostic message for server troubleshooting, while touched UI clients continue to render localized fallback copy.
+- Local QA created temporary families/invites in the local dev database while exercising invite flows.
 
 ## Verification Already Run
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-auth.test.ts scripts/i18n-family.test.ts scripts/recipe-language.test.ts`
@@ -41,12 +41,27 @@
 - `BASE_URL='http://localhost:3000' ./scripts/auth-smoke-test.sh`
 - `BASE_URL='http://localhost:3000' ./scripts/route-guards-smoke-test.sh`
 - `BASE_URL='http://localhost:3000' ./scripts/family-phase1-curl-smoke-test.sh`
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-family.test.ts scripts/i18n-auth.test.ts scripts/recipe-language.test.ts`
+- `npm run build`
+- Playwright mobile QA at 390x844 against `http://localhost:3100` for `/`, `/recipes/new`, `/recipes/37`, `/recipes/37/edit`, `/account/families`, and `/invite/family/[token]`.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-family.test.ts`
+- Final verification on 2026-04-24:
+  - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-auth.test.ts scripts/i18n-family.test.ts scripts/recipe-language.test.ts`
+  - `npm run test:import`
+  - `npm run test:phase1`
+  - `npm run test:phase2`
+  - `npm run test:phase3`
+  - `npm run lint` with existing warnings only
+  - `npm run build`
+  - `BASE_URL='http://localhost:3000' ./scripts/auth-smoke-test.sh`
+  - `BASE_URL='http://localhost:3000' ./scripts/route-guards-smoke-test.sh`
+  - `BASE_URL='http://localhost:3000' ./scripts/family-phase1-curl-smoke-test.sh`
 
 ## Manual Testing Status
 - Passed desktop/browser locale persistence across home, login, new recipe, recipe detail, edit recipe, import, and family dashboard routes.
 - Passed browser checks for recipe-language control visibility in new/edit/import review and recipe-language metadata on detail.
-- Pending mobile viewport QA.
-- Pending rendered invite accept/decline localization pass.
+- Passed mobile viewport QA for Spanish header wrapping, recipe forms, recipe metadata pills, and family dashboard manage tabs/actions.
+- Passed rendered invite accept/decline/undo/accept localization pass.
 
 ## Decisions Already Approved
 - Approved design direction: Option A with modified header locale dropdown.

@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     return withRequestId(NextResponse.json({ families }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while listing families";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }
 
@@ -136,6 +136,6 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while creating family";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

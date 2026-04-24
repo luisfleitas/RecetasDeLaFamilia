@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import LocaleSwitcher from "@/app/_components/locale-switcher";
+import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type InviteDetails = {
@@ -26,12 +28,85 @@ type InviteLookupResponse = {
   code?: string;
 };
 
+type FamilyMessages = ReturnType<typeof useMessages>["family"];
+
+function getRateLimitMessage(template: string, seconds?: number) {
+  return seconds ? `${template} ${seconds}s.` : template;
+}
+
+function getInviteStateLabel(messages: FamilyMessages, state: InviteDetails["state"]) {
+  switch (state) {
+    case "active":
+      return messages.inviteStateActive;
+    case "revoked":
+      return messages.inviteStateRevoked;
+    case "consumed":
+      return messages.inviteStateConsumed;
+    case "expired":
+      return messages.inviteStateExpired;
+    case "already_member":
+      return messages.inviteStateAlreadyMember;
+  }
+}
+
+function getInviteDecisionLabel(messages: FamilyMessages, status: InviteDetails["decision"]["status"]) {
+  switch (status) {
+    case "pending":
+      return messages.inviteDecisionPending;
+    case "declined":
+      return messages.inviteDecisionDeclined;
+    case "accepted":
+      return messages.inviteDecisionAccepted;
+  }
+}
+
 export default function InviteFamilyFlow({ token }: { token: string }) {
+  const locale = useLocale();
+  const messages = useMessages();
+  const familyMessages = messages.family;
+  const familyErrors = familyMessages.errors;
   const [invite, setInvite] = useState<InviteDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getErrorForCode = useCallback((code: string | undefined, fallback: string) => {
+    switch (code) {
+      case "UNAUTHORIZED":
+        return familyErrors.unauthorized;
+      case "FORBIDDEN":
+        return familyErrors.forbidden;
+      case "NOT_FOUND":
+        return familyErrors.notFound;
+      case "VALIDATION_ERROR":
+        return familyErrors.validation;
+      case "RATE_LIMITED":
+        return familyErrors.rateLimited;
+      case "INVITE_INVALID":
+        return familyErrors.inviteInvalid;
+      case "INVITE_REVOKED":
+        return familyErrors.inviteRevoked;
+      case "INVITE_CONSUMED":
+        return familyErrors.inviteConsumed;
+      case "INVITE_EXPIRED":
+        return familyErrors.inviteExpired;
+      default:
+        return fallback;
+    }
+  }, [familyErrors]);
+
+  const getActionFallback = useCallback((action: "accept" | "decline" | "undo-decline") => {
+    if (action === "accept") {
+      return familyErrors.acceptInvite;
+    }
+
+    if (action === "decline") {
+      return familyErrors.declineInvite;
+    }
+
+    return familyErrors.undoDeclineInvite;
+  }, [familyErrors]);
 
   const loadInvite = useCallback(async () => {
     setIsLoading(true);
@@ -47,24 +122,23 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
         if (response.status === 429 || data.code === "RATE_LIMITED") {
           const retryAfterRaw = response.headers.get("retry-after");
           const retryAfterSeconds = retryAfterRaw ? Number.parseInt(retryAfterRaw, 10) : NaN;
-          if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-            setError(`Too many lookups. Try again in ${retryAfterSeconds} seconds.`);
-          } else {
-            setError("Too many lookups. Try again shortly.");
-          }
+          setError(getRateLimitMessage(
+            familyErrors.rateLimited,
+            Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds : undefined
+          ));
         } else {
-          setError(data.error ?? "Failed to load invite");
+          setError(getErrorForCode(data.code, familyErrors.loadInvite));
         }
         return;
       }
 
       setInvite(data.invite);
     } catch {
-      setError("Failed to load invite");
+      setError(familyErrors.loadInvite);
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [familyErrors.loadInvite, familyErrors.rateLimited, getErrorForCode, token]);
 
   useEffect(() => {
     void loadInvite();
@@ -84,36 +158,28 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
 
       if (!response.ok) {
         if (response.status === 409 || data.code?.startsWith("INVITE_")) {
-          if (data.code === "INVITE_REVOKED") {
-            setError("Invite was revoked. Refreshing latest state.");
-          } else if (data.code === "INVITE_CONSUMED") {
-            setError("Invite was already used. Refreshing latest state.");
-          } else if (data.code === "INVITE_EXPIRED") {
-            setError("Invite expired. Refreshing latest state.");
-          } else {
-            setError(data.error ?? `Failed to ${action} invite`);
-          }
+          setError(getErrorForCode(data.code, getActionFallback(action)));
           await loadInvite();
           return;
         }
 
-        setError(data.error ?? `Failed to ${action} invite`);
+        setError(getErrorForCode(data.code, getActionFallback(action)));
         return;
       }
 
       if (data.code === "ALREADY_MEMBER") {
-        setMessage("You are already a member of this family.");
+        setMessage(familyMessages.inviteAlreadyMember);
       } else if (action === "accept") {
-        setMessage("You joined the family.");
+        setMessage(familyMessages.inviteJoined);
       } else if (action === "decline") {
-        setMessage("Invite declined.");
+        setMessage(familyMessages.inviteDeclined);
       } else {
-        setMessage("Invite moved back to pending.");
+        setMessage(familyMessages.invitePending);
       }
 
       await loadInvite();
     } catch {
-      setError(`Failed to ${action} invite`);
+      setError(getActionFallback(action));
     } finally {
       setIsSubmitting(false);
     }
@@ -123,14 +189,17 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
     <main id="family-invite-main" className="app-shell max-w-xl space-y-6">
       <section id="family-invite-panel" className="surface-panel space-y-4 p-6 sm:p-8">
         <div id="family-invite-header" className="flex items-center justify-between gap-3">
-          <h1 id="family-invite-title" className="text-2xl font-semibold">Family Invite</h1>
-          <Link id="family-invite-back-link" href="/account/families" className="text-link text-sm">
-            My Families
-          </Link>
+          <h1 id="family-invite-title" className="text-2xl font-semibold">{familyMessages.invitePageTitle}</h1>
+          <div id="family-invite-header-actions" className="flex flex-wrap items-center justify-end gap-2">
+            <LocaleSwitcher locale={locale} />
+            <Link id="family-invite-back-link" href="/account/families" className="text-link text-sm">
+              {messages.common.myFamilies}
+            </Link>
+          </div>
         </div>
 
         {isLoading ? (
-          <p id="family-invite-loading" className="text-sm text-[var(--color-text-muted)]">Loading invite...</p>
+          <p id="family-invite-loading" className="text-sm text-[var(--color-text-muted)]">{familyMessages.inviteLoading}</p>
         ) : error ? (
           <div id="family-invite-error-panel" className="space-y-3">
             <p id="family-invite-error" className="text-sm text-[var(--color-danger)]">{error}</p>
@@ -143,7 +212,7 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
               }}
               className={buttonClassName("secondary")}
             >
-              Retry
+              {familyMessages.inviteRetry}
             </button>
           </div>
         ) : invite ? (
@@ -151,13 +220,13 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
             <div id="family-invite-family-card" className="surface-card space-y-2 p-4">
               <p id="family-invite-family-name" className="text-lg font-semibold">{invite.family.name}</p>
               <p id="family-invite-family-description" className="text-sm text-[var(--color-text-muted)]">
-                {invite.family.description ?? "No description"}
+                {invite.family.description ?? familyMessages.inviteDescriptionEmpty}
               </p>
               <p id="family-invite-state" className="text-xs uppercase tracking-wide text-[var(--color-primary)]">
-                State: {invite.state}
+                {familyMessages.inviteStateLabel}: {getInviteStateLabel(familyMessages, invite.state)}
               </p>
               <p id="family-invite-decision-status" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
-                Your status: {invite.decision.status}
+                {familyMessages.inviteDecisionStatusLabel}: {getInviteDecisionLabel(familyMessages, invite.decision.status)}
               </p>
             </div>
 
@@ -171,7 +240,7 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
                 onClick={() => handleAction("accept")}
                 className={buttonClassName("primary")}
               >
-                Accept Invite
+                {familyMessages.inviteAccept}
               </button>
 
               <button
@@ -181,7 +250,7 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
                 onClick={() => handleAction("decline")}
                 className={buttonClassName("secondary")}
               >
-                Decline Invite
+                {familyMessages.inviteDecline}
               </button>
 
               <button
@@ -191,7 +260,7 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
                 onClick={() => handleAction("undo-decline")}
                 className={buttonClassName("secondary")}
               >
-                Undo Decline
+                {familyMessages.inviteUndoDecline}
               </button>
             </div>
           </div>

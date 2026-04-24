@@ -6,9 +6,9 @@
 - Plan approval status: Approved on 2026-04-21
 - Approved design direction: Option A with modified header locale dropdown
 - Progress snapshot updated on 2026-04-24 from the current branch worktree
-- Completed implementation slices: Slice 0 foundations, Slice 1 data model and recipe-language support, Slice 2 root locale and shared chrome, Slice 3 auth proof scope, Slice 4 recipe proof scope
-- In progress: Slice 5 family proof scope, Slice 6 polish and hardening
-- Not yet complete: mobile QA for longer Spanish copy, invite accept/decline rendered-page localization pass
+- Completed implementation slices: Slice 0 foundations, Slice 1 data model and recipe-language support, Slice 2 root locale and shared chrome, Slice 3 auth proof scope, Slice 4 recipe proof scope, Slice 5 family proof scope, Slice 6 polish and hardening
+- In progress: PR preparation
+- Not yet complete: commit, push, and PR back into `pre-main`
 
 ## Inputs Received
 - [plan.md](/Users/luisfleitas/Personal%20Projects/Recetas/requirements/multi-language-support/plan.md)
@@ -182,7 +182,7 @@ Completed work:
 - Added `scripts/recipe-language.test.ts` and import-route assertions for recipe-language persistence.
 
 #### Slice 5: family proof scope
-Status: In progress.
+Status: Completed for the proof scope on the current branch.
 
 - Localize dashboard and invite UI copy.
 - Localize touched API-driven error/success states via codes.
@@ -191,15 +191,14 @@ Status: In progress.
 Completed work:
 - `app/account/families/families-dashboard.tsx` has been brought onto the locale context and now includes the locale switcher.
 - Family dashboard visible copy, loading/empty states, action labels, invite/deletion labels, localized date formatting, and fallback UI errors now read from the `family` dictionary.
+- Standalone family invite accept/decline UI now uses locale context and localized `family` dictionary copy for page chrome, state labels, decision labels, actions, success messages, and API-code-driven errors.
 - Added `scripts/i18n-family.test.ts` to require `en`/`es` family dashboard message coverage.
 
 Remaining follow-up:
-- Family API route audit is still needed for any remaining raw error responses without stable `code` values.
-- Invite acceptance/decline page localization remains pending outside the dashboard pending-invites summary.
-- Manual QA is still needed for longer Spanish family labels on mobile.
+- Generic family API 500 catch-all responses now include stable `INTERNAL_ERROR` codes. Touched UI clients map missing/unknown/internal codes to localized fallback copy, so no rendered Spanish UI leak is expected from these paths.
 
 #### Slice 6: polish and hardening
-Status: In progress.
+Status: Completed for the proof scope on the current branch.
 
 - Sweep remaining touched strings.
 - Verify mobile layout under Spanish copy.
@@ -221,7 +220,9 @@ Current verification status:
 - Family dashboard dictionary coverage verified with `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-family.test.ts scripts/i18n-auth.test.ts`.
 - Build verified with `npm run build`.
 - Recipe-language validation and import-language coverage verified with `scripts/recipe-language.test.ts` and `scripts/import-routes.integration.test.ts`.
-- QA checklist execution is partially complete; mobile viewport and invite accept/decline rendered-page checks remain pending.
+- QA checklist execution is complete for the documented proof scope, including the mobile Spanish viewport pass and rendered invite accept/decline localization pass.
+- Family API generic 500 code coverage verified with `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-family.test.ts`.
+- Final verification bundle passed on 2026-04-24: targeted i18n tests, import tests, Phase 1-3 tests, lint with existing warnings only, build, auth smoke, route-guard smoke, and family Phase 1 curl smoke.
 
 ## Open Risks
 - Schema changes for recipe language may require decisions about legacy nulls vs defaults.
@@ -232,6 +233,4 @@ Current verification status:
 
 ## Next Agent Should Do
 - Treat this document as the active implementation tracker rather than only the Approval Gate 2 artifact.
-- Run the remaining mobile viewport QA for Spanish header wrapping, recipe forms, recipe metadata pills, and family dashboard tabs/actions.
-- Run a rendered-page localization pass for invite accept/decline pages outside the dashboard pending-invites summary.
-- Do not mark the feature ready for merge until the remaining QA follow-ups are resolved or explicitly deferred.
+- Commit and push the verified branch, then open the PR back into `pre-main`.

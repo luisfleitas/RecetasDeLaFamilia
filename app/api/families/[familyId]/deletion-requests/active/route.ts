@@ -87,6 +87,6 @@ export async function GET(request: Request, { params }: Params) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while loading active deletion request";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

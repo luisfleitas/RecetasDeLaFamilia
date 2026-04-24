@@ -95,6 +95,6 @@ export async function DELETE(request: Request, { params }: Params) {
     }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while revoking invite";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

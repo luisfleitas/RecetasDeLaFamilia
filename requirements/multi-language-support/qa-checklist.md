@@ -95,10 +95,27 @@
 - Passed: recipe-language control appeared on new recipe, edit recipe, and import review after parsing a draft.
 - Passed: recipe detail showed the recipe-language metadata pill.
 - Passed: family dashboard rendered Spanish create/list/pending-invite copy.
+- Passed: mobile viewport QA at 390x844 for Spanish home header wrapping, recipe new form, recipe detail metadata pills, recipe edit form, and family dashboard list/manage tabs; each checked without horizontal document overflow.
+- Passed: rendered invite page localization in Spanish for active invite state, pending/declined/accepted decision states, accept/decline/undo-decline actions, retry/back link chrome, and raw English label regression checks.
+- Passed: family API route audit for touched 4xx/client-facing paths confirmed stable `code` values are present; generic 500 catch-all responses may still include raw diagnostic messages, but touched UI clients map missing/unknown codes to localized fallback copy instead of rendering raw API English.
+- Passed: generic family API 500 catch-all responses include stable `INTERNAL_ERROR` codes, verified by `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-family.test.ts`.
+- Passed: final verification bundle on 2026-04-24:
+  - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-auth.test.ts scripts/i18n-family.test.ts scripts/recipe-language.test.ts`
+  - `npm run test:import`
+  - `npm run test:phase1`
+  - `npm run test:phase2`
+  - `npm run test:phase3`
+  - `npm run lint` with existing warnings only
+  - `npm run build`
+  - `BASE_URL='http://localhost:3000' ./scripts/auth-smoke-test.sh`
+  - `BASE_URL='http://localhost:3000' ./scripts/route-guards-smoke-test.sh`
+  - `BASE_URL='http://localhost:3000' ./scripts/family-phase1-curl-smoke-test.sh`
 
-### Follow-up still needed
-- Mobile viewport QA is still pending for Spanish header wrapping, recipe forms, recipe metadata pills, and family dashboard tabs/actions.
-- Invite accept/decline page localization still needs a rendered-page pass outside the dashboard summary.
+### Follow-up status
+- Completed: mobile viewport QA for Spanish header wrapping, recipe forms, recipe metadata pills, and family dashboard tabs/actions.
+- Completed: invite accept/decline rendered-page localization pass outside the dashboard summary.
+- Completed: generic family API 500 responses now return stable codes before PR.
+- Completed: final automated verification bundle before PR.
 
 ## Next Agent Should Do
 - Use this checklist during implementation validation.
