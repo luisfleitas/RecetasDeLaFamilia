@@ -5,10 +5,10 @@
 - Design approval status: Approved
 - Plan approval status: Approved on 2026-04-21
 - Approved design direction: Option A with modified header locale dropdown
-- Progress snapshot updated on 2026-04-24 from the current branch worktree
+- Progress snapshot updated on 2026-04-26 from the current branch and PR state
 - Completed implementation slices: Slice 0 foundations, Slice 1 data model and recipe-language support, Slice 2 root locale and shared chrome, Slice 3 auth proof scope, Slice 4 recipe proof scope, Slice 5 family proof scope, Slice 6 polish and hardening
-- In progress: PR preparation
-- Not yet complete: commit, push, and PR back into `pre-main`
+- In progress: PR review / merge decision
+- Not yet complete: merge PR #13 into `pre-main` for staging validation
 
 ## Inputs Received
 - [plan.md](/Users/luisfleitas/Personal%20Projects/Recetas/requirements/multi-language-support/plan.md)
@@ -223,6 +223,7 @@ Current verification status:
 - QA checklist execution is complete for the documented proof scope, including the mobile Spanish viewport pass and rendered invite accept/decline localization pass.
 - Family API generic 500 code coverage verified with `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-family.test.ts`.
 - Final verification bundle passed on 2026-04-24: targeted i18n tests, import tests, Phase 1-3 tests, lint with existing warnings only, build, auth smoke, route-guard smoke, and family Phase 1 curl smoke.
+- PR status checked on 2026-04-26: PR #13 is open from `codex/feature/multi-language-support` into `pre-main`, is non-draft, has merge state `CLEAN`, and both GitHub `auth-smoke` checks passed.
 
 ## Open Risks
 - Schema changes for recipe language may require decisions about legacy nulls vs defaults.
@@ -233,4 +234,4 @@ Current verification status:
 
 ## Next Agent Should Do
 - Treat this document as the active implementation tracker rather than only the Approval Gate 2 artifact.
-- Commit and push the verified branch, then open the PR back into `pre-main`.
+- Review and merge PR #13 into `pre-main` when ready for staging validation.

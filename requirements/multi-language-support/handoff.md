@@ -2,9 +2,9 @@
 
 ## Current State
 - Branch: `codex/feature/multi-language-support`
-- Workflow phase: Final verification and PR preparation
+- Workflow phase: PR open and ready for staging merge decision
 - The proof-scope multilingual implementation is largely in place across locale plumbing, shared chrome, auth, recipe language, recipe flows, and family dashboard localization.
-- The branch is ready for final verification and PR preparation.
+- PR #13 is open from `codex/feature/multi-language-support` into `pre-main`, is non-draft, and GitHub reports a clean merge state.
 
 ## Completed
 - Added `AGENTS.md` new-chat handoff guidance.
@@ -21,10 +21,10 @@
 - Added design and planning artifacts under `requirements/multi-language-support/` plus browser-reviewable wireframes under `design/`.
 
 ## In Progress
-- PR preparation.
+- PR review / merge decision.
 
 ## Next Action
-- Commit and push the verified branch, then open the PR back into `pre-main`.
+- Review and merge PR #13 into `pre-main` when ready for staging validation.
 
 ## Known Issues
 - Generic family API 500 responses now include stable `INTERNAL_ERROR` codes; the response `error` value still includes the diagnostic message for server troubleshooting, while touched UI clients continue to render localized fallback copy.
@@ -56,6 +56,10 @@
   - `BASE_URL='http://localhost:3000' ./scripts/auth-smoke-test.sh`
   - `BASE_URL='http://localhost:3000' ./scripts/route-guards-smoke-test.sh`
   - `BASE_URL='http://localhost:3000' ./scripts/family-phase1-curl-smoke-test.sh`
+- PR status check on 2026-04-26:
+  - `gh pr view 13 --json number,title,state,baseRefName,headRefName,url,isDraft,mergeStateStatus,reviewDecision,statusCheckRollup`
+  - `gh pr checks 13`
+  - Result: PR #13 is open, non-draft, targets `pre-main`, merge state is `CLEAN`, and both GitHub `auth-smoke` checks passed.
 
 ## Manual Testing Status
 - Passed desktop/browser locale persistence across home, login, new recipe, recipe detail, edit recipe, import, and family dashboard routes.
