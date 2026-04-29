@@ -117,6 +117,6 @@ export async function POST(request: Request, { params }: Params) {
     return withRequestId(NextResponse.json({ decision: updated }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while undoing decline";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

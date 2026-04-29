@@ -2,7 +2,9 @@ import {
   getOpenAiRecipeImportModel,
   getRecipeImportExtractorDriver,
 } from "@/lib/application/recipes/import-config";
+import { inferRecipeLanguageFromText } from "@/lib/application/recipes/recipe-language";
 import { importRecipeFromTextDocument, type ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
+import { normalizeRecipeLanguage } from "@/lib/domain/recipe-language";
 
 export type RecipeImportExtractorResult = {
   draft: ImportedRecipeDraft;
@@ -29,11 +31,12 @@ const OPENAI_RECIPE_IMPORT_PROMPT_VERSION = "openai-recipe-import-v1";
 const IMPORT_DRAFT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["title", "description", "stepsMarkdown", "ingredients"],
+  required: ["title", "description", "stepsMarkdown", "language", "ingredients"],
   properties: {
     title: { type: "string" },
     description: { type: ["string", "null"] },
     stepsMarkdown: { type: "string" },
+    language: { type: "string", enum: ["en", "es"] },
     ingredients: {
       type: "array",
       items: {
@@ -91,12 +94,14 @@ export function parseOpenAiRecipeImportPayload(payload: OpenAiResponsePayload): 
         ? draft.description.trim() || null
         : null;
   const stepsMarkdown = typeof draft.stepsMarkdown === "string" ? draft.stepsMarkdown.trim() : "";
+  const language = normalizeRecipeLanguage(draft.language, inferRecipeLanguageFromText(outputText));
   const ingredientsRaw = Array.isArray(draft.ingredients) ? draft.ingredients : [];
 
   return {
     title,
     description,
     stepsMarkdown,
+    language,
     ingredients: ingredientsRaw.map((ingredient, index) => {
       const typed = ingredient as {
         name?: unknown;

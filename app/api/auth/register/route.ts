@@ -1,4 +1,4 @@
-import { AuthConflictError } from "@/lib/application/auth/use-cases";
+import { AUTH_MESSAGE_CODES, AuthConflictError, AuthValidationError } from "@/lib/application/auth/errors";
 import { parseRegisterInput } from "@/lib/application/auth/validation";
 import { buildAuthUseCases } from "@/lib/auth/factory";
 import { ACCESS_TOKEN_COOKIE, getAccessTokenCookieConfig } from "@/lib/auth/session-cookie";
@@ -15,15 +15,16 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ errorCode: AUTH_MESSAGE_CODES.INVALID_JSON_BODY }, { status: 400 });
   }
 
   let input;
   try {
     input = parseRegisterInput(body);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid registration payload";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const errorCode =
+      error instanceof AuthValidationError ? error.code : AUTH_MESSAGE_CODES.INVALID_REGISTRATION_PAYLOAD;
+    return NextResponse.json({ errorCode }, { status: 400 });
   }
 
   try {
@@ -38,14 +39,13 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     if (error instanceof AuthConflictError) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      return NextResponse.json({ errorCode: error.code }, { status: 409 });
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ error: "email or username already in use" }, { status: 409 });
+      return NextResponse.json({ errorCode: AUTH_MESSAGE_CODES.EMAIL_OR_USERNAME_IN_USE }, { status: 409 });
     }
 
-    const message = error instanceof Error ? error.message : "Unexpected error while registering";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ errorCode: AUTH_MESSAGE_CODES.UNEXPECTED_REGISTER_ERROR }, { status: 500 });
   }
 }

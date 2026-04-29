@@ -80,7 +80,7 @@ export async function GET(request: Request, { params }: Params) {
     }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while listing invite links";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }
 
@@ -200,6 +200,6 @@ export async function POST(request: Request, { params }: Params) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while creating invite link";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

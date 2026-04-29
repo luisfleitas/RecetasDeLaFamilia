@@ -13,6 +13,7 @@ model Recipe {
   title           String
   description     String?
   stepsMarkdown   String
+  language        RecipeLanguage @default(en)
   visibility      RecipeVisibility @default(public)
   createdByUserId Int        @map("created_by_user_id")
   createdByUser  User        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
@@ -164,6 +165,11 @@ enum RecipeVisibility {
   public
   private
   family
+}
+
+enum RecipeLanguage {
+  en
+  es
 }
 
 model Family {

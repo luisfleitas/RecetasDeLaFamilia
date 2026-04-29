@@ -302,6 +302,7 @@ test("recipe creation still works without import session", async () => {
     });
 
     assert.equal(recipe?.title, "Plain Recipe");
+    assert.equal(recipe?.language, "en");
     assert.equal(recipe?.ingredients.length, 1);
     assert.equal(recipe?.ingredients[0]?.name, "salt");
 
@@ -479,10 +480,12 @@ Steps:
     const hydratedPayload = (await getResponse.json()) as {
       draft: {
         title: string;
+        language: string;
         ingredients: Array<{ notes: string | null }>;
       };
     };
     assert.equal(hydratedPayload.draft.title, "Edited Toast");
+    assert.equal(hydratedPayload.draft.language, "en");
     assert.equal(hydratedPayload.draft.ingredients[0]?.notes, "buttered");
 
     const createFormData = new FormData();
@@ -492,6 +495,7 @@ Steps:
         title: "Edited Toast",
         description: null,
         stepsMarkdown: "1. Toast bread.",
+        language: "es",
         visibility: "private",
         familyIds: [],
         ingredients: [
@@ -518,6 +522,14 @@ Steps:
 
     const createPayload = (await createResponse.json()) as { recipe?: { id: number } };
     assert.ok(createPayload.recipe?.id);
+
+    const createdRecipe = await prisma.recipe.findUnique({
+      where: { id: createPayload.recipe.id },
+      select: {
+        language: true,
+      },
+    });
+    assert.equal(createdRecipe?.language, "es");
 
     const confirmedSession = await prisma.importSession.findUnique({
       where: { id: parsePayload.importSessionId },

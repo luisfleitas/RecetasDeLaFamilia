@@ -1,3 +1,5 @@
+import { AUTH_MESSAGE_CODES, AuthValidationError } from "@/lib/application/auth/errors";
+
 type IncomingRegisterInput = {
   first_name?: unknown;
   last_name?: unknown;
@@ -20,7 +22,18 @@ type IncomingChangePasswordInput = {
 
 function requireString(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${field} is required`);
+    const code = {
+      first_name: AUTH_MESSAGE_CODES.REQUIRED_FIRST_NAME,
+      last_name: AUTH_MESSAGE_CODES.REQUIRED_LAST_NAME,
+      email: AUTH_MESSAGE_CODES.REQUIRED_EMAIL,
+      username: AUTH_MESSAGE_CODES.REQUIRED_USERNAME,
+      password: AUTH_MESSAGE_CODES.REQUIRED_PASSWORD,
+      username_or_email: AUTH_MESSAGE_CODES.REQUIRED_USERNAME_OR_EMAIL,
+      current_password: AUTH_MESSAGE_CODES.REQUIRED_CURRENT_PASSWORD,
+      new_password: AUTH_MESSAGE_CODES.REQUIRED_NEW_PASSWORD,
+    }[field];
+
+    throw new AuthValidationError(code ?? AUTH_MESSAGE_CODES.REQUIRED_PASSWORD);
   }
   return value.trim();
 }
@@ -53,7 +66,7 @@ export function parseRegisterInput(input: unknown): RegisterInput {
   const password = requireString(body.password, "password");
 
   if (password.length < 8) {
-    throw new Error("password must be at least 8 characters");
+    throw new AuthValidationError(AUTH_MESSAGE_CODES.PASSWORD_TOO_SHORT);
   }
 
   return {
@@ -83,7 +96,7 @@ export function parseChangePasswordInput(input: unknown): ChangePasswordInput {
   const newPassword = requireString(body.new_password, "new_password");
 
   if (newPassword.length < 8) {
-    throw new Error("new_password must be at least 8 characters");
+    throw new AuthValidationError(AUTH_MESSAGE_CODES.NEW_PASSWORD_TOO_SHORT);
   }
 
   return {

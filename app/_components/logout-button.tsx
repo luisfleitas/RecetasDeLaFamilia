@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type LogoutButtonProps = {
@@ -10,6 +11,7 @@ type LogoutButtonProps = {
 
 export default function LogoutButton({ className }: LogoutButtonProps) {
   const router = useRouter();
+  const messages = useMessages();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleLogout() {
@@ -30,7 +32,7 @@ export default function LogoutButton({ className }: LogoutButtonProps) {
       disabled={isSubmitting}
       className={buttonClassName("secondary", className)}
     >
-      Logout
+      {messages.home.logOut}
     </button>
   );
 }

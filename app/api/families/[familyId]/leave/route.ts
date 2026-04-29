@@ -142,6 +142,6 @@ export async function POST(request: Request, { params }: Params) {
       );
     }
 
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
       {
         pathname: "/api/recipe-images/**",
       },
+      // Allow Next/Image for handwritten source images exposed through the recipe source-document route.
+      {
+        pathname: "/api/recipes/**/source-documents/**/file",
+      },
       // Allow Next/Image for persisted family images under /uploads/families.
       {
         pathname: "/uploads/families/**",

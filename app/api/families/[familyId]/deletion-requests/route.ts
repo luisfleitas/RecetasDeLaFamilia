@@ -198,6 +198,6 @@ export async function POST(request: Request, { params }: Params) {
     return withRequestId(NextResponse.json(result.payload, { status: result.status }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while creating deletion request";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

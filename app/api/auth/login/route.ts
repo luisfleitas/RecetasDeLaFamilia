@@ -1,4 +1,4 @@
-import { AuthInvalidCredentialsError } from "@/lib/application/auth/use-cases";
+import { AUTH_MESSAGE_CODES, AuthInvalidCredentialsError, AuthValidationError } from "@/lib/application/auth/errors";
 import { parseLoginInput } from "@/lib/application/auth/validation";
 import { buildAuthUseCases } from "@/lib/auth/factory";
 import { ACCESS_TOKEN_COOKIE, getAccessTokenCookieConfig } from "@/lib/auth/session-cookie";
@@ -14,15 +14,16 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ errorCode: AUTH_MESSAGE_CODES.INVALID_JSON_BODY }, { status: 400 });
   }
 
   let input;
   try {
     input = parseLoginInput(body);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid login payload";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const errorCode =
+      error instanceof AuthValidationError ? error.code : AUTH_MESSAGE_CODES.INVALID_LOGIN_PAYLOAD;
+    return NextResponse.json({ errorCode }, { status: 400 });
   }
 
   try {
@@ -32,10 +33,9 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     if (error instanceof AuthInvalidCredentialsError) {
-      return NextResponse.json({ error: "Invalid username or password" }, { status: 401 });
+      return NextResponse.json({ errorCode: error.code }, { status: 401 });
     }
 
-    const message = error instanceof Error ? error.message : "Unexpected error while logging in";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ errorCode: AUTH_MESSAGE_CODES.UNEXPECTED_LOGIN_ERROR }, { status: 500 });
   }
 }

@@ -121,7 +121,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return withRequestId(NextResponse.json({ membership }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while updating member role";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }
 
@@ -235,6 +235,6 @@ export async function DELETE(request: Request, { params }: Params) {
     return withRequestId(NextResponse.json({ ok: true }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while removing member";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

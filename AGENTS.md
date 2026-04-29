@@ -1,5 +1,27 @@
 # Project Agent Instructions
 
+## New Chat Handoff
+- To reduce repeated context-gathering, prefer a short handoff packet at the start of a new chat when continuing existing Recetas work.
+- For active feature work, keep a live handoff file at `requirements/<feature>/handoff.md` when the feature has enough moving parts to need one.
+- The handoff file should include:
+  - Current State
+  - Completed
+  - In Progress
+  - Next Action
+  - Known Issues
+  - Verification Already Run
+  - Manual Testing Status
+  - Decisions Already Approved
+- In a new chat, read the requested handoff file first, then inspect only the files needed for the next task unless the repo evidence contradicts the handoff.
+- When no handoff file exists, use this quick-start order before broader exploration:
+  1. `AGENTS.md`
+  2. `requirements/<feature>/implementation-plan.md`
+  3. `requirements/<feature>/qa-checklist.md`
+  4. `git status --short --branch`
+- Treat implementation trackers and checklists as the source of truth for progress when they are present and current.
+- Do not re-plan completed or approved decisions unless the docs, code, or user request explicitly indicate the plan is stale.
+- When closing a work session, update the relevant tracker or handoff file with the next concrete action and any verification already run.
+
 ## UI Styling Consistency
 - Use the Visibility Type tabs as the reference pattern for all secondary menus.
 - Secondary menus must reuse the same structure and interaction model:
