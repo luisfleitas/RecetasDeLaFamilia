@@ -9,6 +9,7 @@ import {
 } from "@/lib/application/recipes/import-session-metadata";
 import { getImportWarningsForDraft, type ImportWarning } from "@/lib/application/recipes/import-warnings";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
+import { normalizeRecipeLanguage, type RecipeLanguage } from "@/lib/domain/recipe-language";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
@@ -30,7 +31,7 @@ type ImportSessionResponse = {
   metadata: ImportSessionMetadata | null;
 };
 
-function parseDraftFromUnknown(value: unknown): ImportedRecipeDraft {
+function parseDraftFromUnknown(value: unknown, fallbackLanguage?: RecipeLanguage): ImportedRecipeDraft {
   if (!value || typeof value !== "object") {
     throw new Error("Invalid imported draft payload.");
   }
@@ -78,6 +79,7 @@ function parseDraftFromUnknown(value: unknown): ImportedRecipeDraft {
     title,
     description: descriptionRaw.length > 0 ? descriptionRaw : null,
     stepsMarkdown,
+    language: normalizeRecipeLanguage(draft.language, fallbackLanguage),
     ingredients,
   };
 }
@@ -289,16 +291,6 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const typedBody = body as { draft?: unknown; metadata?: unknown };
-  const draftInput = typedBody.draft;
-  let draft: ImportedRecipeDraft;
-  try {
-    draft = parseDraftFromUnknown(draftInput);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid imported draft payload.";
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
-
   const { prisma, session } = await readImportSession(sessionId);
   if (!session || session.userId !== authUser.userId) {
     return NextResponse.json({ error: "Import session not found." }, { status: 404 });
@@ -316,6 +308,23 @@ export async function PATCH(request: Request, { params }: Params) {
       { error: "Import session can no longer be edited." },
       { status: 409 },
     );
+  }
+
+  const typedBody = body as { draft?: unknown; metadata?: unknown };
+  let currentDraft: ImportedRecipeDraft | null = null;
+  try {
+    currentDraft = JSON.parse(session.draftJson) as ImportedRecipeDraft;
+  } catch {
+    currentDraft = null;
+  }
+
+  const draftInput = typedBody.draft;
+  let draft: ImportedRecipeDraft;
+  try {
+    draft = parseDraftFromUnknown(draftInput, currentDraft?.language);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid imported draft payload.";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   const warnings = getImportWarningsForDraft(draft);

@@ -2,8 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import RecipeLanguageControl from "@/app/recipes/_components/recipe-language-control";
 import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
+import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 
 type Ingredient = {
   id: number;
@@ -27,6 +30,7 @@ type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  language: RecipeLanguage;
   visibility: "public" | "private" | "family";
   families: Array<{ id: number; name: string }>;
   ingredients: Ingredient[];
@@ -91,9 +95,11 @@ function toExistingImageDrafts(recipe: Recipe): ExistingImageDraft[] {
 
 export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   const router = useRouter();
+  const messages = useMessages();
   const [title, setTitle] = useState(recipe.title);
   const [description, setDescription] = useState(recipe.description ?? "");
   const [stepsMarkdown, setStepsMarkdown] = useState(recipe.stepsMarkdown);
+  const [recipeLanguage, setRecipeLanguage] = useState<RecipeLanguage>(recipe.language);
   const [ingredients, setIngredients] = useState<IngredientDraft[]>(toIngredientDrafts(recipe.ingredients));
   const [existingImages, setExistingImages] = useState<ExistingImageDraft[]>(toExistingImageDrafts(recipe));
   const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
@@ -185,7 +191,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
       const data = (await response.json()) as { promotedPrimaryImageId?: number | null; error?: string };
       if (!response.ok) {
-        setError(data.error ?? "Failed to remove image.");
+        setError(data.error ?? messages.recipe.errors.removeImageFailed);
         return;
       }
 
@@ -195,7 +201,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       }
       router.refresh();
     } catch {
-      setError("Failed to remove image.");
+      setError(messages.recipe.errors.removeImageFailed);
     } finally {
       setIsRemovingImageId(null);
     }
@@ -209,18 +215,18 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     const selected = Array.from(files);
     const nextTotal = totalImageCount() + selected.length;
     if (nextTotal > MAX_IMAGES) {
-      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      setError(messages.recipe.errors.maxImages);
       return;
     }
 
     for (const file of selected) {
       if (!ALLOWED_MIME_TYPES.has(file.type)) {
-        setError("Only JPEG, PNG, and WEBP images are allowed.");
+        setError(messages.recipe.errors.invalidImageType);
         return;
       }
 
       if (file.size > MAX_IMAGE_BYTES) {
-        setError("Each image must be 10MB or smaller.");
+        setError(messages.recipe.errors.invalidImageSize);
         return;
       }
     }
@@ -257,27 +263,27 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     const trimmedSteps = stepsMarkdown.trim();
 
     if (trimmedTitle.length === 0) {
-      setError("Title is required.");
+      setError(messages.recipe.errors.requiredTitle);
       return;
     }
 
     if (trimmedSteps.length === 0) {
-      setError("Steps are required.");
+      setError(messages.recipe.errors.requiredSteps);
       return;
     }
 
     if (ingredients.length === 0) {
-      setError("Add at least one ingredient.");
+      setError(messages.recipe.errors.missingIngredient);
       return;
     }
 
     if (totalImageCount() > MAX_IMAGES) {
-      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      setError(messages.recipe.errors.maxImages);
       return;
     }
 
     if (visibility === "family" && selectedFamilyIds.length === 0) {
-      setError("Choose at least one family when sharing is set to Family.");
+      setError(messages.recipe.errors.familySelectionRequired);
       return;
     }
 
@@ -299,7 +305,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     );
 
     if (hasInvalidIngredient) {
-      setError("Check ingredients: qty must be a positive decimal number and required fields must be filled.");
+      setError(messages.recipe.errors.invalidIngredient);
       return;
     }
 
@@ -307,6 +313,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     formData.append("title", trimmedTitle);
     formData.append("description", description.trim());
     formData.append("stepsMarkdown", trimmedSteps);
+    formData.append("language", recipeLanguage);
     formData.append("visibility", visibility);
     formData.append("ingredients", JSON.stringify(payloadIngredients));
 
@@ -339,14 +346,14 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       const data = (await response.json()) as UpdateRecipeResponse;
 
       if (!response.ok || !data.recipe) {
-        setError(data.error ?? "Failed to update recipe");
+        setError(data.error ?? messages.recipe.errors.updateRecipeFailed);
         return;
       }
 
       router.push(`/recipes/${data.recipe.id}`);
       router.refresh();
     } catch {
-      setError("Failed to update recipe");
+      setError(messages.recipe.errors.updateRecipeFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -357,16 +364,16 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       <div id="edit-recipe-basic-info-section" className="surface-card recipe-form-section p-4">
         <div id="edit-recipe-basic-info-header" className="recipe-form-section-header">
           <div id="edit-recipe-basic-info-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-basic-info-title" className="recipe-form-section-title">Basic info</p>
+            <p id="edit-recipe-basic-info-title" className="recipe-form-section-title">{messages.recipe.basicInfoTitle}</p>
             <p id="edit-recipe-basic-info-description" className="recipe-form-section-description">
-              Keep the core recipe details together before the ingredient and image sections.
+              {messages.recipe.editBasicInfoDescription}
             </p>
           </div>
         </div>
 
         <div id="edit-recipe-title-field">
           <label id="edit-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
-            Title
+            {messages.recipe.titleLabel}
           </label>
           <input
             id="title"
@@ -380,7 +387,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
         <div id="edit-recipe-description-field">
           <label id="edit-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
-            Description
+            {messages.recipe.descriptionLabel}
           </label>
           <textarea
             id="description"
@@ -391,14 +398,20 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
             className="input-base"
           />
         </div>
+
+        <RecipeLanguageControl
+          baseId="edit-recipe-language"
+          value={recipeLanguage}
+          onChange={setRecipeLanguage}
+        />
       </div>
 
       <div id="edit-recipe-sharing-section" className="surface-card recipe-form-section p-4">
         <div id="edit-recipe-sharing-header" className="recipe-form-section-header">
           <div id="edit-recipe-sharing-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-sharing-title" className="recipe-form-section-title">Sharing</p>
+            <p id="edit-recipe-sharing-title" className="recipe-form-section-title">{messages.recipe.sharingTitle}</p>
             <p id="edit-recipe-sharing-description" className="recipe-form-section-description">
-              Update who can access this recipe without leaving the edit flow.
+              {messages.recipe.sharingEditDescription}
             </p>
           </div>
         </div>
@@ -413,7 +426,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
               onChange={() => setVisibility("public")}
               className="mr-2"
             />
-            Public (everyone)
+            {messages.recipe.visibilityPublic}
           </label>
           <label id="edit-recipe-sharing-private-label" className="text-sm">
             <input
@@ -424,7 +437,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
               onChange={() => setVisibility("private")}
               className="mr-2"
             />
-            Private (only you)
+            {messages.recipe.visibilityPrivate}
           </label>
           <label id="edit-recipe-sharing-family-label" className="text-sm">
             <input
@@ -435,14 +448,14 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
               onChange={() => setVisibility("family")}
               className="mr-2"
             />
-            Family
+            {messages.recipe.visibilityFamily}
           </label>
         </div>
 
         {visibility === "family" ? (
           <div id="edit-recipe-sharing-families-section" className="space-y-2">
             <p id="edit-recipe-sharing-families-title" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
-              Select families
+              {messages.recipe.selectFamilies}
             </p>
             {familyOptions.length > 0 ? (
               <ul id="edit-recipe-sharing-families-list" className="space-y-2">
@@ -463,7 +476,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
               </ul>
             ) : (
               <p id="edit-recipe-sharing-families-empty" className="text-sm text-[var(--color-text-muted)]">
-                You are not a member of any families yet.
+                {messages.recipe.noFamilies}
               </p>
             )}
           </div>
@@ -477,15 +490,15 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         onAdd={addIngredientRow}
         onRemove={removeIngredientRow}
         onUpdate={updateIngredient}
-        title="Ingredients"
+        title={messages.recipe.ingredientsTitle}
       />
 
       <div id="edit-recipe-images-section" className="surface-card recipe-form-section space-y-3 p-4">
         <div id="edit-recipe-images-header" className="recipe-form-section-header">
           <div id="edit-recipe-images-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-images-title" className="recipe-form-section-title">Recipe Images</p>
+            <p id="edit-recipe-images-title" className="recipe-form-section-title">{messages.recipe.imagesTitle}</p>
             <p id="edit-recipe-images-description" className="recipe-form-section-description">
-              Keep saved and new images organized after the ingredient section.
+              {messages.recipe.imagesEditDescription}
             </p>
           </div>
           <span id="edit-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{totalImageCount()}/{MAX_IMAGES}</span>
@@ -498,7 +511,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                 <img
                   id={`edit-recipe-existing-image-${image.id}`}
                   src={image.thumbnailUrl}
-                  alt="Recipe"
+                  alt={messages.recipe.galleryImageAlt}
                   className="h-36 w-full rounded-[var(--radius-sm)] object-cover"
                 />
                 <div id={`edit-recipe-existing-image-actions-${image.id}`} className="mt-2 flex items-center gap-2">
@@ -514,7 +527,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                       }}
                       className="mr-1"
                     />
-                    Principal
+                    {messages.recipe.primaryImage}
                   </label>
                   <button
                     id={`edit-recipe-existing-image-remove-${image.id}`}
@@ -523,14 +536,14 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     disabled={isRemovingImageId === image.id}
                     className={buttonClassName("secondary")}
                   >
-                    {isRemovingImageId === image.id ? "Removing..." : "Remove"}
+                    {isRemovingImageId === image.id ? messages.recipe.removing : messages.recipe.remove}
                   </button>
                 </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p id="edit-recipe-no-existing-images" className="text-sm text-[var(--color-text-muted)]">No saved images yet.</p>
+          <p id="edit-recipe-no-existing-images" className="text-sm text-[var(--color-text-muted)]">{messages.recipe.noSavedImages}</p>
         )}
 
         <input
@@ -544,7 +557,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
         {newImages.length > 0 ? (
           <div id="edit-recipe-new-selected-files-box" className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
-            <p id="edit-recipe-new-selected-files-title" className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Selected files</p>
+            <p id="edit-recipe-new-selected-files-title" className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">{messages.recipe.selectedFiles}</p>
             <div id="edit-recipe-new-selected-files-list" className="space-y-1">
               {newImages.map((image) => (
                 <p id={`edit-recipe-new-selected-file-${image.id}`} key={image.id} className="truncate text-xs text-[var(--color-text-muted)]">
@@ -574,7 +587,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                       }}
                       className="mr-1"
                     />
-                    Principal
+                    {messages.recipe.primaryImage}
                   </label>
                   <button
                     id={`edit-recipe-new-image-remove-${image.id}`}
@@ -582,7 +595,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     onClick={() => removeNewImage(image.id)}
                     className={buttonClassName("secondary")}
                   >
-                    Remove
+                    {messages.recipe.remove}
                   </button>
                 </div>
               </li>
@@ -594,15 +607,15 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       <div id="edit-recipe-steps-section" className="surface-card recipe-form-section p-4">
         <div id="edit-recipe-steps-header" className="recipe-form-section-header">
           <div id="edit-recipe-steps-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-steps-title" className="recipe-form-section-title">Steps</p>
+            <p id="edit-recipe-steps-title" className="recipe-form-section-title">{messages.recipe.stepsTitle}</p>
             <p id="edit-recipe-steps-description" className="recipe-form-section-description">
-              Keep the recipe instructions in their own final section after ingredients and images.
+              {messages.recipe.stepsEditDescription}
             </p>
           </div>
         </div>
         <div id="edit-recipe-steps-field">
           <label id="edit-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
-            Steps (Markdown)
+            {messages.recipe.stepsLabel}
           </label>
           <textarea
             id="stepsMarkdown"
@@ -619,7 +632,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       {error ? <p id="edit-recipe-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
 
       <button id="edit-recipe-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
-        {isSubmitting ? "Saving..." : "Save Changes"}
+        {isSubmitting ? messages.recipe.savingSubmit : messages.recipe.saveSubmit}
       </button>
     </form>
   );

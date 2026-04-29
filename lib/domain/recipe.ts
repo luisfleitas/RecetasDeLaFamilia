@@ -1,3 +1,5 @@
+import type { RecipeLanguage } from "@/lib/domain/recipe-language";
+
 export type RecipeVisibility = "public" | "private" | "family";
 
 export type RecipeFamilyRef = {
@@ -56,6 +58,7 @@ export type Recipe = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  language: RecipeLanguage;
   visibility: RecipeVisibility;
   families: RecipeFamilyRef[];
   createdByUserId: number;
@@ -78,6 +81,7 @@ export type CreateRecipeInput = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  language: RecipeLanguage;
   visibility: RecipeVisibility;
   familyIds: number[];
   ingredients: CreateIngredientInput[];

@@ -3,6 +3,7 @@ import {
   getRecipeImportHandwrittenPrimaryOcrProvider,
   hasRecipeImportOpenAiOcrFallback,
 } from "@/lib/application/recipes/import-config";
+import { inferRecipeLanguageFromText } from "@/lib/application/recipes/recipe-language";
 import { extractTextWithLocalOcrResult, isSupportedOcrMimeType } from "@/lib/application/recipes/local-ocr";
 import { runOpenAiOcrFallback, shouldUseOpenAiOcrFallback } from "@/lib/application/recipes/openai-ocr";
 import type { HandwrittenImportMetadata } from "@/lib/application/recipes/import-session-metadata";
@@ -184,6 +185,7 @@ export function buildHandwrittenFallbackDraft(content: string): ImportedRecipeDr
     title,
     description: null,
     stepsMarkdown,
+    language: inferRecipeLanguageFromText(content),
     ingredients: [],
   };
 }

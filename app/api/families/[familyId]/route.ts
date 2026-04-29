@@ -102,7 +102,7 @@ export async function GET(request: Request, { params }: Params) {
     }), requestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while fetching family";
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }
 
@@ -201,6 +201,6 @@ export async function PATCH(request: Request, { params }: Params) {
       );
     }
 
-    return withRequestId(NextResponse.json({ error: message }, { status: 500 }), requestId);
+    return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

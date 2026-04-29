@@ -4,9 +4,13 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import LocaleSwitcher from "@/app/_components/locale-switcher";
+import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
+import RecipeLanguageControl from "@/app/recipes/_components/recipe-language-control";
 import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
+import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 
 type CreatedRecipe = {
   id: number;
@@ -69,12 +73,15 @@ function toIngredientDraftsFromImportedDraft(draft: ImportedRecipeDraft): Ingred
 export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const locale = useLocale();
+  const messages = useMessages();
   const importSessionId = searchParams.get("importSession");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [stepsMarkdown, setStepsMarkdown] = useState("");
+  const [recipeLanguage, setRecipeLanguage] = useState<RecipeLanguage>("en");
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([EMPTY_INGREDIENT]);
   const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
   const [nextImageId, setNextImageId] = useState(1);
@@ -120,7 +127,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
         const data = (await response.json()) as { draft?: ImportedRecipeDraft; error?: string };
         if (!response.ok || !data.draft) {
           if (!isCancelled) {
-            setError(data.error ?? "Could not hydrate imported draft.");
+            setError(data.error ?? messages.recipe.errors.hydrateImportDraft);
           }
           return;
         }
@@ -129,12 +136,13 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
           setTitle(data.draft.title ?? "");
           setDescription(data.draft.description ?? "");
           setStepsMarkdown(data.draft.stepsMarkdown ?? "");
+          setRecipeLanguage(data.draft.language ?? "en");
           setIngredients(toIngredientDraftsFromImportedDraft(data.draft));
           setError(null);
         }
       } catch {
         if (!isCancelled) {
-          setError("Could not hydrate imported draft.");
+          setError(messages.recipe.errors.hydrateImportDraft);
         }
       }
     };
@@ -144,7 +152,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     return () => {
       isCancelled = true;
     };
-  }, [importSessionId]);
+  }, [importSessionId, messages.recipe.errors.hydrateImportDraft]);
 
   function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
@@ -203,18 +211,18 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     const selected = Array.from(files);
     const nextTotal = newImages.length + selected.length;
     if (nextTotal > MAX_IMAGES) {
-      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      setError(messages.recipe.errors.maxImages);
       return;
     }
 
     for (const file of selected) {
       if (!ALLOWED_MIME_TYPES.has(file.type)) {
-        setError("Only JPEG, PNG, and WEBP images are allowed.");
+        setError(messages.recipe.errors.invalidImageType);
         return;
       }
 
       if (file.size > MAX_IMAGE_BYTES) {
-        setError("Each image must be 10MB or smaller.");
+        setError(messages.recipe.errors.invalidImageSize);
         return;
       }
     }
@@ -253,7 +261,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     const trimmedStepsMarkdown = stepsMarkdown.trim();
 
     if (ingredients.length === 0) {
-      setError("Add at least one ingredient.");
+      setError(messages.recipe.errors.missingIngredient);
       setIsSubmitting(false);
       return;
     }
@@ -276,31 +284,31 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     );
 
     if (hasInvalidIngredient) {
-      setError("Check ingredients: qty must be a positive decimal number and required fields must be filled.");
+      setError(messages.recipe.errors.invalidIngredient);
       setIsSubmitting(false);
       return;
     }
 
     if (newImages.length > MAX_IMAGES) {
-      setError(`You can upload up to ${MAX_IMAGES} images.`);
+      setError(messages.recipe.errors.maxImages);
       setIsSubmitting(false);
       return;
     }
 
     if (!trimmedTitle) {
-      setError("Title is required.");
+      setError(messages.recipe.errors.requiredTitle);
       setIsSubmitting(false);
       return;
     }
 
     if (!trimmedStepsMarkdown) {
-      setError("Steps are required.");
+      setError(messages.recipe.errors.requiredSteps);
       setIsSubmitting(false);
       return;
     }
 
     if (visibility === "family" && selectedFamilyIds.length === 0) {
-      setError("Choose at least one family when sharing is set to Family.");
+      setError(messages.recipe.errors.familySelectionRequired);
       setIsSubmitting(false);
       return;
     }
@@ -309,6 +317,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     recipeFormData.append("title", trimmedTitle);
     recipeFormData.append("description", trimmedDescription);
     recipeFormData.append("stepsMarkdown", trimmedStepsMarkdown);
+    recipeFormData.append("language", recipeLanguage);
     recipeFormData.append("visibility", visibility);
     recipeFormData.append("ingredients", JSON.stringify(payloadIngredients));
 
@@ -342,13 +351,13 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
       const data = (await response.json()) as CreateRecipeResponse;
 
       if (!response.ok || !data.recipe) {
-        setError(data.error ?? "Failed to create recipe");
+        setError(data.error ?? messages.recipe.errors.createRecipeFailed);
         return;
       }
 
       router.push(`/recipes/${data.recipe.id}`);
     } catch {
-      setError("Failed to create recipe");
+      setError(messages.recipe.errors.createRecipeFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -357,16 +366,17 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
   return (
     <main id="new-recipe-main" className="app-shell max-w-5xl">
       <div id="new-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
-        <div id="new-recipe-header" className="flex items-center justify-between">
-          <h1 id="new-recipe-title" className="text-2xl font-semibold">Add Family Recipe</h1>
-          <div id="new-recipe-header-links" className="flex items-center gap-3">
+        <div id="new-recipe-header" className="flex items-center justify-between gap-3">
+          <h1 id="new-recipe-title" className="text-2xl font-semibold">{messages.recipe.newTitle}</h1>
+          <div id="new-recipe-header-links" className="flex flex-wrap items-center justify-end gap-3">
+            <LocaleSwitcher locale={locale} />
             {isRecipeImportEnabled ? (
               <Link id="new-recipe-import-link" href="/recipes/import" className="text-link text-sm">
-                Import Recipe
+                {messages.recipe.importLink}
               </Link>
             ) : null}
             <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
-              Back to list
+              {messages.common.backToRecipes}
             </Link>
           </div>
         </div>
@@ -375,16 +385,16 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
           <div id="new-recipe-basic-info-section" className="surface-card recipe-form-section p-4">
             <div id="new-recipe-basic-info-header" className="recipe-form-section-header">
               <div id="new-recipe-basic-info-copy" className="recipe-form-section-copy">
-                <p id="new-recipe-basic-info-title" className="recipe-form-section-title">Basic info</p>
+                <p id="new-recipe-basic-info-title" className="recipe-form-section-title">{messages.recipe.basicInfoTitle}</p>
                 <p id="new-recipe-basic-info-description" className="recipe-form-section-description">
-                  Start with the core details before building the ingredient list.
+                  {messages.recipe.basicInfoDescription}
                 </p>
               </div>
             </div>
 
             <div id="new-recipe-title-field">
               <label id="new-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
-                Title
+                {messages.recipe.titleLabel}
               </label>
               <input
                 id="title"
@@ -398,7 +408,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
 
             <div id="new-recipe-description-field">
               <label id="new-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
-                Description
+                {messages.recipe.descriptionLabel}
               </label>
               <textarea
                 id="description"
@@ -409,14 +419,20 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
                 className="input-base"
               />
             </div>
+
+            <RecipeLanguageControl
+              baseId="new-recipe-language"
+              value={recipeLanguage}
+              onChange={setRecipeLanguage}
+            />
           </div>
 
           <div id="new-recipe-sharing-section" className="surface-card recipe-form-section p-4">
             <div id="new-recipe-sharing-header" className="recipe-form-section-header">
               <div id="new-recipe-sharing-copy" className="recipe-form-section-copy">
-                <p id="new-recipe-sharing-title" className="recipe-form-section-title">Sharing</p>
+                <p id="new-recipe-sharing-title" className="recipe-form-section-title">{messages.recipe.sharingTitle}</p>
                 <p id="new-recipe-sharing-description" className="recipe-form-section-description">
-                  Choose whether this recipe is public, private, or shared with one or more families.
+                  {messages.recipe.sharingCreateDescription}
                 </p>
               </div>
             </div>
@@ -431,7 +447,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
                   onChange={() => setVisibility("public")}
                   className="mr-2"
                 />
-                Public (everyone)
+                {messages.recipe.visibilityPublic}
               </label>
               <label id="new-recipe-sharing-private-label" className="text-sm">
                 <input
@@ -442,7 +458,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
                   onChange={() => setVisibility("private")}
                   className="mr-2"
                 />
-                Private (only you)
+                {messages.recipe.visibilityPrivate}
               </label>
               <label id="new-recipe-sharing-family-label" className="text-sm">
                 <input
@@ -453,14 +469,14 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
                   onChange={() => setVisibility("family")}
                   className="mr-2"
                 />
-                Family
+                {messages.recipe.visibilityFamily}
               </label>
             </div>
 
             {visibility === "family" ? (
               <div id="new-recipe-sharing-families-section" className="space-y-2">
                 <p id="new-recipe-sharing-families-title" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
-                  Select families
+                  {messages.recipe.selectFamilies}
                 </p>
                 {familyOptions.length > 0 ? (
                   <ul id="new-recipe-sharing-families-list" className="space-y-2">
@@ -481,7 +497,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
                   </ul>
                 ) : (
                   <p id="new-recipe-sharing-families-empty" className="text-sm text-[var(--color-text-muted)]">
-                    You are not a member of any families yet.
+                    {messages.recipe.noFamilies}
                   </p>
                 )}
               </div>
@@ -495,15 +511,15 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
             onAdd={addIngredientRow}
             onRemove={removeIngredientRow}
             onUpdate={updateIngredient}
-            title="Ingredients"
+            title={messages.recipe.ingredientsTitle}
           />
 
           <div id="new-recipe-images-section" className="surface-card recipe-form-section p-4">
             <div id="new-recipe-images-header" className="mb-3 flex items-center justify-between">
               <div id="new-recipe-images-copy" className="recipe-form-section-copy">
-                <p id="new-recipe-images-title" className="recipe-form-section-title">Recipe Images</p>
+                <p id="new-recipe-images-title" className="recipe-form-section-title">{messages.recipe.imagesTitle}</p>
                 <p id="new-recipe-images-description" className="recipe-form-section-description">
-                  Add photos after the ingredients are in place, then choose the primary image.
+                  {messages.recipe.imagesCreateDescription}
                 </p>
               </div>
               <span id="new-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{newImages.length}/{MAX_IMAGES}</span>
@@ -521,7 +537,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
 
               {newImages.length > 0 ? (
                 <div id="new-recipe-selected-files-box" className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
-                  <p id="new-recipe-selected-files-title" className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">Selected files</p>
+                  <p id="new-recipe-selected-files-title" className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">{messages.recipe.selectedFiles}</p>
                   <div id="new-recipe-selected-files-list" className="space-y-1">
                     {newImages.map((image) => (
                       <p id={`new-recipe-selected-file-${image.id}`} key={image.id} className="truncate text-xs text-[var(--color-text-muted)]">
@@ -548,7 +564,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
                             onChange={() => setPrimaryNewImageId(image.id)}
                             className="mr-1"
                           />
-                          Principal
+                          {messages.recipe.primaryImage}
                         </label>
                         <button
                           id={`new-recipe-image-remove-${image.id}`}
@@ -556,14 +572,14 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
                           onClick={() => removeNewImage(image.id)}
                           className={buttonClassName("secondary")}
                         >
-                          Remove
+                          {messages.recipe.remove}
                         </button>
                       </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p id="new-recipe-no-images" className="text-sm text-[var(--color-text-muted)]">No images selected yet.</p>
+                <p id="new-recipe-no-images" className="text-sm text-[var(--color-text-muted)]">{messages.recipe.noImagesSelected}</p>
               )}
             </div>
           </div>
@@ -571,15 +587,15 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
           <div id="new-recipe-steps-section" className="surface-card recipe-form-section p-4">
             <div id="new-recipe-steps-header" className="recipe-form-section-header">
               <div id="new-recipe-steps-copy" className="recipe-form-section-copy">
-                <p id="new-recipe-steps-title" className="recipe-form-section-title">Steps</p>
+                <p id="new-recipe-steps-title" className="recipe-form-section-title">{messages.recipe.stepsTitle}</p>
                 <p id="new-recipe-steps-description" className="recipe-form-section-description">
-                  Write the instructions last, after the recipe structure and ingredients are in place.
+                  {messages.recipe.stepsCreateDescription}
                 </p>
               </div>
             </div>
             <div id="new-recipe-steps-field">
               <label id="new-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
-                Steps (Markdown)
+                {messages.recipe.stepsLabel}
               </label>
               <textarea
                 id="stepsMarkdown"
@@ -596,7 +612,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
           {error ? <p id="new-recipe-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
 
           <button id="new-recipe-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
-            {isSubmitting ? "Creating..." : "Create Recipe"}
+            {isSubmitting ? messages.recipe.creatingSubmit : messages.recipe.createSubmit}
           </button>
         </form>
       </div>

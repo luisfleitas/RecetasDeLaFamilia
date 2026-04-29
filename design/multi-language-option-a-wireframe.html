@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recetas Wireframe - Multi-Language Option A</title>
+    <style>
+      :root {
+        --bg: #f3f6f3;
+        --surface: #fbfdfb;
+        --surface-soft: #f1f6f1;
+        --surface-muted: #e6efe8;
+        --text: #1f2922;
+        --text-muted: #5d6c61;
+        --border: #c9d8cc;
+        --border-strong: #a9c0b1;
+        --primary: #3f6b4f;
+        --radius-sm: 10px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --shadow: 0 18px 40px rgba(31, 57, 41, 0.1);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(110, 157, 126, 0.18), transparent 30%),
+          var(--bg);
+        color: var(--text);
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        padding: 28px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      h1, h2, h3, p { margin: 0; }
+
+      .supporting {
+        margin-top: 8px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        max-width: 760px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .header-actions {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .button, .pill, .lang-item, .meta-pill {
+        border-radius: 11px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .button {
+        padding: 12px 16px;
+        background: var(--primary);
+        color: #f6fbf7;
+        white-space: nowrap;
+      }
+
+      .pill {
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        background: var(--surface-soft);
+        color: var(--text-muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .locale-dropdown {
+        position: relative;
+        min-width: 150px;
+        flex: 0 0 auto;
+      }
+
+      .locale-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 42px;
+        padding: 10px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--surface-soft);
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .locale-current {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .flag {
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .chevron {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .locale-menu {
+        margin-top: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: #fff;
+        overflow: hidden;
+        box-shadow: 0 14px 28px rgba(31, 57, 41, 0.08);
+      }
+
+      .locale-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 14px;
+      }
+
+      .locale-option:first-child {
+        border-top: 0;
+      }
+
+      .locale-option.active {
+        background: var(--surface-soft);
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .secondary-tabs {
+        display: flex;
+        gap: 10px;
+        margin-top: 24px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .secondary-tab {
+        border: 1px solid var(--border);
+        border-bottom: 3px solid transparent;
+        border-radius: var(--radius-sm);
+        background: var(--surface-muted);
+        padding: 12px 16px 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+
+      .secondary-tab.active {
+        background: var(--surface);
+        color: var(--text);
+        border-bottom-color: var(--primary);
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) 340px;
+        gap: 24px;
+        margin-top: 24px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        padding: 20px;
+      }
+
+      .soft {
+        background: var(--surface-soft);
+      }
+
+      .field {
+        margin-top: 16px;
+      }
+
+      .label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .input, .textarea, .help, .recipe-card {
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: #fff;
+      }
+
+      .input {
+        height: 42px;
+      }
+
+      .textarea {
+        height: 74px;
+      }
+
+      .lang-picker {
+        display: inline-flex;
+        border-bottom: 2px solid var(--border);
+        gap: 8px;
+        padding-top: 2px;
+      }
+
+      .lang-item {
+        padding: 10px 14px 12px;
+        border-bottom: 3px solid transparent;
+        background: var(--surface-muted);
+        color: var(--text-muted);
+      }
+
+      .lang-item.active {
+        border-bottom-color: var(--primary);
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      .help {
+        margin-top: 10px;
+        padding: 12px 14px;
+        color: var(--text-muted);
+        line-height: 1.45;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .meta-pill {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        background: var(--surface-soft);
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      .recipe-card {
+        padding: 16px;
+        margin-top: 16px;
+      }
+
+      .recipe-card .title {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .recipe-card .copy {
+        margin-top: 8px;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+
+      .note {
+        margin-top: 16px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        font-size: 14px;
+      }
+
+      @media (max-width: 900px) {
+        .content-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          flex-direction: column;
+        }
+
+        .header-actions {
+          flex-wrap: wrap;
+          justify-content: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">Option A</p>
+            <h1>Header Locale Dropdown</h1>
+            <p class="supporting">
+              Locale selection stays visible in the header action row, but now uses a lighter dropdown trigger with a
+              small flag plus text label. Recipe language remains inside Basic info for create, edit, and import review.
+            </p>
+          </div>
+          <div class="header-actions">
+            <div class="button">+ Add Family Recipe</div>
+            <div class="locale-dropdown" aria-label="UI language switcher">
+              <div class="locale-trigger">
+                <div class="locale-current">
+                  <span class="flag">🇺🇸</span>
+                  <span>English</span>
+                </div>
+                <span class="chevron">▼</span>
+              </div>
+              <div class="locale-menu">
+                <div class="locale-option active">
+                  <span class="flag">🇺🇸</span>
+                  <span>English</span>
+                </div>
+                <div class="locale-option">
+                  <span class="flag">🇪🇸</span>
+                  <span>Español</span>
+                </div>
+              </div>
+            </div>
+            <div class="pill">Signed in as maria</div>
+          </div>
+        </div>
+
+        <div class="secondary-tabs">
+          <div class="secondary-tab active">Recipes</div>
+          <div class="secondary-tab">Account</div>
+          <div class="secondary-tab">My Families</div>
+          <div class="secondary-tab">Add Recipe</div>
+        </div>
+
+        <div class="content-grid">
+          <div>
+            <div class="card">
+              <p class="eyebrow">Create Flow</p>
+              <h2>Basic info</h2>
+
+              <div class="field">
+                <label class="label">Title</label>
+                <div class="input"></div>
+              </div>
+
+              <div class="field">
+                <label class="label">Description</label>
+                <div class="textarea"></div>
+              </div>
+
+              <div class="field">
+                <label class="label">Recipe language</label>
+                <div class="lang-picker" aria-label="Recipe language">
+                  <div class="lang-item active">English</div>
+                  <div class="lang-item">Spanish</div>
+                </div>
+                <div class="help">
+                  This describes the language of the recipe itself. It does not change the app language.
+                </div>
+              </div>
+            </div>
+
+            <div class="card soft" style="margin-top: 20px;">
+              <p class="eyebrow">Import Review</p>
+              <h2>Parsed draft confirmation</h2>
+              <p class="note">
+                The same recipe-language segmented control appears above the Continue action so users can correct the
+                language before creating the recipe. UI language remains a separate global dropdown choice.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div class="card soft">
+              <p class="eyebrow">Detail View</p>
+              <h2>Recipe metadata treatment</h2>
+              <div class="recipe-card">
+                <div class="title">Arroz con Pollo</div>
+                <div class="copy">Created April 21, 2026 at 6:15 PM</div>
+                <div class="meta-row">
+                  <div class="meta-pill">Language: Spanish</div>
+                  <div class="meta-pill">12 ingredients</div>
+                  <div class="meta-pill">4 images</div>
+                </div>
+              </div>
+              <p class="note">
+                Language appears as one more detail pill rather than a new badge style, keeping the detail page stable.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

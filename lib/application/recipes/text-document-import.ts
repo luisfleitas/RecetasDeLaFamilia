@@ -1,9 +1,12 @@
 import type { CreateIngredientInput } from "@/lib/domain/recipe";
+import { inferRecipeLanguageFromText } from "@/lib/application/recipes/recipe-language";
+import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 
 export type ImportedRecipeDraft = {
   title: string;
   description: string | null;
   stepsMarkdown: string;
+  language: RecipeLanguage;
   ingredients: CreateIngredientInput[];
 };
 
@@ -498,6 +501,7 @@ export function importRecipeFromTextDocument(content: string): ImportedRecipeDra
     title,
     description: description.length > 0 ? description : null,
     stepsMarkdown,
+    language: inferRecipeLanguageFromText(normalized),
     ingredients,
   };
 }

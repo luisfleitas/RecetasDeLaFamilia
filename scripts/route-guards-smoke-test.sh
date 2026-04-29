@@ -61,8 +61,8 @@ assert_home_shows_auth_links() {
     exit 1
   fi
 
-  if [[ "$html" == *"Signed in as"* ]]; then
-    echo "Expected unauthenticated home to not show signed-in label"
+  if [[ "$html" == *"id=\"home-auth-status-pill\""* ]]; then
+    echo "Expected unauthenticated home to not render auth status pill"
     exit 1
   fi
 }
@@ -82,8 +82,8 @@ assert_home_authenticated_header() {
     exit 1
   fi
 
-  if [[ "$html" != *"Signed in as"* ]]; then
-    echo "Expected authenticated home to show signed-in label"
+  if [[ "$html" != *"id=\"home-auth-status-pill\""* ]]; then
+    echo "Expected authenticated home to show auth status pill"
     exit 1
   fi
 }
