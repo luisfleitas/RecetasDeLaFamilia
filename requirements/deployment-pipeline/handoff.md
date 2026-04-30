@@ -6,10 +6,12 @@
 - Requirements folder created: `requirements/deployment-pipeline/`.
 - Initial deployment pipeline plan created.
 - Initial implementation tracker created.
-- Phase 1 started: GitHub Actions quality gate.
+- Phase 1 completed: GitHub Actions quality gate.
+- Phase 2 ready to start: Neon Postgres migration.
 - `.github/workflows/ci-auth.yml` renamed to workflow `CI` and now includes a `quality-gate` job for lint, build, import tests, and phase tests.
 - Phase 1 local verification passed.
-- The required branch protection checks for `pre-main` should be `CI / quality-gate` and `CI / auth-smoke`.
+- GitHub Actions run `25141760199` passed for `CI / quality-gate` and `CI / auth-smoke` on commit `3b586fc`.
+- `pre-main` branch protection now requires `CI / quality-gate` and `CI / auth-smoke`.
 
 ## Completed
 
@@ -38,18 +40,23 @@
 - Preserved the existing auth, route guard, and logout smoke CI coverage as the `auth-smoke` job.
 - Fixed stale TypeScript test fixtures that were missing `language`, `thumbnailUrl`, and `fullUrl` fields required by the current domain contracts.
 - Ran the full Phase 1 local verification bundle successfully.
+- Fixed the initial GitHub CI failure by running CI on Node 24, matching the repo's native TypeScript test-script requirements.
+- Pushed `3b586fc` and confirmed both GitHub Actions jobs passed.
+- Configured `pre-main` branch protection with strict required status checks for `CI / quality-gate` and `CI / auth-smoke`.
 
 ## In Progress
 
-- Phase 1 branch publish and GitHub Actions confirmation.
+- Phase 2 kickoff: Neon Postgres migration strategy decision.
 
 ## Next Action
 
-Push the branch and confirm GitHub Actions runs `CI / quality-gate` and `CI / auth-smoke` successfully. After those checks are confirmed, configure them as required checks on `pre-main`.
+Decide and document the Phase 2 database strategy: keep SQLite for local/fast CI while adding a separate Postgres/Neon validation path, or move all environments to Postgres now.
 
 ## Known Issues
 
 - Current app uses SQLite with `@prisma/adapter-better-sqlite3`; production deployment requires Neon Postgres migration work.
+- `lib/prisma.ts` and `prisma/seed.mjs` both directly construct the Better SQLite adapter.
+- Existing SQLite migration files include SQLite-specific SQL and PRAGMA statements, so Neon should use a fresh Postgres baseline migration rather than replaying the current SQLite migration history unchanged.
 - Current storage provider is local filesystem only; production deployment requires Vercel Blob provider work.
 - Preview environment isolation needs a concrete Neon and Blob strategy during implementation.
 - Production import/OCR requires OpenAI API keys and cost controls.
@@ -70,6 +77,10 @@ Push the branch and confirm GitHub Actions runs `CI / quality-gate` and `CI / au
 - `npm run test:phase1` passed: 7 tests.
 - `npm run test:phase2` passed: 9 tests.
 - `npm run test:phase3` passed: 7 tests.
+- GitHub Actions `CI / quality-gate` passed on commit `3b586fc`.
+- GitHub Actions `CI / auth-smoke` passed on commit `3b586fc`.
+- GitHub `pre-main` branch protection confirmed with required checks `CI / quality-gate` and `CI / auth-smoke`.
+- Phase 2 inventory completed across `prisma/schema.prisma`, `prisma.config.ts`, `prisma/seed.mjs`, `lib/prisma.ts`, migrations, and Prisma database call sites.
 - `BASE_URL='http://127.0.0.1:3100' ./scripts/auth-smoke-test.sh` passed.
 - `BASE_URL='http://127.0.0.1:3100' ./scripts/route-guards-smoke-test.sh` passed.
 - `BASE_URL='http://127.0.0.1:3100' ./scripts/logout-smoke-test.sh` passed.
