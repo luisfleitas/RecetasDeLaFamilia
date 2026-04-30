@@ -1,4 +1,4 @@
-name: CI Auth Smoke
+name: CI
 
 on:
   push:
@@ -7,6 +7,53 @@ on:
   pull_request:
 
 jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./ci-quality.db
+      JWT_SECRET: ci-jwt-secret-change-me
+      JWT_EXPIRES_IN: 7d
+      IMAGE_STORAGE_DRIVER: local
+      IMAGE_STORAGE_LOCAL_ROOT: ./ci-uploads
+      RECIPE_IMPORT_ENABLED: "true"
+      RECIPE_IMPORT_EXTRACTOR_DRIVER: rule-based
+      RECIPE_IMPORT_HANDWRITTEN_ENABLED: "true"
+      RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER: local
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run build
+        run: npm run build
+
+      - name: Run import tests
+        run: npm run test:import
+
+      - name: Run phase 0 tests
+        run: npm run test:phase0
+
+      - name: Run phase 1 tests
+        run: npm run test:phase1
+
+      - name: Run phase 2 tests
+        run: npm run test:phase2
+
+      - name: Run phase 3 tests
+        run: npm run test:phase3
+
   auth-smoke:
     runs-on: ubuntu-latest
     env:

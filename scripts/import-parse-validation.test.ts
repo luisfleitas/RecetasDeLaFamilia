@@ -8,6 +8,7 @@ test("validateImportedRecipeDraft accepts a complete imported draft", () => {
     title: " Toast ",
     description: " Quick snack ",
     stepsMarkdown: " 1. Toast bread. ",
+    language: "en",
     ingredients: [
       {
         name: " bread ",
@@ -33,6 +34,7 @@ test("validateImportedRecipeDraft allows a missing title during import parsing",
     title: "   ",
     description: null,
     stepsMarkdown: " 1. Toast bread. ",
+    language: "en",
     ingredients: [
       {
         name: " bread ",
@@ -54,6 +56,7 @@ test("validateImportedRecipeDraft rejects missing required fields", () => {
         title: "Toast",
         description: null,
         stepsMarkdown: "",
+        language: "en",
         ingredients: [],
       }),
     /missing required ingredients or steps/i,

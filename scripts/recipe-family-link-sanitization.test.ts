@@ -8,6 +8,7 @@ function sampleInput(overrides?: Partial<CreateRecipeInput>): CreateRecipeInput 
     title: "Recipe",
     description: null,
     stepsMarkdown: "Steps",
+    language: "en",
     visibility: "family",
     familyIds: [10, 20],
     ingredients: [
