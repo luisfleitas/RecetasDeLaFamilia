@@ -1,0 +1,59 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { getDeploymentHealthReport } from "../lib/application/deployment/health";
+
+test("deployment health reports healthy app, database, and local storage config", async () => {
+  const report = await getDeploymentHealthReport({
+    env: {
+      IMAGE_STORAGE_DRIVER: "local",
+    },
+    checkDatabase: async () => undefined,
+  });
+
+  assert.equal(report.status, "healthy");
+  assert.equal(report.checks.app.status, "healthy");
+  assert.equal(report.checks.database.status, "healthy");
+  assert.equal(report.checks.blob.status, "not_applicable");
+});
+
+test("deployment health degrades when database ping fails", async () => {
+  const report = await getDeploymentHealthReport({
+    env: {
+      IMAGE_STORAGE_DRIVER: "local",
+    },
+    checkDatabase: async () => {
+      throw new Error("connection refused with secret details");
+    },
+  });
+
+  assert.equal(report.status, "degraded");
+  assert.equal(report.checks.database.status, "degraded");
+  assert.equal(report.checks.database.message, "Database connectivity check failed.");
+});
+
+test("deployment health requires Blob token only when Blob storage is selected", async () => {
+  const report = await getDeploymentHealthReport({
+    env: {
+      IMAGE_STORAGE_DRIVER: "vercel-blob",
+    },
+    checkDatabase: async () => undefined,
+  });
+
+  assert.equal(report.status, "degraded");
+  assert.equal(report.checks.blob.status, "degraded");
+  assert.equal(report.checks.blob.message, "Blob storage is selected but BLOB_READ_WRITE_TOKEN is not configured.");
+});
+
+test("deployment health does not expose configured Blob token value", async () => {
+  const report = await getDeploymentHealthReport({
+    env: {
+      IMAGE_STORAGE_DRIVER: "vercel-blob",
+      BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_sensitive_token",
+    },
+    checkDatabase: async () => undefined,
+  });
+
+  assert.equal(report.status, "healthy");
+  assert.equal(report.checks.blob.status, "healthy");
+  assert.doesNotMatch(JSON.stringify(report), /vercel_blob_rw_sensitive_token/);
+});

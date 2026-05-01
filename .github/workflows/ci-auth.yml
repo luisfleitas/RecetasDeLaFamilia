@@ -39,6 +39,9 @@ jobs:
       - name: Run build
         run: npm run build
 
+      - name: Run Postgres schema compatibility check
+        run: npm run db:postgres:check
+
       - name: Run import tests
         run: npm run test:import
 
@@ -53,6 +56,9 @@ jobs:
 
       - name: Run phase 3 tests
         run: npm run test:phase3
+
+      - name: Run phase 4 tests
+        run: npm run test:phase4
 
   auth-smoke:
     runs-on: ubuntu-latest
@@ -115,6 +121,9 @@ jobs:
 
       - name: Run logout smoke test
         run: ./scripts/logout-smoke-test.sh
+
+      - name: Run health smoke test
+        run: ./scripts/health-smoke-test.sh
 
       - name: Print app logs on failure
         if: failure()

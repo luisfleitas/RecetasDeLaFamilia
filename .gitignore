@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.tmp
 
 # next.js
 /.next/
@@ -43,3 +44,4 @@ next-env.d.ts
 /app/generated/prisma
 *.db
 /uploads
+.env*.local

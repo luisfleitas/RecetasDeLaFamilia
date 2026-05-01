@@ -60,6 +60,13 @@
 - Reuse existing components, utilities, and styling patterns where possible.
 - Create all design documents inside the relevant `requirements/<feature>/` folder. Do not place feature design docs in ad hoc locations outside that feature's requirements directory.
 - Add stable `id` attributes to newly created or modified UI elements when appropriate.
+- Add or update concise code comments in modified code files when the change introduces non-obvious behavior, important constraints, or workflow decisions that future maintainers should understand.
+- Prefer modifying the existing files that own the behavior when changing functionality, instead of creating parallel files or replacement flows. Create new files only when extracting a focused view, shared component, use case, helper, or test makes the touched functionality clearer and supports gradual migration.
+- Preserve separation of concerns when touching `*.tsx`, route, or form files:
+  - Keep page files focused on routing, data loading, auth checks, redirects, and passing prepared props.
+  - Keep view components focused on rendering UI, layout, interaction states, and accessibility.
+  - Keep business rules, permissions, validation, persistence decisions, and workflow logic in `lib/application`, `lib/domain`, or appropriate helper modules instead of embedding them in JSX-heavy files.
+  - Prefer incremental extraction from mixed page/view/business-logic files when modifying them; do not perform broad rewrites solely for cleanup unless explicitly requested.
 - Preserve accessibility basics.
 - Keep the implementation incremental and reviewable.
 

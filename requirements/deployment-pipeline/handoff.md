@@ -7,7 +7,16 @@
 - Initial deployment pipeline plan created.
 - Initial implementation tracker created.
 - Phase 1 completed: GitHub Actions quality gate.
-- Phase 2 ready to start: Neon Postgres migration.
+- Phase 2 blocked on provisioned Neon staging/production resources.
+- Phase 3 local/provider slice completed: Vercel Blob storage provider added behind the existing abstraction.
+- Phase 4 completed: `/api/health` and health smoke coverage.
+- Phase 5 in progress: Vercel project setup, GitHub repository connection, custom domains, and environment-variable configuration are complete; live resource deployment/validation remains.
+- Phase 6/7 operational readiness is documented in `requirements/deployment-pipeline/operations-runbook.md` while Phase 5 waits on live secrets/resources.
+- Vercel project `recetas` is linked locally through `.vercel/project.json` and connected to `https://github.com/luisfleitas/RecetasDeLaFamilia`.
+- First Vercel deployment is ready at `https://recetas-erdd5x663-luisfleitas-1188s-projects.vercel.app`, with assigned alias `https://recetas-rose.vercel.app`.
+- Custom domains are attached to the Vercel project:
+  - `recetasfamilia.app` is verified and assigned as the production custom domain.
+  - `staging.recetasfamilia.app` is verified and explicitly bound to the `pre-main` git branch.
 - `.github/workflows/ci-auth.yml` renamed to workflow `CI` and now includes a `quality-gate` job for lint, build, import tests, and phase tests.
 - Phase 1 local verification passed.
 - GitHub Actions run `25141760199` passed for `CI / quality-gate` and `CI / auth-smoke` on commit `3b586fc`.
@@ -43,23 +52,40 @@
 - Fixed the initial GitHub CI failure by running CI on Node 24, matching the repo's native TypeScript test-script requirements.
 - Pushed `3b586fc` and confirmed both GitHub Actions jobs passed.
 - Configured `pre-main` branch protection with strict required status checks for `CI / quality-gate` and `CI / auth-smoke`.
+- Authenticated Vercel CLI, linked the local repo to Vercel project `recetas`, and connected the GitHub repository.
+- Created the first ready Vercel deployment: `dpl_sBUGUvXx94Ltrzekmwd3opKBz3xi`.
+- Attached `recetasfamilia.app` and `staging.recetasfamilia.app` to the Vercel project.
+- Updated `staging.recetasfamilia.app` to target the `pre-main` branch.
+- Added the deployment operations runbook with live resource setup, Vercel environment variables, staging acceptance, manual production approval, log review, post-deploy validation, and rollback steps.
+- Added provider-aware Prisma generation/runtime support so deployed Neon environments use Postgres while local development keeps SQLite.
+- Added the missing fixed Vercel environment variables, including `DATABASE_PROVIDER=postgres`, for production and the `pre-main` preview environment.
 
 ## In Progress
 
-- Phase 2 kickoff: Neon Postgres migration strategy decision.
+- Phase 2 Neon resource validation: baseline SQL still needs to be applied/validated against actual Neon staging/production resources.
+- Phase 3 Blob resource validation: live staging Blob writes/reads/deletes still need to be checked after redeploy.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, and environment variables are done; waiting on redeploy from the updated branch and staging validation.
+- Phase 6/7 docs: operational checklist and rollback runbook are ready for use once staging can be validated.
 
 ## Next Action
 
-Decide and document the Phase 2 database strategy: keep SQLite for local/fast CI while adding a separate Postgres/Neon validation path, or move all environments to Postgres now.
+Push the updated deployment-pipeline branch, open/refresh the PR into `pre-main`, then let Vercel redeploy staging from `pre-main`. Before accepting staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
 
 ## Known Issues
 
-- Current app uses SQLite with `@prisma/adapter-better-sqlite3`; production deployment requires Neon Postgres migration work.
-- `lib/prisma.ts` and `prisma/seed.mjs` both directly construct the Better SQLite adapter.
+- Runtime now supports Postgres for deployed Neon environments, but the generated baseline still needs live Neon validation.
+- `lib/prisma.ts` and `prisma/seed.mjs` now select Postgres vs SQLite by `DATABASE_PROVIDER`/`DATABASE_URL`.
 - Existing SQLite migration files include SQLite-specific SQL and PRAGMA statements, so Neon should use a fresh Postgres baseline migration rather than replaying the current SQLite migration history unchanged.
-- Current storage provider is local filesystem only; production deployment requires Vercel Blob provider work.
+- Live Vercel Blob operations still need provisioned staging/production stores and `BLOB_READ_WRITE_TOKEN`.
 - Preview environment isolation needs a concrete Neon and Blob strategy during implementation.
 - Production import/OCR requires OpenAI API keys and cost controls.
+- `npm run db:postgres:check` validates schema compatibility and generates `.tmp/postgres/baseline.sql`, but it does not connect to a real Neon database yet.
+- `IMAGE_STORAGE_DRIVER=vercel-blob` now selects the Vercel Blob provider, but live Blob operations still need `BLOB_READ_WRITE_TOKEN`.
+- `IMAGE_STORAGE_BLOB_PREFIX` isolates preview or staging object paths without changing logical recipe storage keys.
+- Earlier `npx --yes vercel@latest env ls` reported no configured Vercel environment variables; current verification confirms Vercel env vars exist.
+- Vercel deployment protection is `all_except_custom_domains`, so the custom domains can be used for smoke checks while generated deployment URLs may still require Vercel authentication.
+- Existing custom-domain deployments still need a fresh deployment with the updated runtime/env configuration before health can be accepted.
+- Added a Secret Intake Checklist and CLI Setup Sequence to `requirements/deployment-pipeline/operations-runbook.md` so the blocked environment-variable gate can resume once live Neon, Blob, JWT, and OpenAI values are available.
 
 ## Verification Already Run
 
@@ -77,6 +103,42 @@ Decide and document the Phase 2 database strategy: keep SQLite for local/fast CI
 - `npm run test:phase1` passed: 7 tests.
 - `npm run test:phase2` passed: 9 tests.
 - `npm run test:phase3` passed: 7 tests.
+- Current re-check: `npx --yes vercel@latest env ls` returned no configured Vercel environment variables.
+- Current re-check on 2026-05-01: `curl -s https://staging.recetasfamilia.app/api/health` returned degraded database status with Blob not applicable.
+- Current re-check on 2026-05-01: `curl -s https://recetasfamilia.app/api/health` returned degraded database status with Blob not applicable.
+- Current re-check: `npm run test:phase4` passed: 4 tests.
+- Current re-check: `npm run db:postgres:check` passed and regenerated `.tmp/postgres/baseline.sql`.
+- `DATABASE_PROVIDER=postgres node scripts/generate-prisma-client.mjs` passed and generated Prisma Client from `.tmp/postgres/schema.prisma`.
+- `npx --yes vercel@latest env ls` confirmed production and `pre-main` preview environment variables exist, including `DATABASE_PROVIDER=postgres` and the fixed Blob/import configuration.
+- `npm run build` passed after switching build/postinstall to `scripts/generate-prisma-client.mjs`.
+- `npm run test:phase0` passed: 7 tests.
+- `npm run test:phase4` passed: 4 tests.
+- `npm run lint` passed with existing warnings only.
+- `npx --yes vercel@latest deploy --yes` authenticated Vercel CLI, linked project `recetas`, connected the GitHub repository, and produced ready deployment `dpl_sBUGUvXx94Ltrzekmwd3opKBz3xi`.
+- `npx --yes vercel@latest inspect recetas-erdd5x663-luisfleitas-1188s-projects.vercel.app` confirmed target `production`, status `Ready`, and aliases.
+- `npx --yes vercel@latest env ls` confirmed no Vercel environment variables are configured yet.
+- `curl -i -s https://recetas-erdd5x663-luisfleitas-1188s-projects.vercel.app/api/health` returned Vercel Authentication `401`.
+- `npx --yes vercel@latest domains add recetasfamilia.app` succeeded.
+- `npx --yes vercel@latest domains add staging.recetasfamilia.app` succeeded.
+- `npx --yes vercel@latest api '/v9/projects/recetas/domains/staging.recetasfamilia.app?teamId=team_ks2SO1XHAK8W5B7XzsmtCvQh' -X PATCH -f gitBranch=pre-main` succeeded.
+- `npx --yes vercel@latest api '/v10/projects/recetas/domains?teamId=team_ks2SO1XHAK8W5B7XzsmtCvQh' -X GET` confirmed `staging.recetasfamilia.app` has `gitBranch: "pre-main"` and both custom domains are verified.
+- `npx --yes vercel@latest project protection` confirmed SSO protection applies to `all_except_custom_domains`.
+- `curl -s https://recetasfamilia.app/api/health` returned `503` with app healthy, database degraded, and Blob not applicable.
+- `curl -s https://staging.recetasfamilia.app/api/health` returned `503` with app healthy, database degraded, and Blob not applicable.
+- `npm run test:phase4` passed: 4 tests.
+- `npm run lint` passed with existing warnings only.
+- `npm run build` passed.
+- Direct `curl -i -s http://localhost:3100/api/health` returned `200` and healthy app/database with Blob not applicable.
+- `BASE_URL=http://localhost:3100 ./scripts/health-smoke-test.sh` passed.
+- Phase 3 Blob provider verification passed.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase0-image-service.test.ts` passed: 7 tests.
+- `npm run test:phase0` passed: 7 storage/image-service tests after migration/type checks.
+- `npm run test:phase1` passed: 7 tests.
+- `npm run test:phase2` passed: 9 tests.
+- `npm run test:import` passed: 64 tests.
+- `npm run db:postgres:check` passed.
+- `npm run lint` passed with existing warnings only.
+- `npm run build` passed.
 - GitHub Actions `CI / quality-gate` passed on commit `3b586fc`.
 - GitHub Actions `CI / auth-smoke` passed on commit `3b586fc`.
 - GitHub `pre-main` branch protection confirmed with required checks `CI / quality-gate` and `CI / auth-smoke`.
@@ -84,6 +146,17 @@ Decide and document the Phase 2 database strategy: keep SQLite for local/fast CI
 - `BASE_URL='http://127.0.0.1:3100' ./scripts/auth-smoke-test.sh` passed.
 - `BASE_URL='http://127.0.0.1:3100' ./scripts/route-guards-smoke-test.sh` passed.
 - `BASE_URL='http://127.0.0.1:3100' ./scripts/logout-smoke-test.sh` passed.
+- `npx prisma validate --schema prisma/schema.prisma` passed.
+- Temporary generated Postgres schema validation passed.
+- Temporary generated Postgres baseline SQL generation passed with `prisma migrate diff --from-empty --to-schema .tmp/schema.postgres.prisma --script`.
+- `npm run db:postgres:check` passed.
+- `npm run lint` passed with existing warnings only.
+- `npm run build` passed.
+- `npm run test:import` passed: 64 tests.
+- `npm run test:phase0` passed: 5 tests.
+- `npm run test:phase1` passed: 7 tests.
+- `npm run test:phase2` passed: 9 tests.
+- `npm run test:phase3` passed: 7 tests.
 
 ## Manual Testing Status
 

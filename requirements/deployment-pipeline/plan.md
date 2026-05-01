@@ -99,7 +99,10 @@ Preview isolation must be decided before implementation begins. The approved str
 - `JWT_SECRET`: long random secret, unique per environment.
 - `JWT_EXPIRES_IN`: expected default `7d`.
 - `NEXT_PUBLIC_SITE_URL`: environment-specific public URL.
-- `IMAGE_STORAGE_DRIVER`: switch to a Vercel Blob driver once implemented.
+- `IMAGE_STORAGE_DRIVER`: use `vercel-blob` for Vercel environments and `local` for local development.
+- `IMAGE_STORAGE_BLOB_ACCESS`: expected default `private` while recipe images and source documents share the storage abstraction.
+- `IMAGE_STORAGE_BLOB_PREFIX`: environment-specific object prefix for staging/preview isolation.
+- `IMAGE_STORAGE_BLOB_PUBLIC_BASE_URL`: logical public URL base; expected default `/uploads` while app routes serve stored files.
 - `BLOB_READ_WRITE_TOKEN`: Vercel Blob read-write token for the environment.
 - `OPENAI_API_KEY`: unique key per production/staging environment.
 - `OPENAI_RECIPE_IMPORT_MODEL`: expected default `gpt-4.1`.
