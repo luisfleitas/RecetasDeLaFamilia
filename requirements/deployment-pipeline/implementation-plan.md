@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 1 completed on `codex/feature/deployment-pipeline`; Phase 4 local health endpoint and smoke coverage are complete. The Vercel project is linked, the GitHub repository is connected, the production/staging custom domains are attached, and Vercel environment variables now exist. The runtime has been updated to generate/use a Postgres Prisma Client for deployed Neon environments while preserving local SQLite. PR #16 was merged to `pre-main`, and the first staging redeploy exposed a Prisma 7 Postgres adapter gap now being fixed on `codex/feature/fix-staging-postgres-adapter`. Staging validation is waiting on the adapter follow-up deployment plus live Neon baseline/seed validation.
+Phase 1 completed on `codex/feature/deployment-pipeline`; Phase 4 local health endpoint and smoke coverage are complete. The Vercel project is linked, the GitHub repository is connected, the production/staging custom domains are attached, and Vercel environment variables now exist. The runtime has been updated to generate/use a Postgres Prisma Client for deployed Neon environments while preserving local SQLite. Staging database, health, homepage, recipe API, and image upload/read/delete lifecycle validation now pass on the `pre-main` staging deployment after the image file route cache fix in `bd5c6f8`.
 
 ## Current Phase
 
-Phase 5: Vercel Project, Environments, And Domains. Phase 6/7 operational readiness is prepared while live staging validation waits on deployment of the updated branch and live resource checks.
+Phase 5: Vercel Project, Environments, And Domains. Staging validation is complete for the API/health/image-upload lifecycle; production clean-database validation and manual production promotion remain.
 
 ## Phase 1 Tasks
 
@@ -39,8 +39,8 @@ Phase 5: Vercel Project, Environments, And Domains. Phase 6/7 operational readin
 - [x] Preserve backend-agnostic storage keys and app file-serving routes.
 - [x] Add environment-driven Blob access and prefix configuration for staging/preview isolation.
 - [ ] Configure production Blob storage once the Vercel project exists.
-- [ ] Configure staging Blob storage once the Vercel project exists.
-- [ ] Validate Blob writes/reads/deletes against a real staging Blob store once credentials exist.
+- [x] Configure staging Blob storage once the Vercel project exists.
+- [x] Validate Blob writes/reads/deletes against a real staging Blob store once credentials exist.
 - [ ] Finalize automated preview Blob cleanup after PR close.
 
 ## Phase 3 Decision
@@ -121,7 +121,7 @@ Phase 5: Vercel Project, Environments, And Domains. Phase 6/7 operational readin
 - [x] Configure custom production and staging domains.
 - [x] Configure Vercel environment variables.
 - [x] Configure GitHub branch protection for `pre-main`.
-- [ ] Validate staging deployment.
+- [x] Validate staging deployment.
 - [x] Define staging acceptance checklist.
 - [x] Document GitHub-visible manual production approval.
 - [x] Document Vercel build/runtime log review.
@@ -152,7 +152,7 @@ Keep production promotion manual after `pre-main` staging validation.
 
 ## Next Action
 
-Continue the staging validation checklist at `https://staging.recetasfamilia.app`, with special attention to live Blob image reads/writes because seeded database image records currently point at keys that may not exist in Blob.
+Run production preflight for the clean production Neon database and production Blob configuration, then perform the manual GitHub-visible production approval/promotion gate.
 
 ## Phase 5 Progress
 
@@ -181,6 +181,12 @@ Continue the staging validation checklist at `https://staging.recetasfamilia.app
 - `/api/health` is healthy and `/api/recipes?includePrimaryImage=true&includeImages=true` returns seeded recipes on the current staging deployment.
 - The homepage still failed because the server component self-fetched the protected deployment's `/api/recipes`; PR #18 fixed homepage recipe loading through the application use case and deployed staging as `dpl_ARY1Asm6Xu4TsN7nAd6MERJvHA3k`.
 - Staging homepage, `/api/health`, and `/api/recipes?includePrimaryImage=true&includeImages=true` now pass Vercel-authenticated smoke checks on deployment `dpl_ARY1Asm6Xu4TsN7nAd6MERJvHA3k`.
+- The current staging deployment `dpl_ooAoTw7u3pXAaaFbgHJ7KXEk1rwN` / `https://recetas-g5dzscz7g-luisfleitas-1188s-projects.vercel.app` includes the image file route cache fix from `bd5c6f8` and is aliased to `https://staging.recetasfamilia.app`.
+- Direct unauthenticated curl to `https://staging.recetasfamilia.app` returns Vercel Authentication `401`; staging smoke checks should use `npx --yes vercel@latest curl ... --deployment <staging-deployment-url>`.
+- `scripts/phase1-curl-smoke-test.sh` now supports protected Vercel staging checks with `VERCEL_DEPLOYMENT=...` and optional temporary account registration with `REGISTER_TEST_USER=1`.
+- The staging image upload/read/delete smoke passed on `dpl_ooAoTw7u3pXAaaFbgHJ7KXEk1rwN`: temporary account registration, recipe creation with images, list/detail image reads, update with a new image, full/thumb file fetches, unsupported upload rejection, unauthorized update rejection, image delete, and deleted image file `404`.
+- `npx --yes vercel@latest curl /api/health --deployment https://recetas-g5dzscz7g-luisfleitas-1188s-projects.vercel.app` returned healthy app/database/blob checks.
+- `curl -i -s https://recetasfamilia.app/api/health` still returns `503` on the current production deployment with database degraded and Blob not applicable; production has not yet been promoted to the staging-ready build.
 
 ## Phase 6/7 Progress
 
