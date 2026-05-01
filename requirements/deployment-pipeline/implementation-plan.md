@@ -152,7 +152,7 @@ Keep production promotion manual after `pre-main` staging validation.
 
 ## Next Action
 
-Push the updated deployment-pipeline branch, open/refresh the PR into `pre-main`, then let Vercel redeploy staging from `pre-main`. Before accepting staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once checks pass and the draft is ready. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
 
 ## Phase 5 Progress
 
@@ -170,6 +170,9 @@ Push the updated deployment-pipeline branch, open/refresh the PR into `pre-main`
 - Current `npx --yes vercel@latest env ls` confirms production and `pre-main` preview configuration exists, including `DATABASE_PROVIDER=postgres` and the fixed Blob/import variables; encrypted secret values are not printed.
 - Runtime now selects Postgres for `DATABASE_PROVIDER=postgres`/Postgres URLs and local SQLite otherwise.
 - Added the runbook Secret Intake Checklist and CLI Setup Sequence for the blocked environment-variable setup gate.
+- Committed deployment runtime readiness changes in `5e5b102` and pushed `codex/feature/deployment-pipeline`.
+- Opened draft PR #16 into `pre-main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/16.
+- PR #16 checks and Vercel preview deployment were in progress at the latest handoff update.
 
 ## Phase 6/7 Progress
 

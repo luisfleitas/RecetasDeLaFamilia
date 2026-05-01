@@ -13,6 +13,7 @@
 - Phase 5 in progress: Vercel project setup, GitHub repository connection, custom domains, and environment-variable configuration are complete; live resource deployment/validation remains.
 - Phase 6/7 operational readiness is documented in `requirements/deployment-pipeline/operations-runbook.md` while Phase 5 waits on live secrets/resources.
 - Vercel project `recetas` is linked locally through `.vercel/project.json` and connected to `https://github.com/luisfleitas/RecetasDeLaFamilia`.
+- Draft PR opened from `codex/feature/deployment-pipeline` into `pre-main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/16.
 - First Vercel deployment is ready at `https://recetas-erdd5x663-luisfleitas-1188s-projects.vercel.app`, with assigned alias `https://recetas-rose.vercel.app`.
 - Custom domains are attached to the Vercel project:
   - `recetasfamilia.app` is verified and assigned as the production custom domain.
@@ -59,17 +60,19 @@
 - Added the deployment operations runbook with live resource setup, Vercel environment variables, staging acceptance, manual production approval, log review, post-deploy validation, and rollback steps.
 - Added provider-aware Prisma generation/runtime support so deployed Neon environments use Postgres while local development keeps SQLite.
 - Added the missing fixed Vercel environment variables, including `DATABASE_PROVIDER=postgres`, for production and the `pre-main` preview environment.
+- Committed and pushed deployment runtime readiness changes in `5e5b102`.
+- Opened draft PR #16 into `pre-main`; GitHub Actions and Vercel checks were in progress at handoff update time.
 
 ## In Progress
 
 - Phase 2 Neon resource validation: baseline SQL still needs to be applied/validated against actual Neon staging/production resources.
 - Phase 3 Blob resource validation: live staging Blob writes/reads/deletes still need to be checked after redeploy.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, and environment variables are done; waiting on redeploy from the updated branch and staging validation.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, and draft PR are done; waiting on PR checks, redeploy, and staging validation.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for use once staging can be validated.
 
 ## Next Action
 
-Push the updated deployment-pipeline branch, open/refresh the PR into `pre-main`, then let Vercel redeploy staging from `pre-main`. Before accepting staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once checks pass and the draft is ready. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
 
 ## Known Issues
 
@@ -109,6 +112,15 @@ Push the updated deployment-pipeline branch, open/refresh the PR into `pre-main`
 - Current re-check: `npm run test:phase4` passed: 4 tests.
 - Current re-check: `npm run db:postgres:check` passed and regenerated `.tmp/postgres/baseline.sql`.
 - `DATABASE_PROVIDER=postgres node scripts/generate-prisma-client.mjs` passed and generated Prisma Client from `.tmp/postgres/schema.prisma`.
+- Current publish check: `npm run lint` passed with existing warnings only.
+- Current publish check: `npm run build` passed.
+- Current publish check: `npm run db:postgres:check` passed and regenerated `.tmp/postgres/baseline.sql`.
+- Current publish check: `npm run test:phase4` passed: 4 tests.
+- Current publish check: `npm run test:phase0` passed: 7 tests.
+- `git commit -m "Add deployment runtime readiness"` created `5e5b102`.
+- `git push -u origin codex/feature/deployment-pipeline` pushed `5e5b102`.
+- `gh pr create --base pre-main --head codex/feature/deployment-pipeline --draft ...` opened PR #16.
+- `gh pr view 16 --json ...` confirmed PR #16 is open, draft, targets `pre-main`, and had GitHub Actions plus Vercel checks in progress.
 - `npx --yes vercel@latest env ls` confirmed production and `pre-main` preview environment variables exist, including `DATABASE_PROVIDER=postgres` and the fixed Blob/import configuration.
 - `npm run build` passed after switching build/postinstall to `scripts/generate-prisma-client.mjs`.
 - `npm run test:phase0` passed: 7 tests.
