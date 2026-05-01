@@ -62,12 +62,13 @@
 - Added the missing fixed Vercel environment variables, including `DATABASE_PROVIDER=postgres`, for production and the `pre-main` preview environment.
 - Committed and pushed deployment runtime readiness changes in `5e5b102`.
 - Opened draft PR #16 into `pre-main`; GitHub Actions and Vercel checks were in progress at handoff update time.
+- Fixed the first PR #16 quality-gate failure by making provider-specific database URLs ignore incompatible `DATABASE_URL` values, covering CI's SQLite `DATABASE_URL` during the Postgres schema check.
 
 ## In Progress
 
 - Phase 2 Neon resource validation: baseline SQL still needs to be applied/validated against actual Neon staging/production resources.
 - Phase 3 Blob resource validation: live staging Blob writes/reads/deletes still need to be checked after redeploy.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, and draft PR are done; waiting on PR checks, redeploy, and staging validation.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, draft PR, and first CI fix are done; waiting on refreshed PR checks, redeploy, and staging validation.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for use once staging can be validated.
 
 ## Next Action
@@ -121,6 +122,11 @@ Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once
 - `git push -u origin codex/feature/deployment-pipeline` pushed `5e5b102`.
 - `gh pr create --base pre-main --head codex/feature/deployment-pipeline --draft ...` opened PR #16.
 - `gh pr view 16 --json ...` confirmed PR #16 is open, draft, targets `pre-main`, and had GitHub Actions plus Vercel checks in progress.
+- `gh pr checks 16 --watch` found Vercel and `auth-smoke` passing, with `quality-gate` failing on the Postgres schema compatibility step.
+- `gh run view 25199427108 --job 73887103022 --log-failed` showed Prisma rejected CI's SQLite `DATABASE_URL=file:./ci-quality.db` for the generated Postgres schema.
+- `DATABASE_URL='file:./ci-quality.db' npm run db:postgres:check` passed after the provider URL fix.
+- `npm run test:phase4` passed: 5 tests.
+- `npm run lint` passed with existing warnings only.
 - `npx --yes vercel@latest env ls` confirmed production and `pre-main` preview environment variables exist, including `DATABASE_PROVIDER=postgres` and the fixed Blob/import configuration.
 - `npm run build` passed after switching build/postinstall to `scripts/generate-prisma-client.mjs`.
 - `npm run test:phase0` passed: 7 tests.

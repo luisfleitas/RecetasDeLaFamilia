@@ -173,6 +173,7 @@ Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once
 - Committed deployment runtime readiness changes in `5e5b102` and pushed `codex/feature/deployment-pipeline`.
 - Opened draft PR #16 into `pre-main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/16.
 - PR #16 checks and Vercel preview deployment were in progress at the latest handoff update.
+- Fixed the first PR #16 quality-gate failure where CI's SQLite `DATABASE_URL` leaked into the generated Postgres schema compatibility check.
 
 ## Phase 6/7 Progress
 

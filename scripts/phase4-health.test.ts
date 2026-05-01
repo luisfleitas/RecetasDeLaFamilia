@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { getDeploymentHealthReport } from "../lib/application/deployment/health";
+import { getProviderDatabaseUrl } from "./database-provider.mjs";
 
 test("deployment health reports healthy app, database, and local storage config", async () => {
   const report = await getDeploymentHealthReport({
@@ -56,4 +57,15 @@ test("deployment health does not expose configured Blob token value", async () =
   assert.equal(report.status, "healthy");
   assert.equal(report.checks.blob.status, "healthy");
   assert.doesNotMatch(JSON.stringify(report), /vercel_blob_rw_sensitive_token/);
+});
+
+test("provider URL helper ignores incompatible DATABASE_URL values", () => {
+  assert.match(
+    getProviderDatabaseUrl("postgresql", { DATABASE_URL: "file:./ci-quality.db" }),
+    /^postgresql:\/\//,
+  );
+  assert.equal(
+    getProviderDatabaseUrl("sqlite", { DATABASE_URL: "postgresql://recetas:recetas@localhost:5432/recetas" }),
+    "file:./dev.db",
+  );
 });

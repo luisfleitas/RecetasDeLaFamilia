@@ -13,7 +13,13 @@ export function getDatabaseProvider(env = process.env) {
 }
 
 export function getProviderDatabaseUrl(provider, env = process.env) {
-  if (env.DATABASE_URL) {
+  const databaseUrl = env.DATABASE_URL ?? "";
+
+  if (provider === "postgresql" && postgresUrlPattern.test(databaseUrl)) {
+    return databaseUrl;
+  }
+
+  if (provider === "sqlite" && databaseUrl && !postgresUrlPattern.test(databaseUrl)) {
     return env.DATABASE_URL;
   }
 
