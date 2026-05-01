@@ -68,21 +68,25 @@
 - Merged PR #16 into `pre-main`; Vercel automatically deployed `staging.recetasfamilia.app` as deployment `dpl_C1DTetfoRjMSHJPvAHrCrmfX2wAy`.
 - Found staging homepage failed because `/api/recipes` returned Prisma's adapter error: Prisma 7 generated client requires a driver adapter for Postgres.
 - Added `@prisma/adapter-pg` and updated `lib/prisma.ts` plus `prisma/seed.mjs` so deployed Postgres runtime and staging seeding use `PrismaPg`.
+- Merged PR #17 into `pre-main`; Vercel deployed the Postgres adapter fix as `dpl_6ni3fnA5Bjd9DkaFEe8qhmLkzD7d`.
+- Found the next staging failure was an empty Neon schema: `/api/recipes` returned `The table public.Recipe does not exist`.
+- Set the `pre-main` preview `DATABASE_URL` to the existing Neon integration URL, applied `.tmp/postgres/baseline.sql`, seeded staging sample data, and redeployed staging as `dpl_4Egfoqjx3ra8SMUm7dMiCM9pVzMx`.
+- Found the homepage still failed because the server component self-fetched `/api/recipes` through the protected Vercel deployment; the current follow-up changes load homepage recipes directly through the application use case instead.
 
 ## In Progress
 
-- Phase 2 Neon resource validation: baseline SQL still needs to be applied/validated against actual Neon staging/production resources.
+- Phase 2 Neon resource validation: baseline SQL has been applied to staging; production still needs validation before production promotion.
 - Phase 3 Blob resource validation: live staging Blob writes/reads/deletes still need to be checked after redeploy.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, PR #16 merge, and first staging redeploy are done; waiting on the Postgres adapter follow-up merge, staging redeploy, and staging validation.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, staging schema baseline, staging seed data, and staging redeploy are done; waiting on the homepage self-fetch follow-up to merge/redeploy and then staging validation.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for use once staging can be validated.
 
 ## Next Action
 
-Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel redeploy staging. After `pre-main` redeploys staging with the adapter fix, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Open and merge the homepage self-fetch follow-up into `pre-main`, then let Vercel redeploy staging. After staging redeploys, verify `https://staging.recetasfamilia.app/`, `/api/health`, and `/api/recipes?includePrimaryImage=true&includeImages=true`, then continue the staging validation checklist.
 
 ## Known Issues
 
-- Runtime now supports Postgres for deployed Neon environments, but the generated baseline still needs live Neon validation.
+- Runtime now supports Postgres for deployed Neon environments; staging has a live Neon baseline and sample data.
 - `lib/prisma.ts` and `prisma/seed.mjs` now select Postgres vs SQLite by `DATABASE_PROVIDER`/`DATABASE_URL`; the Postgres path must use `PrismaPg` because Prisma 7 requires a driver adapter.
 - Existing SQLite migration files include SQLite-specific SQL and PRAGMA statements, so Neon should use a fresh Postgres baseline migration rather than replaying the current SQLite migration history unchanged.
 - Live Vercel Blob operations still need provisioned staging/production stores and `BLOB_READ_WRITE_TOKEN`.
@@ -93,7 +97,7 @@ Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel r
 - `IMAGE_STORAGE_BLOB_PREFIX` isolates preview or staging object paths without changing logical recipe storage keys.
 - Earlier `npx --yes vercel@latest env ls` reported no configured Vercel environment variables; current verification confirms Vercel env vars exist.
 - Vercel deployment protection is `all_except_custom_domains`, so the custom domains can be used for smoke checks while generated deployment URLs may still require Vercel authentication.
-- Existing custom-domain deployments still need a fresh deployment with the updated runtime/env configuration before health can be accepted.
+- The homepage self-fetch pattern can fail behind Vercel Authentication; homepage rendering now has a follow-up change to load recipes directly through the application layer.
 - Added a Secret Intake Checklist and CLI Setup Sequence to `requirements/deployment-pipeline/operations-runbook.md` so the blocked environment-variable gate can resume once live Neon, Blob, JWT, and OpenAI values are available.
 
 ## Verification Already Run
@@ -138,6 +142,13 @@ Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel r
 - `npx --yes vercel@latest env ls` confirmed production and `pre-main` preview environment variables exist, including `DATABASE_PROVIDER=postgres` and the fixed Blob/import configuration.
 - `npm run build` passed after switching build/postinstall to `scripts/generate-prisma-client.mjs`.
 - `npm run test:phase0` passed: 7 tests.
+- `npx --yes vercel@latest curl /api/health --deployment https://recetas-moypvcmhm-luisfleitas-1188s-projects.vercel.app` returned healthy app/database/blob checks.
+- `npx --yes vercel@latest curl '/api/recipes?includePrimaryImage=true&includeImages=true' --deployment https://recetas-moypvcmhm-luisfleitas-1188s-projects.vercel.app` returned seeded recipes.
+- `npx --yes vercel@latest curl / --deployment https://recetas-moypvcmhm-luisfleitas-1188s-projects.vercel.app` still returned the Next error digest before the homepage self-fetch follow-up was deployed.
+- Current homepage self-fetch follow-up verification: `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/page-recipe-list-loader.test.ts` passed.
+- Current homepage self-fetch follow-up verification: `npm run lint` passed with existing warnings only.
+- Current homepage self-fetch follow-up verification: `npm run build` passed.
+- Current homepage self-fetch follow-up verification: `npm run test:phase4` passed: 6 tests.
 - `npm run test:phase4` passed: 4 tests.
 - `npm run lint` passed with existing warnings only.
 - `npx --yes vercel@latest deploy --yes` authenticated Vercel CLI, linked project `recetas`, connected the GitHub repository, and produced ready deployment `dpl_sBUGUvXx94Ltrzekmwd3opKBz3xi`.

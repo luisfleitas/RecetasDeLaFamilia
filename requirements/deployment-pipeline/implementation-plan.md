@@ -176,6 +176,10 @@ Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel r
 - Fixed the first PR #16 quality-gate failure where CI's SQLite `DATABASE_URL` leaked into the generated Postgres schema compatibility check.
 - Merged PR #16 into `pre-main`; Vercel automatically deployed `staging.recetasfamilia.app` as deployment `dpl_C1DTetfoRjMSHJPvAHrCrmfX2wAy`.
 - Staging `/api/recipes` failed with Prisma's `Using engine type "client" requires either "adapter" or "accelerateUrl"` error, so the follow-up fix adds the Postgres driver adapter to runtime and seed creation.
+- Merged PR #17 into `pre-main`; Vercel deployed the adapter fix as `dpl_6ni3fnA5Bjd9DkaFEe8qhmLkzD7d`.
+- Staging then failed because the live Neon database had no baseline tables; `DATABASE_URL` for `pre-main` preview was aligned to the Neon integration URL, `.tmp/postgres/baseline.sql` was applied, staging sample data was seeded, and staging redeployed as `dpl_4Egfoqjx3ra8SMUm7dMiCM9pVzMx`.
+- `/api/health` is healthy and `/api/recipes?includePrimaryImage=true&includeImages=true` returns seeded recipes on the current staging deployment.
+- The homepage still failed because the server component self-fetched the protected deployment's `/api/recipes`; the active follow-up changes route homepage recipe loading through the application use case instead.
 
 ## Phase 6/7 Progress
 
