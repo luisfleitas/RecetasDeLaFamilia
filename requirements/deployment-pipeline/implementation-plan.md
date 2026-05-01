@@ -152,7 +152,7 @@ Keep production promotion manual after `pre-main` staging validation.
 
 ## Next Action
 
-Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel redeploy staging. After `pre-main` redeploys staging with the adapter fix, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Continue the staging validation checklist at `https://staging.recetasfamilia.app`, with special attention to live Blob image reads/writes because seeded database image records currently point at keys that may not exist in Blob.
 
 ## Phase 5 Progress
 
@@ -179,7 +179,8 @@ Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel r
 - Merged PR #17 into `pre-main`; Vercel deployed the adapter fix as `dpl_6ni3fnA5Bjd9DkaFEe8qhmLkzD7d`.
 - Staging then failed because the live Neon database had no baseline tables; `DATABASE_URL` for `pre-main` preview was aligned to the Neon integration URL, `.tmp/postgres/baseline.sql` was applied, staging sample data was seeded, and staging redeployed as `dpl_4Egfoqjx3ra8SMUm7dMiCM9pVzMx`.
 - `/api/health` is healthy and `/api/recipes?includePrimaryImage=true&includeImages=true` returns seeded recipes on the current staging deployment.
-- The homepage still failed because the server component self-fetched the protected deployment's `/api/recipes`; the active follow-up changes route homepage recipe loading through the application use case instead.
+- The homepage still failed because the server component self-fetched the protected deployment's `/api/recipes`; PR #18 fixed homepage recipe loading through the application use case and deployed staging as `dpl_ARY1Asm6Xu4TsN7nAd6MERJvHA3k`.
+- Staging homepage, `/api/health`, and `/api/recipes?includePrimaryImage=true&includeImages=true` now pass Vercel-authenticated smoke checks on deployment `dpl_ARY1Asm6Xu4TsN7nAd6MERJvHA3k`.
 
 ## Phase 6/7 Progress
 

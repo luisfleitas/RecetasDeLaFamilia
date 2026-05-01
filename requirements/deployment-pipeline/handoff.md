@@ -77,12 +77,12 @@
 
 - Phase 2 Neon resource validation: baseline SQL has been applied to staging; production still needs validation before production promotion.
 - Phase 3 Blob resource validation: live staging Blob writes/reads/deletes still need to be checked after redeploy.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, staging schema baseline, staging seed data, and staging redeploy are done; waiting on the homepage self-fetch follow-up to merge/redeploy and then staging validation.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, PR #18, staging schema baseline, staging seed data, and staging redeploy are done; staging homepage/API/health verification passed after the homepage self-fetch fix.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for use once staging can be validated.
 
 ## Next Action
 
-Open and merge the homepage self-fetch follow-up into `pre-main`, then let Vercel redeploy staging. After staging redeploys, verify `https://staging.recetasfamilia.app/`, `/api/health`, and `/api/recipes?includePrimaryImage=true&includeImages=true`, then continue the staging validation checklist.
+Continue the staging validation checklist at `https://staging.recetasfamilia.app`, with special attention to live Blob image reads/writes because seeded database image records currently point at keys that may not exist in Blob.
 
 ## Known Issues
 
@@ -97,7 +97,7 @@ Open and merge the homepage self-fetch follow-up into `pre-main`, then let Verce
 - `IMAGE_STORAGE_BLOB_PREFIX` isolates preview or staging object paths without changing logical recipe storage keys.
 - Earlier `npx --yes vercel@latest env ls` reported no configured Vercel environment variables; current verification confirms Vercel env vars exist.
 - Vercel deployment protection is `all_except_custom_domains`, so the custom domains can be used for smoke checks while generated deployment URLs may still require Vercel authentication.
-- The homepage self-fetch pattern can fail behind Vercel Authentication; homepage rendering now has a follow-up change to load recipes directly through the application layer.
+- The old homepage self-fetch pattern failed behind Vercel Authentication; PR #18 fixed homepage rendering by loading recipes directly through the application layer.
 - Added a Secret Intake Checklist and CLI Setup Sequence to `requirements/deployment-pipeline/operations-runbook.md` so the blocked environment-variable gate can resume once live Neon, Blob, JWT, and OpenAI values are available.
 
 ## Verification Already Run
@@ -149,6 +149,11 @@ Open and merge the homepage self-fetch follow-up into `pre-main`, then let Verce
 - Current homepage self-fetch follow-up verification: `npm run lint` passed with existing warnings only.
 - Current homepage self-fetch follow-up verification: `npm run build` passed.
 - Current homepage self-fetch follow-up verification: `npm run test:phase4` passed: 6 tests.
+- PR #18 checks passed: Vercel, Vercel Preview Comments, `CI / auth-smoke`, and `CI / quality-gate`.
+- PR #18 was squash-merged into `pre-main`; Vercel deployed staging as `dpl_ARY1Asm6Xu4TsN7nAd6MERJvHA3k`.
+- `npx --yes vercel@latest curl / --deployment https://recetas-j031vuw30-luisfleitas-1188s-projects.vercel.app` returned the rendered homepage with 5 seeded recipes.
+- `npx --yes vercel@latest curl /api/health --deployment https://recetas-j031vuw30-luisfleitas-1188s-projects.vercel.app` returned healthy app/database/blob checks.
+- `npx --yes vercel@latest curl '/api/recipes?includePrimaryImage=true&includeImages=true' --deployment https://recetas-j031vuw30-luisfleitas-1188s-projects.vercel.app` returned seeded recipes.
 - `npm run test:phase4` passed: 4 tests.
 - `npm run lint` passed with existing warnings only.
 - `npx --yes vercel@latest deploy --yes` authenticated Vercel CLI, linked project `recetas`, connected the GitHub repository, and produced ready deployment `dpl_sBUGUvXx94Ltrzekmwd3opKBz3xi`.
