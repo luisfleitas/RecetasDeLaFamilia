@@ -1,6 +1,7 @@
 // Prisma client singleton with environment-selected database provider.
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -27,7 +28,16 @@ export async function getPrisma(): Promise<PrismaClient> {
     process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["error"];
 
   if (getDatabaseProvider() === "postgresql") {
-    globalForPrisma.prisma = new PrismaClient({ log });
+    const connectionString = process.env.DATABASE_URL;
+
+    if (!connectionString) {
+      throw new Error("DATABASE_URL is required when DATABASE_PROVIDER is postgres.");
+    }
+
+    globalForPrisma.prisma = new PrismaClient({
+      adapter: new PrismaPg({ connectionString }),
+      log,
+    });
     return globalForPrisma.prisma;
   }
 
