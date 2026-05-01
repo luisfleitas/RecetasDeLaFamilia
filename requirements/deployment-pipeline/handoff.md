@@ -13,7 +13,8 @@
 - Phase 5 in progress: Vercel project setup, GitHub repository connection, custom domains, and environment-variable configuration are complete; live resource deployment/validation remains.
 - Phase 6/7 operational readiness is documented in `requirements/deployment-pipeline/operations-runbook.md` while Phase 5 waits on live secrets/resources.
 - Vercel project `recetas` is linked locally through `.vercel/project.json` and connected to `https://github.com/luisfleitas/RecetasDeLaFamilia`.
-- Draft PR opened from `codex/feature/deployment-pipeline` into `pre-main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/16.
+- PR #16 from `codex/feature/deployment-pipeline` into `pre-main` was merged on 2026-05-01.
+- Follow-up branch for staging runtime fix: `codex/feature/fix-staging-postgres-adapter`.
 - First Vercel deployment is ready at `https://recetas-erdd5x663-luisfleitas-1188s-projects.vercel.app`, with assigned alias `https://recetas-rose.vercel.app`.
 - Custom domains are attached to the Vercel project:
   - `recetasfamilia.app` is verified and assigned as the production custom domain.
@@ -64,22 +65,25 @@
 - Opened draft PR #16 into `pre-main`; GitHub Actions and Vercel checks were in progress at handoff update time.
 - Fixed the first PR #16 quality-gate failure by making provider-specific database URLs ignore incompatible `DATABASE_URL` values, covering CI's SQLite `DATABASE_URL` during the Postgres schema check.
 - Refreshed PR #16 checks are passing for Vercel, `auth-smoke`, and `quality-gate` on commit `6e840b1`.
+- Merged PR #16 into `pre-main`; Vercel automatically deployed `staging.recetasfamilia.app` as deployment `dpl_C1DTetfoRjMSHJPvAHrCrmfX2wAy`.
+- Found staging homepage failed because `/api/recipes` returned Prisma's adapter error: Prisma 7 generated client requires a driver adapter for Postgres.
+- Added `@prisma/adapter-pg` and updated `lib/prisma.ts` plus `prisma/seed.mjs` so deployed Postgres runtime and staging seeding use `PrismaPg`.
 
 ## In Progress
 
 - Phase 2 Neon resource validation: baseline SQL still needs to be applied/validated against actual Neon staging/production resources.
 - Phase 3 Blob resource validation: live staging Blob writes/reads/deletes still need to be checked after redeploy.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, draft PR, and CI fixes are done; waiting on PR readiness/merge to `pre-main`, staging redeploy, and staging validation.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, PR #16 merge, and first staging redeploy are done; waiting on the Postgres adapter follow-up merge, staging redeploy, and staging validation.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for use once staging can be validated.
 
 ## Next Action
 
-Mark PR #16 ready when appropriate, merge it to `pre-main`, and let Vercel redeploy staging. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel redeploy staging. After `pre-main` redeploys staging with the adapter fix, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
 
 ## Known Issues
 
 - Runtime now supports Postgres for deployed Neon environments, but the generated baseline still needs live Neon validation.
-- `lib/prisma.ts` and `prisma/seed.mjs` now select Postgres vs SQLite by `DATABASE_PROVIDER`/`DATABASE_URL`.
+- `lib/prisma.ts` and `prisma/seed.mjs` now select Postgres vs SQLite by `DATABASE_PROVIDER`/`DATABASE_URL`; the Postgres path must use `PrismaPg` because Prisma 7 requires a driver adapter.
 - Existing SQLite migration files include SQLite-specific SQL and PRAGMA statements, so Neon should use a fresh Postgres baseline migration rather than replaying the current SQLite migration history unchanged.
 - Live Vercel Blob operations still need provisioned staging/production stores and `BLOB_READ_WRITE_TOKEN`.
 - Preview environment isolation needs a concrete Neon and Blob strategy during implementation.

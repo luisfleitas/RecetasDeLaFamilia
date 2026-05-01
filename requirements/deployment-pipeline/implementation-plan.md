@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 1 completed on `codex/feature/deployment-pipeline`; Phase 4 local health endpoint and smoke coverage are complete. The Vercel project is linked, the GitHub repository is connected, the production/staging custom domains are attached, and Vercel environment variables now exist. The runtime has been updated to generate/use a Postgres Prisma Client for deployed Neon environments while preserving local SQLite. Staging validation is waiting on a fresh deployment from the updated branch plus live Neon baseline/seed validation.
+Phase 1 completed on `codex/feature/deployment-pipeline`; Phase 4 local health endpoint and smoke coverage are complete. The Vercel project is linked, the GitHub repository is connected, the production/staging custom domains are attached, and Vercel environment variables now exist. The runtime has been updated to generate/use a Postgres Prisma Client for deployed Neon environments while preserving local SQLite. PR #16 was merged to `pre-main`, and the first staging redeploy exposed a Prisma 7 Postgres adapter gap now being fixed on `codex/feature/fix-staging-postgres-adapter`. Staging validation is waiting on the adapter follow-up deployment plus live Neon baseline/seed validation.
 
 ## Current Phase
 
@@ -88,7 +88,7 @@ Phase 5: Vercel Project, Environments, And Domains. Phase 6/7 operational readin
 - Local development and the existing fast CI suite stay on SQLite for now.
 - Postgres validation runs through `npm run db:postgres:check`, which generates a temporary Postgres schema from `prisma/schema.prisma`, validates it, and generates an empty-database baseline SQL at `.tmp/postgres/baseline.sql`.
 - Deployed Postgres builds run `scripts/generate-prisma-client.mjs`, which generates Prisma Client from the temporary Postgres schema when `DATABASE_PROVIDER=postgres` or `DATABASE_URL` is Postgres.
-- Runtime and seed code use the existing Better SQLite adapter for local SQLite, and the standard Prisma Postgres query engine for Neon.
+- Runtime and seed code use the existing Better SQLite adapter for local SQLite, and `@prisma/adapter-pg` for Neon Postgres because Prisma 7 requires a driver adapter at `PrismaClient` construction time.
 - The Postgres compatibility check runs in `CI / quality-gate`.
 - Production Neon starts clean with the baseline schema only.
 - Staging and isolated preview resources receive schema plus seed/sample data.
@@ -152,7 +152,7 @@ Keep production promotion manual after `pre-main` staging validation.
 
 ## Next Action
 
-Mark PR #16 ready when appropriate, merge it to `pre-main`, and let Vercel redeploy staging. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Open and merge the Postgres adapter follow-up into `pre-main`, then let Vercel redeploy staging. After `pre-main` redeploys staging with the adapter fix, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
 
 ## Phase 5 Progress
 
@@ -174,6 +174,8 @@ Mark PR #16 ready when appropriate, merge it to `pre-main`, and let Vercel redep
 - Opened draft PR #16 into `pre-main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/16.
 - PR #16 checks and Vercel preview deployment passed on commit `6e840b1`.
 - Fixed the first PR #16 quality-gate failure where CI's SQLite `DATABASE_URL` leaked into the generated Postgres schema compatibility check.
+- Merged PR #16 into `pre-main`; Vercel automatically deployed `staging.recetasfamilia.app` as deployment `dpl_C1DTetfoRjMSHJPvAHrCrmfX2wAy`.
+- Staging `/api/recipes` failed with Prisma's `Using engine type "client" requires either "adapter" or "accelerateUrl"` error, so the follow-up fix adds the Postgres driver adapter to runtime and seed creation.
 
 ## Phase 6/7 Progress
 
