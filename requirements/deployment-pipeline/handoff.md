@@ -63,17 +63,18 @@
 - Committed and pushed deployment runtime readiness changes in `5e5b102`.
 - Opened draft PR #16 into `pre-main`; GitHub Actions and Vercel checks were in progress at handoff update time.
 - Fixed the first PR #16 quality-gate failure by making provider-specific database URLs ignore incompatible `DATABASE_URL` values, covering CI's SQLite `DATABASE_URL` during the Postgres schema check.
+- Refreshed PR #16 checks are passing for Vercel, `auth-smoke`, and `quality-gate` on commit `6e840b1`.
 
 ## In Progress
 
 - Phase 2 Neon resource validation: baseline SQL still needs to be applied/validated against actual Neon staging/production resources.
 - Phase 3 Blob resource validation: live staging Blob writes/reads/deletes still need to be checked after redeploy.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, draft PR, and first CI fix are done; waiting on refreshed PR checks, redeploy, and staging validation.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, branch push, draft PR, and CI fixes are done; waiting on PR readiness/merge to `pre-main`, staging redeploy, and staging validation.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for use once staging can be validated.
 
 ## Next Action
 
-Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once checks pass and the draft is ready. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Mark PR #16 ready when appropriate, merge it to `pre-main`, and let Vercel redeploy staging. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
 
 ## Known Issues
 
@@ -129,6 +130,7 @@ Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once
 - `npm run test:phase4` passed: 5 tests.
 - `npm run test:phase0` passed: 7 tests.
 - `npm run lint` passed with existing warnings only.
+- Final `gh pr checks 16 --watch` on commit `6e840b1` passed: Vercel, Vercel Preview Comments, two `auth-smoke` runs, and two `quality-gate` runs.
 - `npx --yes vercel@latest env ls` confirmed production and `pre-main` preview environment variables exist, including `DATABASE_PROVIDER=postgres` and the fixed Blob/import configuration.
 - `npm run build` passed after switching build/postinstall to `scripts/generate-prisma-client.mjs`.
 - `npm run test:phase0` passed: 7 tests.

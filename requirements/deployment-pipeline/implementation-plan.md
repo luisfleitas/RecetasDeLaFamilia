@@ -152,7 +152,7 @@ Keep production promotion manual after `pre-main` staging validation.
 
 ## Next Action
 
-Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once checks pass and the draft is ready. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
+Mark PR #16 ready when appropriate, merge it to `pre-main`, and let Vercel redeploy staging. After `pre-main` redeploys staging, apply the generated Postgres baseline to the staging Neon database if it has not already been applied, seed staging sample data, and run the staging validation checklist at `https://staging.recetasfamilia.app`.
 
 ## Phase 5 Progress
 
@@ -172,7 +172,7 @@ Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once
 - Added the runbook Secret Intake Checklist and CLI Setup Sequence for the blocked environment-variable setup gate.
 - Committed deployment runtime readiness changes in `5e5b102` and pushed `codex/feature/deployment-pipeline`.
 - Opened draft PR #16 into `pre-main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/16.
-- PR #16 checks and Vercel preview deployment were in progress at the latest handoff update.
+- PR #16 checks and Vercel preview deployment passed on commit `6e840b1`.
 - Fixed the first PR #16 quality-gate failure where CI's SQLite `DATABASE_URL` leaked into the generated Postgres schema compatibility check.
 
 ## Phase 6/7 Progress
