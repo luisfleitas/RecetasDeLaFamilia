@@ -1,7 +1,6 @@
 // Home page that lists recipes from the API.
 import Link from "next/link";
 import Image from "next/image";
-import { headers } from "next/headers";
 import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
 import LogoutButton from "@/app/_components/logout-button";
@@ -10,56 +9,15 @@ import { buttonClassName } from "@/app/_components/ui/button-styles";
 import RecipeVisibilityTabs, { type RecipeVisibilityTabGroup } from "@/app/_components/recipe-visibility-tabs";
 import { formatDate } from "@/lib/i18n/format";
 import { getRequestMessages } from "@/lib/i18n/server";
-
-type PrimaryImageRef = {
-  id: number;
-  thumbnailUrl: string;
-  fullUrl: string;
-};
-
-type RecipeListItem = {
-  id: number;
-  title: string;
-  createdAt: string;
-  visibility: "public" | "private" | "family";
-  families: Array<{ id: number; name: string }>;
-  primaryImage?: PrimaryImageRef | null;
-  images?: PrimaryImageRef[];
-};
-
-type RecipesResponse = { recipes: RecipeListItem[] };
-
-function getBaseUrl(requestHeaders: Headers) {
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
-
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
-
-async function fetchRecipes() {
-  const requestHeaders = await headers();
-  const baseUrl = getBaseUrl(requestHeaders);
-  const cookie = requestHeaders.get("cookie") ?? "";
-
-  const response = await fetch(`${baseUrl}/api/recipes?includePrimaryImage=true&includeImages=true`, {
-    cache: "no-store",
-    headers: cookie ? { cookie } : undefined,
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to load recipes");
-  }
-
-  return (await response.json()) as RecipesResponse;
-}
+import { loadRecipeListForPage } from "@/lib/application/recipes/page-recipe-list-loader";
 
 export default async function HomePage() {
-  const { locale, messages } = await getRequestMessages();
-  const [recipesResponse, authUser] = await Promise.all([fetchRecipes(), getOptionalAuthPageUser()]);
+  const [{ locale, messages }, authUser] = await Promise.all([
+    getRequestMessages(),
+    getOptionalAuthPageUser(),
+  ]);
+  // Server-rendered pages read through application use cases so protected deployments do not self-fetch through Vercel Authentication.
+  const recipesResponse = await loadRecipeListForPage({ viewerUserId: authUser?.user_id ?? null });
   const { recipes } = recipesResponse;
   const publicRecipes = recipes.filter((recipe) => recipe.visibility === "public");
   const visibleRecipes = authUser ? recipes : publicRecipes;
