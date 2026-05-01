@@ -7,6 +7,7 @@ test("returns field warnings for missing description, short steps, and generic i
     title: "Toast",
     description: null,
     stepsMarkdown: "1. Toast bread.",
+    language: "en",
     ingredients: [
       {
         name: "bread",
@@ -41,6 +42,7 @@ test("does not return warnings when draft looks complete", () => {
     title: "Lemon Pasta",
     description: "Bright and quick dinner.",
     stepsMarkdown: "1. Boil pasta.\n2. Toss with sauce.",
+    language: "en",
     ingredients: [
       {
         name: "spaghetti",

@@ -7,11 +7,17 @@ import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { getDatabaseProvider } from "../scripts/database-provider.mjs";
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL ?? "file:./dev.db",
-});
-const prisma = new PrismaClient({ adapter });
+const databaseProvider = getDatabaseProvider();
+const prisma =
+  databaseProvider === "postgresql"
+    ? new PrismaClient()
+    : new PrismaClient({
+        adapter: new PrismaBetterSqlite3({
+          url: process.env.DATABASE_URL ?? "file:./dev.db",
+        }),
+      });
 const uploadsRoot = process.env.IMAGE_STORAGE_LOCAL_ROOT
   ? join(process.cwd(), process.env.IMAGE_STORAGE_LOCAL_ROOT)
   : join(process.cwd(), "uploads");

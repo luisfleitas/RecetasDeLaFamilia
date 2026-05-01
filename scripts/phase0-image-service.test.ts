@@ -10,6 +10,7 @@ import {
 } from "../lib/infrastructure/images/image-service";
 import { buildImageStorageProvider } from "../lib/infrastructure/images/storage-factory";
 import { LocalFileStorageProvider } from "../lib/infrastructure/images/local-file-storage-provider";
+import { VercelBlobStorageProvider } from "../lib/infrastructure/images/vercel-blob-storage-provider";
 
 test("storage factory returns local provider when IMAGE_STORAGE_DRIVER=local", () => {
   const previousDriver = process.env.IMAGE_STORAGE_DRIVER;
@@ -20,6 +21,29 @@ test("storage factory returns local provider when IMAGE_STORAGE_DRIVER=local", (
   assert.ok(provider instanceof LocalFileStorageProvider);
 
   process.env.IMAGE_STORAGE_DRIVER = previousDriver;
+});
+
+test("storage factory returns Vercel Blob provider when IMAGE_STORAGE_DRIVER=vercel-blob", () => {
+  const previousDriver = process.env.IMAGE_STORAGE_DRIVER;
+  const previousToken = process.env.BLOB_READ_WRITE_TOKEN;
+  process.env.IMAGE_STORAGE_DRIVER = "vercel-blob";
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_test";
+
+  const provider = buildImageStorageProvider();
+
+  assert.ok(provider instanceof VercelBlobStorageProvider);
+
+  process.env.IMAGE_STORAGE_DRIVER = previousDriver;
+  process.env.BLOB_READ_WRITE_TOKEN = previousToken;
+});
+
+test("Vercel Blob provider keeps logical public URLs backend agnostic", () => {
+  const provider = new VercelBlobStorageProvider({
+    token: "vercel_blob_rw_test",
+    keyPrefix: "preview/pr-12",
+  });
+
+  assert.equal(provider.getPublicUrl("recipes/12/img_48.jpg"), "/uploads/recipes/12/img_48.jpg");
 });
 
 test("image service rejects unsupported mime type", () => {
