@@ -79,7 +79,7 @@
 ## In Progress
 
 - Phase 2 Neon resource validation: baseline SQL has been applied to staging; production still needs validation before production promotion.
-- Phase 3 Blob resource validation: live staging Blob writes/reads/deletes passed on the current staging deployment.
+- Phase 3 Blob resource validation: live staging Blob writes/reads/deletes passed on protected Vercel staging deployments.
 - Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, PR #18, staging schema baseline, staging seed data, staging redeploy, homepage/API/health verification, and image upload lifecycle verification are done.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for production preflight and promotion.
 
@@ -164,6 +164,9 @@ Run production preflight for the clean production Neon database and production B
 - `git push origin pre-main` pushed `bd5c6f8`; Vercel deployed staging as `dpl_ooAoTw7u3pXAaaFbgHJ7KXEk1rwN` with alias `https://staging.recetasfamilia.app`.
 - `BASE_URL='https://staging.recetasfamilia.app' VERCEL_DEPLOYMENT='https://recetas-g5dzscz7g-luisfleitas-1188s-projects.vercel.app' REGISTER_TEST_USER=1 ./scripts/phase1-curl-smoke-test.sh` passed: temporary account registration, create recipe with images, list/detail image reads, update with new image, full/thumb fetches, unsupported upload rejection, unauthorized update rejection, image delete, and deleted full-image `404`.
 - `npx --yes vercel@latest curl /api/health --deployment https://recetas-g5dzscz7g-luisfleitas-1188s-projects.vercel.app` returned healthy app/database/blob checks.
+- Final post-tracker deployment check: `npx --yes vercel@latest inspect https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` returned Ready with alias `https://staging.recetasfamilia.app`.
+- Final post-tracker health check: `npx --yes vercel@latest curl /api/health --deployment https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` returned healthy app/database/blob checks.
+- Final post-tracker image lifecycle smoke: `BASE_URL='https://staging.recetasfamilia.app' VERCEL_DEPLOYMENT='https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app' REGISTER_TEST_USER=1 ./scripts/phase1-curl-smoke-test.sh` passed, including deleted full-image `404`.
 - `npx --yes vercel@latest project protection` reported `ssoProtection.deploymentType` as `all_except_custom_domains`.
 - `curl -i -s https://staging.recetasfamilia.app/api/health` still returned Vercel Authentication `401`, so staging custom-domain smokes should use authenticated Vercel CLI access.
 - `curl -i -s https://recetasfamilia.app/api/health` returned `503` on the current production deployment with database degraded and Blob not applicable; production has not yet been promoted to the staging-ready build.

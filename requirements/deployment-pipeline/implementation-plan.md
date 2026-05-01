@@ -181,11 +181,13 @@ Run production preflight for the clean production Neon database and production B
 - `/api/health` is healthy and `/api/recipes?includePrimaryImage=true&includeImages=true` returns seeded recipes on the current staging deployment.
 - The homepage still failed because the server component self-fetched the protected deployment's `/api/recipes`; PR #18 fixed homepage recipe loading through the application use case and deployed staging as `dpl_ARY1Asm6Xu4TsN7nAd6MERJvHA3k`.
 - Staging homepage, `/api/health`, and `/api/recipes?includePrimaryImage=true&includeImages=true` now pass Vercel-authenticated smoke checks on deployment `dpl_ARY1Asm6Xu4TsN7nAd6MERJvHA3k`.
-- The current staging deployment `dpl_ooAoTw7u3pXAaaFbgHJ7KXEk1rwN` / `https://recetas-g5dzscz7g-luisfleitas-1188s-projects.vercel.app` includes the image file route cache fix from `bd5c6f8` and is aliased to `https://staging.recetasfamilia.app`.
+- The image file route cache fix from `bd5c6f8` was first deployed to staging as `dpl_ooAoTw7u3pXAaaFbgHJ7KXEk1rwN` / `https://recetas-g5dzscz7g-luisfleitas-1188s-projects.vercel.app`.
 - Direct unauthenticated curl to `https://staging.recetasfamilia.app` returns Vercel Authentication `401`; staging smoke checks should use `npx --yes vercel@latest curl ... --deployment <staging-deployment-url>`.
 - `scripts/phase1-curl-smoke-test.sh` now supports protected Vercel staging checks with `VERCEL_DEPLOYMENT=...` and optional temporary account registration with `REGISTER_TEST_USER=1`.
 - The staging image upload/read/delete smoke passed on `dpl_ooAoTw7u3pXAaaFbgHJ7KXEk1rwN`: temporary account registration, recipe creation with images, list/detail image reads, update with a new image, full/thumb file fetches, unsupported upload rejection, unauthorized update rejection, image delete, and deleted image file `404`.
 - `npx --yes vercel@latest curl /api/health --deployment https://recetas-g5dzscz7g-luisfleitas-1188s-projects.vercel.app` returned healthy app/database/blob checks.
+- The later tracker-only deployment `dpl_5ivXtiyqZXUBaVNjPaMjpy2qNmmh` / `https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` also reached Ready with alias `https://staging.recetasfamilia.app`.
+- Final post-tracker staging checks on `https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` passed for `/api/health` and the full image upload/read/delete smoke, including deleted image file `404`.
 - `curl -i -s https://recetasfamilia.app/api/health` still returns `503` on the current production deployment with database degraded and Blob not applicable; production has not yet been promoted to the staging-ready build.
 
 ## Phase 6/7 Progress
