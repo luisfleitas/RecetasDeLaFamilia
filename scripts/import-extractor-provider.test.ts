@@ -102,3 +102,40 @@ test("parseOpenAiRecipeImportPayload maps structured output into app draft", () 
   assert.equal(draft.ingredients[0]?.position, 1);
   assert.equal(draft.ingredients[0]?.unit, "taza");
 });
+
+test("parseOpenAiRecipeImportPayload reads nested Responses API output text", () => {
+  const payload = {
+    output: [
+      {
+        type: "message",
+        role: "assistant",
+        content: [
+          {
+            type: "output_text",
+            text: JSON.stringify({
+              title: "Guasacaca de Aguacate",
+              description: null,
+              stepsMarkdown: "1. Blend everything until smooth.",
+              language: "en",
+              ingredients: [
+                {
+                  name: "avocados",
+                  qty: 2,
+                  unit: "",
+                  notes: "ripe",
+                },
+              ],
+            }),
+          },
+        ],
+      },
+    ],
+  } as Parameters<typeof parseOpenAiRecipeImportPayload>[0];
+
+  const draft = parseOpenAiRecipeImportPayload(payload);
+
+  assert.equal(draft.title, "Guasacaca de Aguacate");
+  assert.equal(draft.language, "en");
+  assert.equal(draft.ingredients[0]?.name, "avocados");
+  assert.equal(draft.ingredients[0]?.position, 1);
+});
