@@ -60,12 +60,15 @@ test("deployment health does not expose configured Blob token value", async () =
 });
 
 test("provider URL helper ignores incompatible DATABASE_URL values", () => {
+  const sqliteCiEnv = { ...process.env, DATABASE_URL: "file:./ci-quality.db" };
+  const postgresEnv = {
+    ...process.env,
+    DATABASE_URL: "postgresql://recetas:recetas@localhost:5432/recetas",
+  };
+
   assert.match(
-    getProviderDatabaseUrl("postgresql", { DATABASE_URL: "file:./ci-quality.db" }),
+    getProviderDatabaseUrl("postgresql", sqliteCiEnv),
     /^postgresql:\/\//,
   );
-  assert.equal(
-    getProviderDatabaseUrl("sqlite", { DATABASE_URL: "postgresql://recetas:recetas@localhost:5432/recetas" }),
-    "file:./dev.db",
-  );
+  assert.equal(getProviderDatabaseUrl("sqlite", postgresEnv), "file:./dev.db");
 });

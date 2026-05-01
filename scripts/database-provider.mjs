@@ -20,7 +20,7 @@ export function getProviderDatabaseUrl(provider, env = process.env) {
   }
 
   if (provider === "sqlite" && databaseUrl && !postgresUrlPattern.test(databaseUrl)) {
-    return env.DATABASE_URL;
+    return databaseUrl;
   }
 
   return provider === "postgresql"

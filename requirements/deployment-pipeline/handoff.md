@@ -124,8 +124,10 @@ Watch PR #16 checks and Vercel preview deployment, then merge to `pre-main` once
 - `gh pr view 16 --json ...` confirmed PR #16 is open, draft, targets `pre-main`, and had GitHub Actions plus Vercel checks in progress.
 - `gh pr checks 16 --watch` found Vercel and `auth-smoke` passing, with `quality-gate` failing on the Postgres schema compatibility step.
 - `gh run view 25199427108 --job 73887103022 --log-failed` showed Prisma rejected CI's SQLite `DATABASE_URL=file:./ci-quality.db` for the generated Postgres schema.
+- A refreshed PR run then failed in `test:phase0` because the new regression test used an env object that did not satisfy the repository's TypeScript `ProcessEnv` shape; the test was updated to use a `process.env`-shaped object.
 - `DATABASE_URL='file:./ci-quality.db' npm run db:postgres:check` passed after the provider URL fix.
 - `npm run test:phase4` passed: 5 tests.
+- `npm run test:phase0` passed: 7 tests.
 - `npm run lint` passed with existing warnings only.
 - `npx --yes vercel@latest env ls` confirmed production and `pre-main` preview environment variables exist, including `DATABASE_PROVIDER=postgres` and the fixed Blob/import configuration.
 - `npm run build` passed after switching build/postinstall to `scripts/generate-prisma-client.mjs`.
