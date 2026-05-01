@@ -19,6 +19,11 @@ export interface RecipeImportExtractorProvider {
 
 type OpenAiResponsePayload = {
   output_text?: unknown;
+  output?: Array<{
+    type?: string;
+    role?: string;
+    content?: Array<{ type?: string; text?: unknown }>;
+  }>;
   usage?: {
     input_tokens?: unknown;
     output_tokens?: unknown;
@@ -68,8 +73,32 @@ function extractErrorMessage(payload: unknown): string | null {
   return typeof typed.error?.message === "string" ? typed.error.message : null;
 }
 
+function extractOpenAiResponseText(payload: OpenAiResponsePayload): string {
+  if (typeof payload.output_text === "string" && payload.output_text.trim().length > 0) {
+    return payload.output_text.trim();
+  }
+
+  const parts: string[] = [];
+  for (const item of payload.output ?? []) {
+    if (item.type !== "message" || item.role !== "assistant") {
+      continue;
+    }
+
+    for (const contentItem of item.content ?? []) {
+      if (contentItem.type === "output_text" && typeof contentItem.text === "string") {
+        const text = contentItem.text.trim();
+        if (text.length > 0) {
+          parts.push(text);
+        }
+      }
+    }
+  }
+
+  return parts.join("\n").trim();
+}
+
 export function parseOpenAiRecipeImportPayload(payload: OpenAiResponsePayload): ImportedRecipeDraft {
-  const outputText = typeof payload.output_text === "string" ? payload.output_text.trim() : "";
+  const outputText = extractOpenAiResponseText(payload);
   if (!outputText) {
     throw new Error("OpenAI extraction provider did not return structured output.");
   }
