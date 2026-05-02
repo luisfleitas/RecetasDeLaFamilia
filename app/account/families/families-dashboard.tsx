@@ -1064,7 +1064,7 @@ export default function FamiliesDashboard() {
                           ) : null}
 
                           {familyMessage ? (
-                            <p id={`families-dashboard-list-item-manage-message-${family.id}`} className="text-sm text-[var(--color-primary)]">{familyMessage}</p>
+                            <p id={`families-dashboard-list-item-manage-message-${family.id}`} className="warm-status-message">{familyMessage}</p>
                           ) : null}
 
                           {familyError ? (
