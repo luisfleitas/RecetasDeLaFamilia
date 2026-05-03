@@ -63,6 +63,9 @@
 - Add or update concise code comments in modified code files when the change introduces non-obvious behavior, important constraints, or workflow decisions that future maintainers should understand.
 - Prefer modifying the existing files that own the behavior when changing functionality, instead of creating parallel files or replacement flows. Create new files only when extracting a focused view, shared component, use case, helper, or test makes the touched functionality clearer and supports gradual migration.
 - Preserve separation of concerns when touching `*.tsx`, route, or form files:
+  - Treat every touched file as an opportunity to enforce strict separation of concerns.
+  - Keep logic and view information in different files whenever a file mixes rendering with business rules, workflow decisions, data shaping, validation, permissions, persistence, or non-trivial state transitions.
+  - Do not add new logic to JSX-heavy view files unless it is purely local presentation state or simple event wiring; extract reusable or non-obvious logic to a focused hook, helper, use case, or view-model file.
   - Keep page files focused on routing, data loading, auth checks, redirects, and passing prepared props.
   - Keep view components focused on rendering UI, layout, interaction states, and accessibility.
   - Keep business rules, permissions, validation, persistence decisions, and workflow logic in `lib/application`, `lib/domain`, or appropriate helper modules instead of embedding them in JSX-heavy files.

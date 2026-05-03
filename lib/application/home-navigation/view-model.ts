@@ -59,6 +59,13 @@ export type RecipeGroupForDisplay = {
   recipes: unknown[];
 };
 
+export type HomeRecipeVisibilityTabGroup<TRecipe extends HomeNavigationRecipe = HomeNavigationRecipe> = {
+  id: string;
+  label: string;
+  type: "public" | "family" | "private";
+  recipes: TRecipe[];
+};
+
 export function buildHomeNavigationViewModel(input: {
   userId: number;
   recipes: HomeNavigationRecipe[];
@@ -115,4 +122,67 @@ export function getRecipeGroupDisplayLabel(group: RecipeGroupForDisplay) {
   }
 
   return group.label.replace(/^Family:\s*/i, "");
+}
+
+export function buildRecipeVisibilityTabGroups<TRecipe extends HomeNavigationRecipe>(
+  recipes: TRecipe[],
+  labels: {
+    locale: string;
+    publicRecipesLabel: string;
+    privateRecipesLabel: string;
+    familyVisibilityPrefix: string;
+    familyUnassignedLabel: string;
+  },
+): HomeRecipeVisibilityTabGroup<TRecipe>[] {
+  const publicRecipes = recipes.filter((recipe) => recipe.visibility === "public");
+  const privateRecipes = recipes.filter((recipe) => recipe.visibility === "private");
+  const familyGroupsMap = new Map<string, HomeRecipeVisibilityTabGroup<TRecipe>>();
+
+  for (const recipe of recipes) {
+    if (recipe.visibility !== "family") {
+      continue;
+    }
+
+    if (recipe.families.length === 0) {
+      const unassignedGroupId = "family-unassigned";
+      const existingGroup = familyGroupsMap.get(unassignedGroupId);
+      if (existingGroup) {
+        existingGroup.recipes.push(recipe);
+      } else {
+        familyGroupsMap.set(unassignedGroupId, {
+          id: unassignedGroupId,
+          label: `${labels.familyVisibilityPrefix}: ${labels.familyUnassignedLabel}`,
+          type: "family",
+          recipes: [recipe],
+        });
+      }
+      continue;
+    }
+
+    for (const family of recipe.families) {
+      const familyGroupId = `family-${family.id}`;
+      const existingGroup = familyGroupsMap.get(familyGroupId);
+      if (existingGroup) {
+        existingGroup.recipes.push(recipe);
+      } else {
+        familyGroupsMap.set(familyGroupId, {
+          id: familyGroupId,
+          label: `${labels.familyVisibilityPrefix}: ${family.name}`,
+          type: "family",
+          recipes: [recipe],
+        });
+      }
+    }
+  }
+
+  const familyGroups = Array.from(familyGroupsMap.values()).sort((a, b) => a.label.localeCompare(b.label, labels.locale));
+
+  return [
+    { id: "public", label: labels.publicRecipesLabel, type: "public", recipes: publicRecipes },
+    ...familyGroups.map((group) => ({
+      ...group,
+      label: getRecipeGroupDisplayLabel(group),
+    })),
+    { id: "private", label: labels.privateRecipesLabel, type: "private", recipes: privateRecipes },
+  ];
 }
