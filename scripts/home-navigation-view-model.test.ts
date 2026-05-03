@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildFeaturedRecipeSlides,
+  buildRecipeVisibilityTabGroups,
   buildHomeNavigationViewModel,
   getRecipeGroupDisplayLabel,
 } from "../lib/application/home-navigation/view-model";
@@ -112,4 +113,28 @@ test("returns approved display labels for recipe groups", () => {
   assert.equal(getRecipeGroupDisplayLabel({ type: "public", label: "Public", recipes: [] }), "Public recipes");
   assert.equal(getRecipeGroupDisplayLabel({ type: "family", label: "Family: Hernandez", recipes: [] }), "Hernandez");
   assert.equal(getRecipeGroupDisplayLabel({ type: "private", label: "Private", recipes: [] }), "Just for me");
+});
+
+test("builds recipe visibility groups outside the page layout", () => {
+  const groups = buildRecipeVisibilityTabGroups(recipes, {
+    locale: "en",
+    publicRecipesLabel: "Public recipes",
+    privateRecipesLabel: "Just for me",
+    familyVisibilityPrefix: "Family",
+    familyUnassignedLabel: "Unassigned",
+  });
+
+  assert.deepEqual(
+    groups.map((group) => ({
+      id: group.id,
+      label: group.label,
+      type: group.type,
+      recipeIds: group.recipes.map((recipe) => recipe.id),
+    })),
+    [
+      { id: "public", label: "Public recipes", type: "public", recipeIds: [1, 4] },
+      { id: "family-20", label: "Hernandez", type: "family", recipeIds: [2] },
+      { id: "private", label: "Just for me", type: "private", recipeIds: [3] },
+    ],
+  );
 });

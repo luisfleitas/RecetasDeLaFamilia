@@ -21,14 +21,21 @@ export default function HomeFeaturedCarousel({ slides, labels }: HomeFeaturedCar
     return null;
   }
 
-  const active = slides[index] ?? slides[0];
+  const safeIndex = Math.min(index, slides.length - 1);
+  const active = slides[safeIndex] ?? slides[0];
 
   function previousSlide() {
-    setIndex((current) => (current === 0 ? slides.length - 1 : current - 1));
+    setIndex((current) => {
+      const currentSafeIndex = Math.min(current, slides.length - 1);
+      return currentSafeIndex === 0 ? slides.length - 1 : currentSafeIndex - 1;
+    });
   }
 
   function nextSlide() {
-    setIndex((current) => (current + 1) % slides.length);
+    setIndex((current) => {
+      const currentSafeIndex = Math.min(current, slides.length - 1);
+      return (currentSafeIndex + 1) % slides.length;
+    });
   }
 
   return (
@@ -73,7 +80,7 @@ export default function HomeFeaturedCarousel({ slides, labels }: HomeFeaturedCar
       </div>
       <div id="home-featured-carousel-controls" className="home-featured-controls">
         <p id="home-featured-carousel-counter" className="text-sm font-bold text-[var(--brand-brown-700)]">
-          {index + 1}/{slides.length}
+          {safeIndex + 1}/{slides.length}
         </p>
         <div id="home-featured-carousel-button-group" className="flex gap-2">
           <button

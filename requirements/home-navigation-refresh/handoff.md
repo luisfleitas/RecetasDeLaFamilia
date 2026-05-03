@@ -23,6 +23,7 @@
 - A phone-width drawer follow-up hides the compact rail toggle while the mobile drawer is open so it cannot cover family or recipe rows; the drawer header close button remains the phone-width close control.
 - Old green success/status treatments in touched home-navigation flows now use the approved warm cream/orange status treatment, while semantic error colors remain unchanged.
 - Final visual readiness verification is complete.
+- Code review fixes are applied for the shared shell leakage, page-level persistence/grouping logic, and featured carousel counter drift findings.
 - The branch is ready for PR cleanup/publish checks: review the diff, stage the intended files, commit, push, and open a PR back into `pre-main`.
 - The user approved:
   - warm cream/orange visual direction
@@ -47,6 +48,7 @@
   - `requirements/home-navigation-refresh/handoff.md`
 - Implemented home navigation view-model helpers and tests:
   - `lib/application/home-navigation/view-model.ts`
+  - `lib/application/home-navigation/page-home-navigation-loader.ts`
   - `scripts/home-navigation-view-model.test.ts`
 - Implemented warm home shell UI pieces:
   - `app/_components/home-account-menu.tsx`
@@ -153,6 +155,13 @@
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts` passed during final cleanup.
 - `git diff --check` passed during final cleanup.
 - `npm run build` passed during final cleanup.
+- Added a focused test for recipe visibility group construction outside `app/page.tsx`; watched it fail before implementation, then pass after extraction.
+- Restored shared `body` and `.app-shell` defaults, scoped the wider warm home shell to `#home-page-main` and `.home-app-shell`, and moved home membership loading/group preparation into application helpers.
+- Clamped featured carousel active/counter rendering so the displayed index cannot drift beyond the current slide list.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts` passed after review fixes.
+- `git diff --check` passed after review fixes.
+- `npm run lint` passed after review fixes with existing warnings only.
+- `npm run build` passed after review fixes.
 
 ## Manual Testing Status
 - Logged-out server-rendered smoke check completed via local production HTML.

@@ -2,14 +2,14 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg: #fff9ef;
-  --color-surface: #fff9ef;
-  --color-surface-soft: #fbf1e2;
-  --color-surface-muted: #f8ecd8;
-  --color-text: #342116;
-  --color-text-muted: #6a4a34;
-  --color-border: rgba(142, 63, 28, 0.2);
-  --color-border-strong: rgba(142, 63, 28, 0.34);
+  --color-bg: #f3f6f3;
+  --color-surface: #fbfdfb;
+  --color-surface-soft: #f1f6f1;
+  --color-surface-muted: #e6efe8;
+  --color-text: #1f2922;
+  --color-text-muted: #5d6c61;
+  --color-border: #c9d8cc;
+  --color-border-strong: #a9c0b1;
   --color-primary: #3f6b4f;
   --color-primary-hover: #345942;
   --color-primary-active: #2a4a37;
@@ -80,7 +80,9 @@
 }
 
 body {
-  background: linear-gradient(135deg, var(--brand-cream-50), #faead5 56%, #f3ddbd);
+  background: radial-gradient(circle at 12% 4%, rgba(110, 157, 126, 0.18), transparent 34%),
+    radial-gradient(circle at 88% 5%, rgba(150, 189, 165, 0.15), transparent 28%),
+    var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-geist-sans), "Avenir Next", "Segoe UI", sans-serif;
 }
@@ -93,8 +95,20 @@ a {
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+  max-width: 73.75rem;
+  padding: 2.125rem 1.25rem 3.25rem;
+}
+
+.home-app-shell {
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
   max-width: 97.5rem;
   padding: 0.625rem 0.625rem 1.75rem;
+}
+
+#home-page-main {
+  background: linear-gradient(135deg, var(--brand-cream-50), #faead5 56%, #f3ddbd);
 }
 
 .home-app-frame {

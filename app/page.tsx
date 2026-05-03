@@ -12,11 +12,11 @@ import { formatDate } from "@/lib/i18n/format";
 import { getRequestMessages } from "@/lib/i18n/server";
 import {
   buildFeaturedRecipeSlides,
+  buildRecipeVisibilityTabGroups,
   buildHomeNavigationViewModel,
-  getRecipeGroupDisplayLabel,
 } from "@/lib/application/home-navigation/view-model";
+import { loadHomeNavigationFamiliesForPage } from "@/lib/application/home-navigation/page-home-navigation-loader";
 import { loadRecipeListForPage } from "@/lib/application/recipes/page-recipe-list-loader";
-import { getPrisma } from "@/lib/prisma";
 
 export default async function HomePage() {
   const [{ locale, messages }, authUser] = await Promise.all([
@@ -28,20 +28,7 @@ export default async function HomePage() {
   const { recipes } = recipesResponse;
   const publicRecipes = recipes.filter((recipe) => recipe.visibility === "public");
   const visibleRecipes = authUser ? recipes : publicRecipes;
-  const privateRecipes = recipes.filter((recipe) => recipe.visibility === "private");
-  const memberships = authUser
-    ? await (await getPrisma()).familyMembership.findMany({
-        where: { userId: authUser.user_id },
-        include: { family: true },
-        orderBy: { joinedAt: "desc" },
-      })
-    : [];
-  const familyMemberships = memberships.map((membership) => ({
-    id: membership.family.id,
-    name: membership.family.name,
-    role: membership.role,
-    joinedAt: membership.joinedAt.toISOString(),
-  }));
+  const familyMemberships = authUser ? await loadHomeNavigationFamiliesForPage(authUser.user_id) : [];
   const homeNavigation = authUser
     ? buildHomeNavigationViewModel({
         userId: authUser.user_id,
@@ -50,61 +37,20 @@ export default async function HomePage() {
       })
     : null;
   const featuredSlides = buildFeaturedRecipeSlides(visibleRecipes, 6);
-  const familyGroupsMap = new Map<string, RecipeVisibilityTabGroup>();
-
-  for (const recipe of recipes) {
-    if (recipe.visibility !== "family") {
-      continue;
-    }
-
-    if (recipe.families.length === 0) {
-      const unassignedGroupId = "family-unassigned";
-      const existingGroup = familyGroupsMap.get(unassignedGroupId);
-      if (existingGroup) {
-        existingGroup.recipes.push(recipe);
-      } else {
-        familyGroupsMap.set(unassignedGroupId, {
-          id: unassignedGroupId,
-          label: `${messages.home.familyVisibilityPrefix}: ${messages.home.familyUnassigned}`,
-          type: "family",
-          recipes: [recipe],
-        });
-      }
-      continue;
-    }
-
-    for (const family of recipe.families) {
-      const familyGroupId = `family-${family.id}`;
-      const existingGroup = familyGroupsMap.get(familyGroupId);
-      if (existingGroup) {
-        existingGroup.recipes.push(recipe);
-      } else {
-        familyGroupsMap.set(familyGroupId, {
-          id: familyGroupId,
-          label: `${messages.home.familyVisibilityPrefix}: ${family.name}`,
-          type: "family",
-          recipes: [recipe],
-        });
-      }
-    }
-  }
-
-  const familyGroups = Array.from(familyGroupsMap.values()).sort((a, b) => a.label.localeCompare(b.label, locale));
   const visibilityTabGroups: RecipeVisibilityTabGroup[] = authUser
-    ? [
-        { id: "public", label: messages.home.publicRecipesTab, type: "public" as const, recipes: publicRecipes },
-        ...familyGroups,
-        { id: "private", label: messages.home.privateRecipesTab, type: "private" as const, recipes: privateRecipes },
-      ].map((group) => ({
-        ...group,
-        label: group.type === "family" ? getRecipeGroupDisplayLabel(group) : group.label,
-      }))
+    ? buildRecipeVisibilityTabGroups(recipes, {
+        locale,
+        publicRecipesLabel: messages.home.publicRecipesTab,
+        privateRecipesLabel: messages.home.privateRecipesTab,
+        familyVisibilityPrefix: messages.home.familyVisibilityPrefix,
+        familyUnassignedLabel: messages.home.familyUnassigned,
+      })
     : [];
   const greeting = authUser ? messages.home.homeGreeting.replace("{username}", authUser.username) : messages.home.guestGreeting;
 
   return (
     <main id="home-page-main" className="relative min-h-screen overflow-hidden py-3 sm:py-4">
-      <div id="home-app-shell" className="app-shell">
+      <div id="home-app-shell" className="home-app-shell">
         <div id="home-app-frame" className="home-app-frame">
         <header id="home-page-top-header" className="home-utility-header">
           <div id="home-page-top-header-row" className="page-header-bar">
