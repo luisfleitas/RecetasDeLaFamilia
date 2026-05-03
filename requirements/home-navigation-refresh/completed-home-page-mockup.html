@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recetas Completed Home Page Mockup</title>
+    <style>
+      :root {
+        --cream-50: #fff9ef;
+        --cream-75: #fbf1e2;
+        --cream-100: #f8ecd8;
+        --cream-200: #efd8b9;
+        --orange-300: #e8a35e;
+        --orange-500: #c9682b;
+        --orange-700: #8e3f1c;
+        --brown-900: #342116;
+        --brown-700: #6a4a34;
+        --sage-500: #5b7a52;
+        --line: rgba(142, 63, 28, 0.2);
+        --line-strong: rgba(142, 63, 28, 0.34);
+        --shadow-panel: 0 18px 42px rgba(104, 61, 27, 0.14);
+        --shadow-card: 0 10px 24px rgba(104, 61, 27, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(135deg, var(--cream-50), #faead5 56%, #f3ddbd);
+        color: var(--brown-900);
+        font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      }
+
+      a,
+      button {
+        font: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .page {
+        width: min(1560px, calc(100vw - 20px));
+        margin: 0 auto;
+        padding: 10px 0 28px;
+      }
+
+      .app-frame {
+        overflow: hidden;
+        min-height: calc(100vh - 36px);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 249, 239, 0.92);
+        box-shadow: var(--shadow-panel);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 64px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 249, 239, 0.96);
+        padding: 14px 22px;
+      }
+
+      .brand {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .pill-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff4e3;
+        color: var(--orange-700);
+        padding: 0 13px;
+        font-weight: 800;
+        line-height: 1;
+        box-shadow: 0 4px 12px rgba(104, 61, 27, 0.08);
+      }
+
+      .pill-button.language {
+        background: rgba(248, 236, 216, 0.78);
+        color: var(--brown-700);
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        min-height: calc(100vh - 101px);
+      }
+
+      .sidebar {
+        border-right: 1px solid var(--line);
+        background: #faedd9;
+        padding: 16px 14px;
+      }
+
+      .side-section + .side-section {
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(142, 63, 28, 0.16);
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+        color: var(--orange-700);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .heading-left {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .plus-button,
+      .icon-button {
+        display: inline-grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        background: var(--orange-500);
+        color: var(--cream-50);
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .drawer-hide-button {
+        display: inline-grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--cream-50);
+        color: var(--orange-700);
+        font-size: 16px;
+        font-weight: 900;
+      }
+
+      .icon-button {
+        width: 30px;
+        height: 30px;
+        border-color: var(--line);
+        background: var(--cream-50);
+        color: var(--orange-700);
+        font-size: 16px;
+      }
+
+      .side-list {
+        display: grid;
+        gap: 9px;
+      }
+
+      .side-item {
+        display: grid;
+        gap: 4px;
+        border: 1px solid rgba(142, 63, 28, 0.15);
+        border-radius: 10px;
+        background: rgba(255, 249, 239, 0.76);
+        padding: 10px;
+      }
+
+      .side-item strong {
+        overflow: hidden;
+        font-size: 14px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .side-item span,
+      .side-more {
+        color: var(--orange-700);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .side-more {
+        display: inline-flex;
+        margin-top: 5px;
+      }
+
+      .workspace {
+        min-width: 0;
+        background: rgba(255, 249, 239, 0.55);
+        padding: 18px;
+      }
+
+      .workspace-inner {
+        display: grid;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .greeting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .greeting-row h1 {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+        font-size: clamp(25px, 2.8vw, 38px);
+        line-height: 1.08;
+      }
+
+      .recipe-count {
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff4e3;
+        color: var(--sage-500);
+        padding: 7px 12px;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .featured-band {
+        display: grid;
+        grid-template-columns: minmax(170px, 0.58fr) minmax(0, 1fr) auto;
+        align-items: stretch;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--cream-50);
+        box-shadow: var(--shadow-card);
+      }
+
+      .featured-photo {
+        min-height: 150px;
+        background:
+          radial-gradient(circle at 24% 26%, rgba(255, 255, 255, 0.58), transparent 18%),
+          radial-gradient(circle at 76% 72%, rgba(142, 63, 28, 0.17), transparent 24%),
+          linear-gradient(135deg, #e8a35e, #efd8b9 52%, #8e3f1c);
+        position: relative;
+      }
+
+      .featured-photo::before,
+      .featured-photo::after {
+        position: absolute;
+        content: "";
+        border-radius: 999px;
+        background: rgba(255, 249, 239, 0.82);
+      }
+
+      .featured-photo::before {
+        width: 112px;
+        height: 112px;
+        left: 38px;
+        top: 30px;
+      }
+
+      .featured-photo::after {
+        width: 68px;
+        height: 68px;
+        right: 42px;
+        bottom: 28px;
+      }
+
+      .featured-copy {
+        display: grid;
+        align-content: center;
+        gap: 5px;
+        min-width: 0;
+        padding: 16px 18px;
+      }
+
+      .kicker {
+        margin: 0;
+        color: var(--orange-700);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .featured-copy h2 {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+        font-size: clamp(23px, 2.3vw, 32px);
+        line-height: 1.1;
+      }
+
+      .featured-copy p:last-child {
+        margin: 0;
+        color: var(--brown-700);
+        line-height: 1.45;
+      }
+
+      .carousel-controls {
+        display: grid;
+        align-content: center;
+        justify-items: center;
+        gap: 10px;
+        border-left: 1px solid var(--line);
+        background: var(--cream-75);
+        padding: 12px;
+      }
+
+      .carousel-controls span {
+        color: var(--brown-700);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .control-pair {
+        display: flex;
+        gap: 8px;
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .recipe-tabs-card {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 249, 239, 0.9);
+        box-shadow: var(--shadow-card);
+      }
+
+      .tabs {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--line);
+        background: var(--cream-100);
+        padding: 12px;
+      }
+
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 42px;
+        white-space: nowrap;
+        border: 1px solid var(--line);
+        border-bottom: 3px solid transparent;
+        border-radius: 10px;
+        background: rgba(255, 249, 239, 0.76);
+        color: var(--brown-700);
+        padding: 0 13px;
+        font-weight: 850;
+      }
+
+      .tab.active {
+        border-color: var(--line-strong);
+        border-bottom-color: var(--orange-500);
+        background: var(--cream-50);
+        color: var(--brown-900);
+      }
+
+      .count {
+        display: inline-grid;
+        place-items: center;
+        min-width: 28px;
+        min-height: 24px;
+        border-radius: 999px;
+        background: #fff4e3;
+        color: var(--orange-700);
+        font-size: 12px;
+      }
+
+      .recipe-panel {
+        padding: 14px;
+      }
+
+      .panel-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+        color: var(--brown-700);
+        font-size: 14px;
+        font-weight: 750;
+      }
+
+      .recipe-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+      }
+
+      .recipe-card {
+        overflow: hidden;
+        border: 1px solid rgba(142, 63, 28, 0.15);
+        border-radius: 12px;
+        background: var(--cream-50);
+      }
+
+      .recipe-thumb {
+        height: 94px;
+        background:
+          linear-gradient(135deg, rgba(201, 104, 43, 0.86), rgba(232, 163, 94, 0.62)),
+          repeating-linear-gradient(45deg, rgba(255, 249, 239, 0.26) 0 9px, transparent 9px 18px);
+      }
+
+      .recipe-card:nth-child(2) .recipe-thumb {
+        background:
+          linear-gradient(135deg, rgba(91, 122, 82, 0.54), rgba(232, 163, 94, 0.6)),
+          repeating-linear-gradient(120deg, rgba(255, 249, 239, 0.3) 0 8px, transparent 8px 16px);
+      }
+
+      .recipe-card:nth-child(3) .recipe-thumb {
+        background:
+          linear-gradient(135deg, rgba(142, 63, 28, 0.78), rgba(239, 216, 185, 0.72)),
+          repeating-linear-gradient(15deg, rgba(255, 249, 239, 0.34) 0 7px, transparent 7px 15px);
+      }
+
+      .recipe-card:nth-child(4) .recipe-thumb {
+        background:
+          linear-gradient(135deg, rgba(232, 163, 94, 0.72), rgba(91, 122, 82, 0.38)),
+          repeating-linear-gradient(90deg, rgba(255, 249, 239, 0.28) 0 6px, transparent 6px 14px);
+      }
+
+      .recipe-card:nth-child(5) .recipe-thumb {
+        background:
+          linear-gradient(135deg, rgba(106, 74, 52, 0.72), rgba(232, 163, 94, 0.56)),
+          repeating-linear-gradient(45deg, rgba(255, 249, 239, 0.22) 0 10px, transparent 10px 20px);
+      }
+
+      .recipe-card:nth-child(6) .recipe-thumb {
+        background:
+          linear-gradient(135deg, rgba(201, 104, 43, 0.62), rgba(255, 249, 239, 0.74)),
+          repeating-linear-gradient(135deg, rgba(142, 63, 28, 0.1) 0 8px, transparent 8px 16px);
+      }
+
+      .recipe-body {
+        padding: 11px;
+      }
+
+      .recipe-body strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .recipe-body p {
+        margin: 5px 0 0;
+        color: var(--brown-700);
+        font-size: 12px;
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          width: min(100% - 22px, 760px);
+          padding-top: 11px;
+        }
+
+        .topbar,
+        .greeting-row {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .top-actions {
+          align-self: stretch;
+          justify-content: flex-end;
+        }
+
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .side-list {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .featured-band {
+          grid-template-columns: 1fr;
+        }
+
+        .carousel-controls {
+          grid-template-columns: 1fr auto;
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
+
+      }
+
+      @media (max-width: 520px) {
+        .top-actions {
+          justify-content: flex-start;
+        }
+
+        .side-list {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace {
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="app-frame">
+        <header class="topbar" aria-label="Home top bar">
+          <p class="brand">Recetas Familia</p>
+          <div class="top-actions" aria-label="Account and language actions">
+            <button class="pill-button language" type="button">English v</button>
+            <button class="pill-button" type="button">Luis v</button>
+          </div>
+        </header>
+
+        <div class="shell">
+          <aside class="sidebar" aria-label="Home navigation">
+            <section class="side-section">
+              <div class="section-heading">
+                <span class="heading-left">
+                  <button class="drawer-hide-button" type="button" aria-label="Hide left navigation">&lt;</button>
+                  <span>Families</span>
+                </span>
+                <a class="plus-button" href="#" aria-label="Add family">+</a>
+              </div>
+              <div class="side-list">
+                <a class="side-item" href="#">
+                  <strong>Familia Rivera</strong>
+                  <span>Edit</span>
+                </a>
+                <a class="side-item" href="#">
+                  <strong>Abuela's Table</strong>
+                  <span>Edit</span>
+                </a>
+                <a class="side-item" href="#">
+                  <strong>Sunday Crew</strong>
+                  <span>Edit</span>
+                </a>
+                <a class="side-item" href="#">
+                  <strong>FLIA Fleitas</strong>
+                  <span>Edit</span>
+                </a>
+              </div>
+              <a class="side-more" href="#">More -></a>
+            </section>
+
+            <section class="side-section">
+              <div class="section-heading">
+                <span>Recipes</span>
+                <a class="plus-button" href="#" aria-label="Add recipe">+</a>
+              </div>
+              <div class="side-list">
+                <a class="side-item" href="#">
+                  <strong>Pastelon</strong>
+                  <span>Edit</span>
+                </a>
+                <a class="side-item" href="#">
+                  <strong>Sancocho de domingo</strong>
+                  <span>Edit</span>
+                </a>
+                <a class="side-item" href="#">
+                  <strong>Lomito guisado</strong>
+                  <span>Edit</span>
+                </a>
+                <a class="side-item" href="#">
+                  <strong>Bunuelos</strong>
+                  <span>Edit</span>
+                </a>
+              </div>
+              <a class="side-more" href="#">More -></a>
+            </section>
+          </aside>
+
+          <section class="workspace" aria-label="Recipe workspace">
+            <div class="workspace-inner">
+              <div class="greeting-row">
+                <h1>Hello Luis what should we cook today?</h1>
+                <span class="recipe-count">16 Heritage Recipes</span>
+              </div>
+
+              <section class="featured-band" aria-label="Featured recipe">
+                <div class="featured-photo" aria-hidden="true"></div>
+                <div class="featured-copy">
+                  <p class="kicker">Featured recipes</p>
+                  <h2>Sancocho de domingo</h2>
+                  <p>Warm discovery band above the recipe groups, sized to keep the recipe workspace visible.</p>
+                </div>
+                <div class="carousel-controls">
+                  <span>1/6</span>
+                  <div class="control-pair">
+                    <button class="icon-button" type="button" aria-label="Previous featured recipe">&lt;</button>
+                    <button class="icon-button" type="button" aria-label="Next featured recipe">&gt;</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="content-grid">
+                <article class="recipe-tabs-card" aria-label="Recipe visibility groups">
+                  <div class="tabs" role="tablist" aria-label="Recipe visibility groups">
+                    <button class="tab active" type="button" role="tab" aria-selected="true">
+                      Public recipes <span class="count">12</span>
+                    </button>
+                    <button class="tab" type="button" role="tab" aria-selected="false">
+                      FLIA Fleitas <span class="count">2</span>
+                    </button>
+                    <button class="tab" type="button" role="tab" aria-selected="false">
+                      Just for me <span class="count">2</span>
+                    </button>
+                  </div>
+                  <div class="recipe-panel" role="tabpanel">
+                    <div class="panel-summary">
+                      <span>Showing Public recipes</span>
+                      <span>12 recipes</span>
+                    </div>
+                    <div class="recipe-list">
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Bob Smoke Recipe</strong>
+                          <p>Added 4/24/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Lomito Guisado</strong>
+                          <p>Added 3/23/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Spaghetti bolognese</strong>
+                          <p>Added 2/22/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Bunuelos de harina</strong>
+                          <p>Added 3/23/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Pastelon familiar</strong>
+                          <p>Added 2/14/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Simple tomato pasta</strong>
+                          <p>Added 1/30/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Beef stir fry</strong>
+                          <p>Added 1/18/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Auto-login recipe</strong>
+                          <p>Added 4/24/2026 · Public</p>
+                        </div>
+                      </a>
+                      <a class="recipe-card" href="#">
+                        <div class="recipe-thumb" aria-hidden="true"></div>
+                        <div class="recipe-body">
+                          <strong>Bob visual check</strong>
+                          <p>Added 3/13/2026 · Public</p>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </article>
+              </section>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

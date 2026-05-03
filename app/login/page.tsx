@@ -111,7 +111,7 @@ export default function LoginPage() {
           </div>
 
           {error ? <p id="login-page-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
-          {message ? <p id="login-page-message" className="text-sm text-[var(--color-primary)]">{message}</p> : null}
+          {message ? <p id="login-page-message" className="warm-status-message">{message}</p> : null}
 
           <div id="login-page-actions" className="flex flex-wrap items-center gap-3">
             <button id="login-page-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>

@@ -230,7 +230,7 @@ export default function InviteFamilyFlow({ token }: { token: string }) {
               </p>
             </div>
 
-            {message ? <p id="family-invite-message" className="text-sm text-[var(--color-primary)]">{message}</p> : null}
+            {message ? <p id="family-invite-message" className="warm-status-message">{message}</p> : null}
 
             <div id="family-invite-actions" className="flex flex-wrap gap-2">
               <button

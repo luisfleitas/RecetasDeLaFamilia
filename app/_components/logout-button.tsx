@@ -6,10 +6,13 @@ import { useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 
 type LogoutButtonProps = {
+  buttonId?: string;
   className?: string;
+  label?: string;
+  role?: string;
 };
 
-export default function LogoutButton({ className }: LogoutButtonProps) {
+export default function LogoutButton({ buttonId = "global-logout-button", className, label, role }: LogoutButtonProps) {
   const router = useRouter();
   const messages = useMessages();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,13 +29,14 @@ export default function LogoutButton({ className }: LogoutButtonProps) {
 
   return (
     <button
-      id="global-logout-button"
+      id={buttonId}
       type="button"
+      role={role}
       onClick={handleLogout}
       disabled={isSubmitting}
       className={buttonClassName("secondary", className)}
     >
-      {messages.home.logOut}
+      {label ?? messages.home.logOut}
     </button>
   );
 }
