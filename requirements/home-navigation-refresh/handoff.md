@@ -22,6 +22,8 @@
 - True 390px phone-width visual verification is complete after installing the local Chrome distribution needed by the resizable Playwright browser.
 - A phone-width drawer follow-up hides the compact rail toggle while the mobile drawer is open so it cannot cover family or recipe rows; the drawer header close button remains the phone-width close control.
 - Old green success/status treatments in touched home-navigation flows now use the approved warm cream/orange status treatment, while semantic error colors remain unchanged.
+- Final visual readiness verification is complete.
+- The branch is ready for PR cleanup/publish checks: review the diff, stage the intended files, commit, push, and open a PR back into `pre-main`.
 - The user approved:
   - warm cream/orange visual direction
   - carousel Option A: featured band above current recipe lists/tabs
@@ -58,18 +60,18 @@
   - `lib/i18n/messages.ts`
 
 ## In Progress
-- Final visual readiness verification is in progress before branch cleanup or PR readiness.
+- PR cleanup and publish readiness.
 
 ## Next Action
-1. Re-run a clean logged-out browser review in an unauthenticated context.
-2. Do one more side-by-side visual pass against `https://bliss-coach-78479963.figma.site/` and `requirements/home-navigation-refresh/completed-home-page-mockup.html`.
-3. If that pass is clean, move to final cleanup: duplicate-id check, phone-width check, focused test, `git diff --check`, and `npm run build`.
+1. Review the final diff and confirm only intended app, docs, and ignore-pattern changes are present.
+2. Stage and commit the home navigation refresh work.
+3. Push `codex/feature/home-navigation-refresh` and open a PR back into `pre-main`.
 
 ## Known Issues
 - Temporary Playwright screenshots and `.playwright-mcp/` metadata are ignored by `.gitignore` so they do not get staged accidentally.
 - The stale local dev process on port 3000 was force-stopped after it stopped responding to `/` and `/login`; successful phone-width verification used a clean dev server on `http://localhost:3103/`.
-- Clean logged-out browser review still needs a fresh unauthenticated browser context; a no-cookie server-rendered HTML check confirmed the logged-out greeting and shell markup.
-- Final side-by-side source comparison is still needed before calling the home page PR-ready.
+- Final verification also used a clean dev server on `http://localhost:3105/`; stop that local process when it is no longer needed.
+- Generated screenshot `home-nav-final-phone-logged-out.png` is ignored by `.gitignore` and should stay out of commits.
 
 ## Verification Already Run
 - Documentation sanity checks were run with `rg`, `sed`, `wc`, and `git status`.
@@ -141,6 +143,16 @@
 - Logged-out no-cookie rendered HTML check on `http://127.0.0.1:3104/` confirmed `#home-app-frame`, `#home-greeting-title`, `#home-featured-carousel`, and `#home-recipe-groups` render, while `#home-hero-section`, `#home-preservation-aside`, and `#home-page-top-header-tabs` do not render.
 - In-app browser logged-in review with seeded `alice` on `http://127.0.0.1:3104/` confirmed the compact top bar, greeting, warm featured band, grouped recipe tabs, responsive recipe card grid, and absence of `home-hero-section`, `home-preservation-aside`, and `home-page-top-header-tabs`.
 - A follow-up in-app browser screenshot caught inherited sage surfaces inside the warm shell; `app/globals.css` now overrides those tokens inside `#home-app-frame`, and the reloaded screenshot confirmed the cards and controls read cream/orange.
+- Clean logged-out in-app browser review on `http://localhost:3105/` confirmed:
+  - `Create Account` and login access render in an unauthenticated state.
+  - logged-in left navigation does not render.
+  - `#home-app-frame`, `#home-featured-carousel`, and `#home-recipe-groups` render.
+  - `#home-hero-section` and `#home-preservation-aside` do not render.
+- Side-by-side visual pass compared `https://bliss-coach-78479963.figma.site/`, `requirements/home-navigation-refresh/completed-home-page-mockup.html`, and the local implementation. The local page follows the approved completed warm app-shell mockup direction while retaining real Recetas data and logged-out behavior.
+- 390x844 Playwright check on `http://127.0.0.1:3105/` confirmed no document-level horizontal overflow, no duplicate rendered `id` attributes, left navigation absent while logged out, and stable ordering from greeting to featured carousel to grouped recipe workspace.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts` passed during final cleanup.
+- `git diff --check` passed during final cleanup.
+- `npm run build` passed during final cleanup.
 
 ## Manual Testing Status
 - Logged-out server-rendered smoke check completed via local production HTML.
@@ -151,6 +163,7 @@
 - Old green success/status cleanup completed for touched home-navigation flows.
 - Deprecated header/top-header cleanup completed and browser-verified at 390x844.
 - App-shell visual rework completed and browser-verified in the authenticated in-app browser with seeded `alice`.
+- Final logged-out unauthenticated browser review, source/mockup side-by-side comparison, 390x844 phone-width check, duplicate-id check, focused test, whitespace check, and production build are complete.
 
 ## Decisions Already Approved
 - Use `pre-main` as the base branch for this UI feature.

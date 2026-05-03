@@ -10,6 +10,7 @@
 - [x] `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts` passes.
 - [x] No TypeScript errors from new home navigation components.
 - [x] No duplicate `id` attributes introduced in the home page shell.
+- [x] Final `git diff --check` passes.
 
 ## Current Design Readiness Review
 - [x] `home-hero-section` removed from the refreshed landing.
@@ -25,7 +26,8 @@
 - [x] Showing recipes area now uses responsive card columns so more cards appear per row as workspace width allows.
 - [x] `requirements/home-navigation-refresh/branding-guidelines.md` updated with the corrected warm app-shell direction.
 - [x] Local browser review compared the implementation against `requirements/home-navigation-refresh/completed-home-page-mockup.html`.
-- [~] Remaining final-readiness gap: repeat logged-out browser review in a clean unauthenticated browser context and do one more side-by-side pass against the external source wireframe before PR cleanup.
+- [x] Final side-by-side browser review compared the implementation against `https://bliss-coach-78479963.figma.site/` and `requirements/home-navigation-refresh/completed-home-page-mockup.html`.
+- [x] Remaining final-readiness gap closed: clean logged-out browser review, side-by-side pass against the external source wireframe and completed mockup, phone-width check, duplicate-id check, focused test, `git diff --check`, and `npm run build` are complete.
 
 ## Previous Design Readiness Findings
 - [~] Original wireframe comparison is not ready: the source design at `https://bliss-coach-78479963.figma.site/` is a compact logged-in app shell with a persistent left navigation and simple central workspace, while the current app renders a large marketing-style hero before the recipe workspace.
@@ -127,16 +129,18 @@
 - [x] Color is not the only active-state cue for tabs or controls.
 
 ## Manual Testing Status
-- Automated and rendered logged-out checks have started.
+- Automated and rendered logged-out checks are complete.
 - Logged-in interactive browser checks completed with the seeded `alice` account on the local app.
 - Medium-width visual responsive review completed in the in-app browser with seeded `alice`.
 - Empty public, family, and owned-recipe states verified with a temporary empty SQLite database and the `emptyuser` account.
 - True phone-width visual review completed in the separate Playwright browser with logged-out and logged-in `alice` states at 390x844.
 - Visual cleanup for deprecated header ids, refreshed top header, and old green success/status treatments is complete.
+- Final clean logged-out in-app browser review completed on `http://localhost:3105/`.
+- Final 390x844 logged-out Playwright review completed on `http://127.0.0.1:3105/`.
 
 ## Known Risks To Watch
 - Existing `app/page.tsx` is already doing substantial grouping work; implementation must avoid embedding more business logic in JSX.
 - The current recipe grouping component already owns keyboard behavior; restyling must preserve that behavior.
 - Account dropdown may require a small `LogoutButton` prop addition to avoid duplicating logout logic.
-- Browser verification should include both authenticated and unauthenticated states.
-- The current page can pass automated and responsive checks while still missing the source wireframe's app-shell composition; future QA must include a direct screenshot comparison against the source design before calling the landing ready.
+- Future authenticated changes should re-check both authenticated and unauthenticated states.
+- Future visual changes should continue comparing against the completed mockup so the home page does not drift back toward a hero-led landing layout.

@@ -1021,7 +1021,7 @@ Expected:
 - implemented left navigation, including the hide button to the left of `Families`, featured band, visibility tabs, and responsive recipe-card grid visually match the mockup direction
 - any intentional differences from the mockup are documented in the handoff before final approval
 
-- [~] **Step 8: Re-run visual and functional verification**
+- [x] **Step 8: Re-run visual and functional verification**
 
 Run the focused tests/build, then perform browser review against both the source wireframe and local app.
 
@@ -1030,6 +1030,12 @@ Expected:
 - logged-in and logged-out flows still pass
 - mobile and desktop screenshots show no overlap or horizontal overflow
 - branding guidelines, QA checklist, and handoff reflect the new state accurately
+
+Completed verification notes:
+- Clean unauthenticated in-app browser review on `http://localhost:3105/` confirmed `Create Account`, login access, `#home-app-frame`, `#home-featured-carousel`, and `#home-recipe-groups` render while logged-in left navigation, `#home-hero-section`, and `#home-preservation-aside` do not render.
+- Side-by-side visual pass compared the sparse original source wireframe at `https://bliss-coach-78479963.figma.site/`, the approved completed mockup at `requirements/home-navigation-refresh/completed-home-page-mockup.html`, and the local implementation. The source remains a minimal shell reference; the local implementation follows the completed warm app-shell mockup direction while preserving real Recetas data and logged-out affordances.
+- 390x844 Playwright review confirmed no document-level horizontal overflow, no duplicate rendered `id` attributes, and stable ordering from greeting to featured carousel to grouped recipe workspace.
+- Final cleanup passed: duplicate-id check, focused home navigation view-model test, `git diff --check`, and `npm run build`.
 
 ## Plan Self-Review
 - Spec coverage: covers top bar, account dropdown, Option A left rail/drawer, family/recipe plus buttons, Option A carousel, center tabs/greeting, logged-out behavior, `home-page-header` removal, `home-page-top-header` redesign, old green banner/status cleanup, separation of concerns, i18n, mobile, accessibility, and verification.

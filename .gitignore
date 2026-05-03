@@ -15,6 +15,7 @@
 /.tmp
 /.playwright-mcp
 /home-phone-*.png
+/home-nav-final-*.png
 
 # next.js
 /.next/
