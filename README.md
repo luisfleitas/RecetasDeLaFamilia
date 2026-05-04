@@ -65,6 +65,9 @@ Environment variables:
 - `RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT`:
   - max number of handwritten images accepted in a single import
   - defaults to `6`
+- `RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES`:
+  - max combined upload size for handwritten images in a single import
+  - defaults to `20971520` (20 MB)
 - `RECIPE_IMPORT_OCR_LANGS`:
   - Tesseract language packs used by local OCR
   - defaults to `eng+spa`
@@ -90,6 +93,7 @@ RECIPE_IMPORT_FORCE_OPENAI_OCR=true
 RECIPE_IMPORT_HANDWRITTEN_ENABLED=true
 RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=openai
 RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT=6
+RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES=20971520
 RECIPE_IMPORT_OCR_LANGS=eng+spa
 RECIPE_IMPORT_OCR_TIMEOUT_MS=30000
 ```

@@ -15,10 +15,11 @@
 ## Current Design Readiness Review
 - [x] `home-hero-section` removed from the refreshed landing.
 - [x] `home-preservation-aside` removed from the refreshed landing.
-- [x] First viewport now moves from compact utility top bar into greeting, featured band, and grouped recipe workspace.
+- [x] First viewport now moves from compact utility top bar into greeting and grouped recipe workspace.
+- [x] Latest carousel-removal request applied: current home page no longer renders the image carousel band between the greeting and recipe groups.
 - [x] Logged-in top bar shows the language changer next to the signed-in name/menu control.
 - [x] Extra signed-in top-level recipe/family/add actions and secondary top tabs removed.
-- [x] Featured carousel tightened into a compact featured band above the recipe groups.
+- [x] Featured carousel was tightened into a compact featured band above the recipe groups before the later carousel-removal request superseded that behavior.
 - [x] Decorative `HomeCanvas` background removed from the home page.
 - [x] Home app frame locally overrides inherited sage theme tokens so the refreshed page reads warm cream/orange overall.
 - [x] Page width increased to match the completed mockup's broader app-frame direction.
@@ -53,7 +54,7 @@
 - [x] Top bar shows `Create Account`.
 - [x] Public recipe content remains visible.
 - [x] Non-public recipes are not displayed.
-- [x] Featured carousel uses public recipes only when shown.
+- [x] The current logged-out home does not render the featured carousel.
 - [x] Public recipe empty state remains readable when no public recipes exist.
 
 ## Logged-In Top Bar
@@ -81,7 +82,10 @@
 - [x] Recipes `More` link targets the home recipe groups anchor.
 - [x] Empty family and owned-recipe states are concise and visible.
 
-## Featured Carousel
+## Featured Carousel Removal
+- [x] Current user-requested behavior: image carousel is removed from the home navigation workspace.
+
+## Previous Featured Carousel Verification
 - [x] Carousel appears above the grouped recipe tabs.
 - [x] Carousel supports previous and next navigation.
 - [x] Carousel slides include recipe title.
@@ -107,7 +111,7 @@
 - [x] Logged-in navigation defaults to compact/collapsed behavior on small screens.
 - [x] Expanded mobile drawer does not permanently reduce recipe-list width.
 - [x] Horizontal tab overflow works without clipping text at the available narrow in-app browser viewport.
-- [x] Carousel, greeting, and recipe cards do not overlap at the available narrow in-app browser viewport.
+- [x] Greeting and recipe cards do not overlap at the available narrow in-app browser viewport.
 - [x] All key tap targets are comfortably sized in the refreshed home-navigation controls.
 - [x] Long family names and recipe titles truncate or wrap cleanly in the refreshed home-navigation controls.
 - [x] True phone-width visual review completed at 390x844 in the separate Playwright browser.
@@ -123,8 +127,8 @@
 - [x] Account menu trigger uses menu semantics and `aria-expanded`.
 - [x] Left navigation toggle has a descriptive accessible label.
 - [x] Families collapse button has `aria-expanded`.
-- [x] Carousel image alt text uses recipe title.
-- [x] Placeholder slides do not expose misleading image alt text.
+- [x] Previous carousel image alt text used recipe title before carousel removal.
+- [x] Previous carousel placeholder slides did not expose misleading image alt text before carousel removal.
 - [x] Focus states are visible against cream/orange surfaces.
 - [x] Color is not the only active-state cue for tabs or controls.
 

@@ -58,6 +58,7 @@ Add production values to the Production environment and staging values to the Pr
 | `RECIPE_IMPORT_FORCE_OPENAI_OCR` | `false` | `false` |
 | `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER` | `openai` | `openai` |
 | `RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT` | `6` | `6` |
+| `RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES` | `20971520` | `20971520` |
 
 Use `vercel env ls` after setup to confirm variables exist. Do not print secret values in terminal output, PR comments, or tracker docs.
 
@@ -112,6 +113,7 @@ vercel env add RECIPE_IMPORT_OCR_OPENAI_MODEL production
 vercel env add RECIPE_IMPORT_FORCE_OPENAI_OCR production
 vercel env add RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER production
 vercel env add RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT production
+vercel env add RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES production
 
 vercel env add JWT_EXPIRES_IN preview pre-main
 vercel env add NEXT_PUBLIC_SITE_URL preview pre-main
@@ -128,6 +130,7 @@ vercel env add RECIPE_IMPORT_OCR_OPENAI_MODEL preview pre-main
 vercel env add RECIPE_IMPORT_FORCE_OPENAI_OCR preview pre-main
 vercel env add RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER preview pre-main
 vercel env add RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT preview pre-main
+vercel env add RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES preview pre-main
 ```
 
 Use the values from the environment matrix above for fixed variables. After setup, run `vercel env ls`, trigger a new deployment, and then run the staging validation checklist.

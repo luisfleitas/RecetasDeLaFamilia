@@ -1,5 +1,6 @@
 import {
   getRecipeImportHandwrittenMaxImageCount,
+  getRecipeImportHandwrittenMaxUploadBytes,
   getRecipeImportHandwrittenPrimaryOcrProvider,
   hasRecipeImportOpenAiOcrFallback,
 } from "@/lib/application/recipes/import-config";
@@ -124,6 +125,15 @@ function formatPageList(pageNumbers: number[]): string {
   return pageNumbers.map((pageNumber) => `page ${pageNumber}`).join(", ");
 }
 
+function formatUploadSize(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes >= 1) {
+    return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB`;
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
+}
+
 function buildReviewHints(pageResults: HandwrittenOcrPageResult[]): string[] {
   const hints = ["Review carefully before continuing. Handwritten recipes can produce ambiguous text."];
   const fallbackPages = pageResults
@@ -222,6 +232,14 @@ export async function parseHandwrittenImportRequest(formData: FormData): Promise
   const maxImageCount = getRecipeImportHandwrittenMaxImageCount();
   if (files.length > maxImageCount) {
     throw new Error(`Upload up to ${maxImageCount} handwritten images per import.`);
+  }
+
+  const maxUploadBytes = getRecipeImportHandwrittenMaxUploadBytes();
+  const totalUploadBytes = files.reduce((total, file) => total + file.size, 0);
+  if (totalUploadBytes > maxUploadBytes) {
+    throw new Error(
+      `Combined upload size exceeds ${formatUploadSize(maxUploadBytes)} limit for handwritten images.`,
+    );
   }
 
   const pageResults: HandwrittenOcrPageResult[] = [];
