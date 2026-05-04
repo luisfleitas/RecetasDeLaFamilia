@@ -1,7 +1,11 @@
 import sharp from "sharp";
+import {
+  formatRecipeImageMaxUploadSize,
+  RECIPE_IMAGE_MAX_UPLOAD_BYTES,
+} from "../../application/recipes/image-upload-constraints";
 import type { ImageStorageProvider } from "./image-storage-provider";
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = RECIPE_IMAGE_MAX_UPLOAD_BYTES;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const FULL_IMAGE_WIDTH = 1200;
@@ -34,7 +38,7 @@ export function assertSupportedImageSize(sizeBytes: number) {
   }
 
   if (sizeBytes > MAX_IMAGE_BYTES) {
-    throw new Error("Image exceeds the 10MB limit.");
+    throw new Error(`Image exceeds the ${formatRecipeImageMaxUploadSize()} limit.`);
   }
 }
 

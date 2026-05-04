@@ -351,7 +351,7 @@ export const messages = {
         hydrateImportDraft: "Could not hydrate imported draft.",
         maxImages: "You can upload up to 8 images.",
         invalidImageType: "Only JPEG, PNG, and WEBP images are allowed.",
-        invalidImageSize: "Each image must be 10MB or smaller.",
+        invalidImageSize: "Each image must be 4MB or smaller.",
         missingIngredient: "Add at least one ingredient.",
         invalidIngredient:
           "Check ingredients: qty must be a positive decimal number and required fields must be filled.",
@@ -723,7 +723,7 @@ export const messages = {
         hydrateImportDraft: "No se pudo hidratar el borrador importado.",
         maxImages: "Puedes subir hasta 8 imágenes.",
         invalidImageType: "Solo se permiten imágenes JPEG, PNG y WEBP.",
-        invalidImageSize: "Cada imagen debe pesar 10 MB o menos.",
+        invalidImageSize: "Cada imagen debe pesar 4 MB o menos.",
         missingIngredient: "Agrega al menos un ingrediente.",
         invalidIngredient:
           "Revisa los ingredientes: la cantidad debe ser un número decimal positivo y los campos obligatorios deben estar completos.",

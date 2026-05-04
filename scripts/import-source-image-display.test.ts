@@ -277,3 +277,78 @@ test("private handwritten source images stay out of public carousel/gallery data
     await rm(rootDir, { recursive: true, force: true });
   }
 });
+
+test("detail image collection exposes only UI-safe image references", async () => {
+  const { rootDir } = await setupIntegrationEnv();
+
+  try {
+    const prisma = await getPrisma();
+    const owner = await prisma.user.create({
+      data: {
+        firstName: "Owner",
+        lastName: "Images",
+        email: `owner-images-${Math.random()}@example.com`,
+        username: `owner-images-${Math.random().toString(36).slice(2, 10)}`,
+        passwordHash: "hash",
+      },
+    });
+    const recipe = await prisma.recipe.create({
+      data: {
+        title: "Saved Images",
+        description: null,
+        stepsMarkdown: "1. Save.",
+        visibility: "public",
+        createdByUserId: owner.id,
+        ingredients: {
+          create: {
+            name: "flour",
+            qtyNum: 1,
+            qtyDen: 1,
+            unit: "cup",
+            notes: null,
+            position: 1,
+          },
+        },
+        images: {
+          create: {
+            storageKey: "recipes/1/full-private-key.jpg",
+            thumbnailKey: "recipes/1/thumb-private-key.jpg",
+            originalFilename: "photo.jpg",
+            mimeType: "image/jpeg",
+            sizeBytes: 1234,
+            width: 1200,
+            height: 800,
+            position: 1,
+            isPrimary: true,
+          },
+        },
+      },
+    });
+
+    const recipeRoute = await loadRouteModule("../app/api/recipes/[id]/route.ts");
+    const detailResponse = await recipeRoute.GET!(
+      new Request(`http://localhost/api/recipes/${recipe.id}?includePrimaryImage=true&includeImages=true`),
+      { params: Promise.resolve({ id: String(recipe.id) }) },
+    );
+    assert.equal(detailResponse.status, 200);
+
+    const detailPayload = (await detailResponse.json()) as {
+      recipe: {
+        images?: Array<Record<string, unknown>>;
+      };
+    };
+    assert.equal(detailPayload.recipe.images?.length, 1);
+    assert.deepEqual(Object.keys(detailPayload.recipe.images?.[0] ?? {}).sort(), [
+      "fullUrl",
+      "id",
+      "isPrimary",
+      "position",
+      "thumbnailUrl",
+    ]);
+  } finally {
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});

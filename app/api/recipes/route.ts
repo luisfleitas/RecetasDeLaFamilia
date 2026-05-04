@@ -202,7 +202,7 @@ function toErrorStatus(error: unknown): number {
   const isValidationError =
     message.includes("Import session") ||
     message.includes("Unsupported image type") ||
-    message.includes("10MB") ||
+    message.includes("4MB") ||
     message.includes("supports up to 8 images") ||
     message.includes("primaryImageIndex") ||
     message.includes("visibility") ||

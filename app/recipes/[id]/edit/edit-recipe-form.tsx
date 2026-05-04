@@ -6,6 +6,7 @@ import { useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 import RecipeLanguageControl from "@/app/recipes/_components/recipe-language-control";
 import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
+import { RECIPE_IMAGE_MAX_UPLOAD_BYTES } from "@/lib/application/recipes/image-upload-constraints";
 import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 
 type Ingredient = {
@@ -62,13 +63,18 @@ type UpdateRecipeResponse = {
   error?: string;
 };
 
+type UploadRecipeImageResponse = {
+  recipe?: { id: number };
+  error?: string;
+};
+
 type FamilyOption = {
   id: number;
   name: string;
 };
 
 const MAX_IMAGES = 8;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = RECIPE_IMAGE_MAX_UPLOAD_BYTES;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function toIngredientDrafts(ingredients: Ingredient[]): IngredientDraft[] {
@@ -329,17 +335,8 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       }
     }
 
-    for (const image of newImages) {
-      formData.append("newImages", image.file);
-    }
-
     if (primaryExistingImageId != null) {
       formData.append("primaryImageId", String(primaryExistingImageId));
-    } else if (primaryNewImageId != null) {
-      const newPrimaryIndex = newImages.findIndex((image) => image.id === primaryNewImageId);
-      if (newPrimaryIndex >= 0) {
-        formData.append("primaryImageIndex", String(newPrimaryIndex));
-      }
     }
 
     setIsSubmitting(true);
@@ -354,6 +351,25 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       if (!response.ok || !data.recipe) {
         setError(data.error ?? messages.recipe.errors.updateRecipeFailed);
         return;
+      }
+
+      for (const image of newImages) {
+        const imageFormData = new FormData();
+        imageFormData.append("image", image.file);
+        if (primaryNewImageId === image.id) {
+          imageFormData.append("makePrimary", "true");
+        }
+
+        const imageResponse = await fetch(`/api/recipes/${recipe.id}/images`, {
+          method: "POST",
+          body: imageFormData,
+        });
+        const imageData = (await imageResponse.json()) as UploadRecipeImageResponse;
+
+        if (!imageResponse.ok || !imageData.recipe) {
+          setError(imageData.error ?? messages.recipe.errors.updateRecipeFailed);
+          return;
+        }
       }
 
       router.push(`/recipes/${data.recipe.id}`);

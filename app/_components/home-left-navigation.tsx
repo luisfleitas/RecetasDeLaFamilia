@@ -102,13 +102,15 @@ export default function HomeLeftNavigation({
                     <p id={`home-left-navigation-family-name-${family.id}`} className="truncate text-sm font-bold">
                       {family.name}
                     </p>
-                    <Link
-                      id={`home-left-navigation-family-edit-link-${family.id}`}
-                      href={family.editHref}
-                      className="text-xs font-bold text-[var(--brand-orange-700)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
-                    >
-                      {labels.edit}
-                    </Link>
+                    {family.canEdit ? (
+                      <Link
+                        id={`home-left-navigation-family-edit-link-${family.id}`}
+                        href={family.editHref}
+                        className="text-xs font-bold text-[var(--brand-orange-700)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
+                      >
+                        {labels.edit}
+                      </Link>
+                    ) : null}
                   </div>
                 ))
               )}
@@ -151,13 +153,15 @@ export default function HomeLeftNavigation({
                     >
                       {recipe.title}
                     </Link>
-                    <Link
-                      id={`home-left-navigation-recipe-edit-link-${recipe.id}`}
-                      href={recipe.editHref}
-                      className="text-xs font-bold text-[var(--brand-orange-700)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
-                    >
-                      {labels.edit}
-                    </Link>
+                    {recipe.canEdit ? (
+                      <Link
+                        id={`home-left-navigation-recipe-edit-link-${recipe.id}`}
+                        href={recipe.editHref}
+                        className="text-xs font-bold text-[var(--brand-orange-700)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
+                      >
+                        {labels.edit}
+                      </Link>
+                    ) : null}
                   </div>
                 ))
               )}

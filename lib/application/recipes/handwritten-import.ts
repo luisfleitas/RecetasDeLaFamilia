@@ -1,6 +1,4 @@
 import {
-  getRecipeImportHandwrittenMaxImageCount,
-  getRecipeImportHandwrittenMaxUploadBytes,
   getRecipeImportHandwrittenPrimaryOcrProvider,
   hasRecipeImportOpenAiOcrFallback,
 } from "@/lib/application/recipes/import-config";
@@ -8,10 +6,16 @@ import { inferRecipeLanguageFromText } from "@/lib/application/recipes/recipe-la
 import { extractTextWithLocalOcrResult, isSupportedOcrMimeType } from "@/lib/application/recipes/local-ocr";
 import { runOpenAiOcrFallback, shouldUseOpenAiOcrFallback } from "@/lib/application/recipes/openai-ocr";
 import type { HandwrittenImportMetadata } from "@/lib/application/recipes/import-session-metadata";
+import {
+  assertHandwrittenSourceImageBatch,
+  assertHandwrittenSourceImageUpload,
+} from "@/lib/application/recipes/handwritten-source-staging";
 import type { ImportSourceType } from "@/lib/application/recipes/source-documents";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
 
 export type HandwrittenImportSourceDocument = {
+  id?: number;
+  storageKey?: string;
   bytes: Buffer;
   sourceType: ImportSourceType;
   originalFilename: string;
@@ -25,6 +29,15 @@ export type HandwrittenImportParseResult = {
   ocrDriver: "local" | "openai";
   sourceDocuments: HandwrittenImportSourceDocument[];
   metadata: HandwrittenImportMetadata;
+};
+
+export type HandwrittenImportImageSource = {
+  id?: number;
+  storageKey?: string;
+  bytes: Buffer;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
 };
 
 type HandwrittenOcrPageResult = {
@@ -125,15 +138,6 @@ function formatPageList(pageNumbers: number[]): string {
   return pageNumbers.map((pageNumber) => `page ${pageNumber}`).join(", ");
 }
 
-function formatUploadSize(bytes: number): string {
-  const megabytes = bytes / (1024 * 1024);
-  if (megabytes >= 1) {
-    return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB`;
-  }
-
-  return `${Math.ceil(bytes / 1024)} KB`;
-}
-
 function buildReviewHints(pageResults: HandwrittenOcrPageResult[]): string[] {
   const hints = ["Review carefully before continuing. Handwritten recipes can produce ambiguous text."];
   const fallbackPages = pageResults
@@ -220,45 +224,47 @@ export function appendHandwrittenFallbackHint(
   };
 }
 
-export async function parseHandwrittenImportRequest(formData: FormData): Promise<HandwrittenImportParseResult> {
-  const files = formData
-    .getAll("files")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
-
-  if (files.length === 0) {
+function assertHandwrittenImageLimits(sources: Array<{ mimeType: string; sizeBytes: number }>) {
+  if (sources.length === 0) {
     throw new Error("Upload one or more handwritten recipe images.");
   }
 
-  const maxImageCount = getRecipeImportHandwrittenMaxImageCount();
-  if (files.length > maxImageCount) {
-    throw new Error(`Upload up to ${maxImageCount} handwritten images per import.`);
+  for (const source of sources) {
+    assertHandwrittenSourceImageUpload(source);
   }
 
-  const maxUploadBytes = getRecipeImportHandwrittenMaxUploadBytes();
-  const totalUploadBytes = files.reduce((total, file) => total + file.size, 0);
-  if (totalUploadBytes > maxUploadBytes) {
-    throw new Error(
-      `Combined upload size exceeds ${formatUploadSize(maxUploadBytes)} limit for handwritten images.`,
-    );
-  }
+  assertHandwrittenSourceImageBatch({
+    imageCount: sources.length,
+    totalBytes: sources.reduce((total, source) => total + source.sizeBytes, 0),
+  });
+}
+
+export async function parseHandwrittenImportSources(
+  sources: HandwrittenImportImageSource[],
+): Promise<HandwrittenImportParseResult> {
+  assertHandwrittenImageLimits(sources);
 
   const pageResults: HandwrittenOcrPageResult[] = [];
   const sourceDocuments: HandwrittenImportSourceDocument[] = [];
 
-  for (const file of files) {
-    if (!isSupportedOcrMimeType(file.type)) {
+  for (const source of sources) {
+    if (!isSupportedOcrMimeType(source.mimeType)) {
       throw new Error("Unsupported handwritten file type. Use JPG, PNG, WEBP, TIFF, or BMP.");
     }
 
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const pageResult = await runHandwrittenOcrForFile(file, bytes);
+    const pageResult = await runHandwrittenOcrForFile(
+      new File([new Uint8Array(source.bytes)], source.originalFilename, { type: source.mimeType }),
+      source.bytes,
+    );
     pageResults.push(pageResult);
     sourceDocuments.push({
-      bytes,
+      id: source.id,
+      storageKey: source.storageKey,
+      bytes: source.bytes,
       sourceType: "image",
-      originalFilename: file.name || "handwritten-page",
-      mimeType: file.type || "application/octet-stream",
-      sizeBytes: file.size,
+      originalFilename: source.originalFilename || "handwritten-page",
+      mimeType: source.mimeType || "application/octet-stream",
+      sizeBytes: source.sizeBytes,
     });
   }
 
@@ -276,7 +282,7 @@ export async function parseHandwrittenImportRequest(formData: FormData): Promise
     ocrDriver: pageResults.some((page) => page.provider === "openai") ? "openai" : "local",
     sourceDocuments,
     metadata: {
-      imageCount: files.length,
+      imageCount: sources.length,
       pageOrder: pageResults.map((page) => page.filename),
       ocrProviderUsed: pageResults.some((page) => page.provider === "openai") ? "openai" : "local",
       ocrFallbackUsed: pageResults.some((page) => page.usedFallback),
@@ -286,4 +292,21 @@ export async function parseHandwrittenImportRequest(formData: FormData): Promise
       combinedInUploadOrder: true,
     },
   };
+}
+
+export async function parseHandwrittenImportRequest(formData: FormData): Promise<HandwrittenImportParseResult> {
+  const files = formData
+    .getAll("files")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+
+  const sources = await Promise.all(
+    files.map(async (file): Promise<HandwrittenImportImageSource> => ({
+      bytes: Buffer.from(await file.arrayBuffer()),
+      originalFilename: file.name || "handwritten-page",
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+    })),
+  );
+
+  return parseHandwrittenImportSources(sources);
 }
