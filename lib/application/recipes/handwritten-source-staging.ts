@@ -13,6 +13,15 @@ export const HANDWRITTEN_UPLOAD_ALLOWED_CONTENT_TYPES = [
   "image/bmp",
 ];
 
+function formatUploadSize(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes >= 1) {
+    return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB`;
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
+}
+
 export function assertHandwrittenSourceImageUpload(input: {
   mimeType: string;
   sizeBytes: number;
@@ -21,8 +30,9 @@ export function assertHandwrittenSourceImageUpload(input: {
     throw new Error("Unsupported handwritten file type. Use JPG, PNG, WEBP, TIFF, or BMP.");
   }
 
-  if (input.sizeBytes > getRecipeImportHandwrittenMaxImageBytes()) {
-    throw new Error("Each handwritten image must be 10MB or smaller.");
+  const maxImageBytes = getRecipeImportHandwrittenMaxImageBytes();
+  if (input.sizeBytes > maxImageBytes) {
+    throw new Error(`Each handwritten image must be ${formatUploadSize(maxImageBytes)} or smaller.`);
   }
 }
 
@@ -35,8 +45,11 @@ export function assertHandwrittenSourceImageBatch(input: {
     throw new Error(`Upload up to ${maxImageCount} handwritten images per import.`);
   }
 
-  if (input.totalBytes > getRecipeImportHandwrittenMaxUploadBytes()) {
-    throw new Error("Combined handwritten image uploads must be 20MB or smaller.");
+  const maxUploadBytes = getRecipeImportHandwrittenMaxUploadBytes();
+  if (input.totalBytes > maxUploadBytes) {
+    throw new Error(
+      `Combined upload size exceeds ${formatUploadSize(maxUploadBytes)} limit for handwritten images.`,
+    );
   }
 }
 

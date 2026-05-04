@@ -37,6 +37,7 @@ async function setupIntegrationEnv(options?: {
   recipeImportEnabled?: boolean;
   handwrittenEnabled?: boolean;
   handwrittenPrimaryOcrProvider?: "openai" | "local";
+  handwrittenMaxUploadBytes?: number;
   openAiApiKey?: string;
 }) {
   const rootDir = await mkdtemp(join(tmpdir(), "recetas-import-integration-"));
@@ -56,6 +57,8 @@ async function setupIntegrationEnv(options?: {
   process.env.RECIPE_IMPORT_HANDWRITTEN_ENABLED = options?.handwrittenEnabled ? "true" : "false";
   process.env.RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER = options?.handwrittenPrimaryOcrProvider ?? "openai";
   process.env.RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT = "6";
+  process.env.RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES =
+    options?.handwrittenMaxUploadBytes == null ? "20971520" : String(options.handwrittenMaxUploadBytes);
 
   if (options?.openAiApiKey) {
     process.env.OPENAI_API_KEY = options.openAiApiKey;
@@ -559,6 +562,67 @@ Steps:
 
     await assert.rejects(readFile(stagedFilePath, "utf8"));
   } finally {
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("handwritten parse rejects uploads over the configured combined size before OCR", async () => {
+  const { rootDir } = await setupIntegrationEnv({
+    handwrittenEnabled: true,
+    handwrittenPrimaryOcrProvider: "openai",
+    handwrittenMaxUploadBytes: 12,
+    openAiApiKey: "test-openai-key",
+  });
+
+  const originalFetch = globalThis.fetch;
+
+  try {
+    const prisma = await getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        firstName: "Handwritten",
+        lastName: "TooLarge",
+        email: "handwritten-too-large@example.com",
+        username: "handwritten-too-large-user",
+        passwordHash: "hash",
+      },
+    });
+
+    let fetchCallCount = 0;
+    globalThis.fetch = (async () => {
+      fetchCallCount += 1;
+      return new Response(JSON.stringify({ output_text: "" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const token = signAccessToken({ userId: user.id, username: user.username });
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+
+    const importFormData = new FormData();
+    importFormData.append("inputMode", "handwritten");
+    importFormData.append("files", new File(["1234567"], "card-front.jpg", { type: "image/jpeg" }));
+    importFormData.append("files", new File(["1234567"], "card-back.png", { type: "image/png" }));
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: importFormData,
+      }),
+    );
+
+    assert.equal(parseResponse.status, 400);
+    const parsePayload = (await parseResponse.json()) as { error?: string; code?: string };
+    assert.equal(parsePayload.code, "FILE_TOO_LARGE");
+    assert.match(parsePayload.error ?? "", /combined upload size/i);
+    assert.equal(fetchCallCount, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
     const prisma = await getPrisma();
     await prisma.$disconnect();
     (globalThis as { prisma?: unknown }).prisma = undefined;

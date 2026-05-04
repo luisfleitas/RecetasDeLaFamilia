@@ -69,7 +69,7 @@ Environment variables:
   - max size for each handwritten OCR source image
   - defaults to `10485760` bytes (`10MB`)
 - `RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES`:
-  - max combined size for one handwritten OCR source-image batch
+  - max combined upload size for handwritten images in a single import
   - defaults to `20971520` bytes (`20MB`)
 - `RECIPE_IMPORT_OCR_LANGS`:
   - Tesseract language packs used by local OCR

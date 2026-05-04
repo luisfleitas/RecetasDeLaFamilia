@@ -306,6 +306,9 @@ export const messages = {
         "This workspace is optimized for recipe cards, notebook pages, and handwritten sheets. Upload each page in reading order so the draft can be merged correctly.",
       uploadField: "Handwritten image uploads",
       uploadFormats: "Supported formats: JPG, PNG, WEBP, TIFF, BMP",
+      uploadSizeLimit: "Upload up to {maxSize} total for handwritten images.",
+      uploadTotalTooLarge:
+        "Selected images total {selectedSize}. Upload up to {maxSize} total before reading handwriting.",
       pasteRecipeText: "Paste recipe text",
       pasteRecipePlaceholder: "Paste a full recipe text with title, ingredients, and steps.",
       uploadDocumentLabel: "Or upload TXT, DOCX, DOC, PDF, or image document",
@@ -675,6 +678,9 @@ export const messages = {
         "Este espacio está optimizado para tarjetas de recetas, páginas de cuaderno y hojas manuscritas. Sube cada página en orden de lectura para que el borrador se fusione correctamente.",
       uploadField: "Cargas de imágenes manuscritas",
       uploadFormats: "Formatos compatibles: JPG, PNG, WEBP, TIFF, BMP",
+      uploadSizeLimit: "Sube hasta {maxSize} en total para imágenes manuscritas.",
+      uploadTotalTooLarge:
+        "Las imágenes seleccionadas suman {selectedSize}. Sube hasta {maxSize} en total antes de leer el manuscrito.",
       pasteRecipeText: "Pega el texto de la receta",
       pasteRecipePlaceholder: "Pega una receta completa con título, ingredientes y pasos.",
       uploadDocumentLabel: "O sube un documento TXT, DOCX, DOC, PDF o imagen",

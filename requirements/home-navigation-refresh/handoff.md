@@ -24,7 +24,9 @@
 - Old green success/status treatments in touched home-navigation flows now use the approved warm cream/orange status treatment, while semantic error colors remain unchanged.
 - Final visual readiness verification is complete.
 - Code review fixes are applied for the shared shell leakage, page-level persistence/grouping logic, and featured carousel counter drift findings.
-- The branch is ready for PR cleanup/publish checks: review the diff, stage the intended files, commit, push, and open a PR back into `pre-main`.
+- Latest user-requested tweak removes the image carousel from the current home navigation workspace; the home page now flows from the greeting directly into the recipe groups beside the left navigation.
+- Current tweak branch: `codex/feature/remove-left-nav-carousel`.
+- The previous home-navigation refresh branch was already prepared separately; this branch should only carry the focused carousel-removal change and tracker update.
 - The user approved:
   - warm cream/orange visual direction
   - carousel Option A: featured band above current recipe lists/tabs
@@ -62,12 +64,12 @@
   - `lib/i18n/messages.ts`
 
 ## In Progress
-- PR cleanup and publish readiness.
+- Carousel-removal review/publish readiness.
 
 ## Next Action
-1. Review the final diff and confirm only intended app, docs, and ignore-pattern changes are present.
-2. Stage and commit the home navigation refresh work.
-3. Push `codex/feature/home-navigation-refresh` and open a PR back into `pre-main`.
+1. Optionally run a browser visual check for the signed-in home page to confirm the left navigation now sits beside recipe groups without the image carousel band.
+2. Review the focused diff.
+3. Stage, commit, push `codex/feature/remove-left-nav-carousel`, and open a PR back into `pre-main`.
 
 ## Known Issues
 - Temporary Playwright screenshots and `.playwright-mcp/` metadata are ignored by `.gitignore` so they do not get staged accidentally.
@@ -162,6 +164,10 @@
 - `git diff --check` passed after review fixes.
 - `npm run lint` passed after review fixes with existing warnings only.
 - `npm run build` passed after review fixes.
+- Removed the `HomeFeaturedCarousel` render from `app/page.tsx` so the home navigation workspace no longer shows the image carousel band.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts` passed after removing the home workspace carousel render.
+- `git diff --check` passed after removing the home workspace carousel render.
+- `npm run build` passed after removing the home workspace carousel render.
 
 ## Manual Testing Status
 - Logged-out server-rendered smoke check completed via local production HTML.
@@ -178,7 +184,7 @@
 - Use `pre-main` as the base branch for this UI feature.
 - Work branch is `codex/feature/home-navigation-refresh`.
 - Use warm cream/orange branding.
-- Use carousel Option A.
+- Carousel Option A was previously approved, but the latest user request supersedes it for the current home navigation workspace: do not render the image carousel beside the left navigation.
 - Use left navigation Option A.
 - Add `+` buttons to both Families and Recipes headers.
 - Keep grouped center recipe tabs with Public recipes, family tabs, and Just for me/private grouping.

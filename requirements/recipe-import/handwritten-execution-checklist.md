@@ -19,6 +19,7 @@ Rule: Track execution for the handwritten recipe import feature against the appr
   - `RECIPE_IMPORT_HANDWRITTEN_ENABLED`
   - `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER`
   - `RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT`
+  - `RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES`
   - `OPENAI_API_KEY` for the `openai` path
   - `tesseract` on `PATH` for the `local` path
 - Dedicated handwritten automated coverage is now present for:
