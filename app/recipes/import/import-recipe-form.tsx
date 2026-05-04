@@ -39,6 +39,7 @@ type IngredientDraft = {
 
 type ImportRecipeFormProps = {
   handwrittenEnabled: boolean;
+  handwrittenMaxUploadBytes: number;
 };
 
 function toEditableIngredients(draft: ImportedRecipeDraft): IngredientDraft[] {
@@ -51,7 +52,19 @@ function toEditableIngredients(draft: ImportedRecipeDraft): IngredientDraft[] {
   }));
 }
 
-export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFormProps) {
+function formatFileSize(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes >= 1) {
+    return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB`;
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
+}
+
+export default function ImportRecipeForm({
+  handwrittenEnabled,
+  handwrittenMaxUploadBytes,
+}: ImportRecipeFormProps) {
   const router = useRouter();
   const locale = useLocale();
   const messages = useMessages();
@@ -73,14 +86,21 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
   const [isContinuing, setIsContinuing] = useState(false);
   const [sourceImageVisibility, setSourceImageVisibility] =
     useState<HandwrittenSourceImageVisibility>("private");
+  const handwrittenUploadBytes = handwrittenFiles.reduce((total, file) => total + file.size, 0);
+  const handwrittenUploadTooLarge = handwrittenUploadBytes > handwrittenMaxUploadBytes;
+  const handwrittenUploadSizeWarning = handwrittenUploadTooLarge
+    ? messages.recipe.uploadTotalTooLarge
+        .replace("{selectedSize}", formatFileSize(handwrittenUploadBytes))
+        .replace("{maxSize}", formatFileSize(handwrittenMaxUploadBytes))
+    : null;
 
   const canParse = useMemo(() => {
     if (inputMode === "handwritten") {
-      return handwrittenFiles.length > 0;
+      return handwrittenFiles.length > 0 && !handwrittenUploadTooLarge;
     }
 
     return rawText.trim().length > 0 || selectedDocumentFile != null;
-  }, [handwrittenFiles.length, inputMode, rawText, selectedDocumentFile]);
+  }, [handwrittenFiles.length, handwrittenUploadTooLarge, inputMode, rawText, selectedDocumentFile]);
 
   const draftWarnings = useMemo<ImportWarning[]>(() => {
     if (!draft) {
@@ -155,9 +175,21 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
     resetParsedState();
   }
 
+  function handleHandwrittenFilesChange(files: FileList | null) {
+    setError(null);
+    resetParsedState();
+    setHandwrittenFiles(Array.from(files ?? []));
+  }
+
   async function handleParse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (inputMode === "handwritten" && handwrittenUploadTooLarge) {
+      setError(handwrittenUploadSizeWarning ?? messages.recipe.errors.parseRecipeFailed);
+      return;
+    }
+
     setIsParsing(true);
 
     try {
@@ -416,13 +448,24 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     multiple
                     accept="image/jpeg,image/png,image/webp,image/tiff,image/bmp"
                     className="input-base mt-2"
-                    onChange={(event) => setHandwrittenFiles(Array.from(event.target.files ?? []))}
+                    onChange={(event) => handleHandwrittenFilesChange(event.target.files)}
+                    aria-describedby="recipe-import-handwritten-supported-formats recipe-import-handwritten-upload-size"
                   />
                   <p
                     id="recipe-import-handwritten-supported-formats"
                     className="mt-2 text-xs text-[var(--color-text-muted)]"
                   >
                     {messages.recipe.uploadFormats}
+                  </p>
+                  <p
+                    id="recipe-import-handwritten-upload-size"
+                    className={`mt-2 text-xs ${
+                      handwrittenUploadTooLarge ? "text-red-700" : "text-[var(--color-text-muted)]"
+                    }`}
+                    role={handwrittenUploadTooLarge ? "alert" : undefined}
+                  >
+                    {handwrittenUploadSizeWarning ??
+                      messages.recipe.uploadSizeLimit.replace("{maxSize}", formatFileSize(handwrittenMaxUploadBytes))}
                   </p>
                 </div>
               ) : (
@@ -510,7 +553,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                           id={`recipe-import-handwritten-page-file-${index + 1}`}
                           className="mt-2 text-sm text-[var(--color-text-muted)]"
                         >
-                          {file.name}
+                          {file.name} ({formatFileSize(file.size)})
                         </p>
                       </li>
                     ))}
