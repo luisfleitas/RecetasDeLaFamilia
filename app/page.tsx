@@ -4,14 +4,12 @@ import Image from "next/image";
 import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
 import HomeAccountMenu from "@/app/_components/home-account-menu";
-import HomeFeaturedCarousel from "@/app/_components/home-featured-carousel";
 import HomeLeftNavigation from "@/app/_components/home-left-navigation";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 import RecipeVisibilityTabs, { type RecipeVisibilityTabGroup } from "@/app/_components/recipe-visibility-tabs";
 import { formatDate } from "@/lib/i18n/format";
 import { getRequestMessages } from "@/lib/i18n/server";
 import {
-  buildFeaturedRecipeSlides,
   buildRecipeVisibilityTabGroups,
   buildHomeNavigationViewModel,
 } from "@/lib/application/home-navigation/view-model";
@@ -36,7 +34,6 @@ export default async function HomePage() {
         families: familyMemberships,
       })
     : null;
-  const featuredSlides = buildFeaturedRecipeSlides(visibleRecipes, 6);
   const visibilityTabGroups: RecipeVisibilityTabGroup[] = authUser
     ? buildRecipeVisibilityTabGroups(recipes, {
         locale,
@@ -114,15 +111,6 @@ export default async function HomePage() {
                 {visibleRecipes.length} {visibleRecipes.length === 1 ? messages.home.heritageRecipeSingular : messages.home.heritageRecipePlural}
               </span>
             </section>
-
-            <HomeFeaturedCarousel
-              slides={featuredSlides}
-              labels={{
-                title: messages.home.featuredRecipes,
-                previous: messages.home.previousFeaturedRecipe,
-                next: messages.home.nextFeaturedRecipe,
-              }}
-            />
 
             <section id="home-content-section" className="home-content-section">
               <div id="home-recipe-groups" className="min-w-0">
