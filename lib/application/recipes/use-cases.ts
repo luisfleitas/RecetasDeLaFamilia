@@ -247,6 +247,13 @@ export function makeRecipeUseCases(
         return { recipe: null, forbidden: true };
       }
 
+      if (input.primaryImageId != null) {
+        const requestedPrimary = await recipeRepository.getImageById(input.primaryImageId);
+        if (!requestedPrimary || requestedPrimary.recipeId !== id) {
+          throw new Error("primaryImageId does not belong to this recipe");
+        }
+      }
+
       const updatedRecipe = await recipeRepository.update(id, input.recipe);
       if (!updatedRecipe) {
         return { recipe: null, forbidden: false };
