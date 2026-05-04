@@ -67,15 +67,15 @@ test("limits sidebar families and owned recipes to six and prepares approved rou
   });
 
   assert.deepEqual(model.families, [
-    { id: 20, name: "Hernandez", editHref: "/account/families" },
-    { id: 21, name: "Abuela Rosa", editHref: "/account/families" },
+    { id: 20, name: "Hernandez", canEdit: true, editHref: "/account/families" },
+    { id: 21, name: "Abuela Rosa", canEdit: false, editHref: "/account/families" },
   ]);
   assert.equal(model.familyCreateHref, "/account/families");
   assert.equal(model.familiesMoreHref, "/account/families");
   assert.deepEqual(model.recipes, [
-    { id: 3, title: "Private Sofrito", href: "/recipes/3", editHref: "/recipes/3/edit" },
-    { id: 2, title: "Family Sancocho", href: "/recipes/2", editHref: "/recipes/2/edit" },
-    { id: 1, title: "Public Arepas", href: "/recipes/1", editHref: "/recipes/1/edit" },
+    { id: 3, title: "Private Sofrito", canEdit: true, href: "/recipes/3", editHref: "/recipes/3/edit" },
+    { id: 2, title: "Family Sancocho", canEdit: true, href: "/recipes/2", editHref: "/recipes/2/edit" },
+    { id: 1, title: "Public Arepas", canEdit: true, href: "/recipes/1", editHref: "/recipes/1/edit" },
   ]);
   assert.equal(model.recipeCreateHref, "/recipes/new");
   assert.equal(model.recipesMoreHref, "#home-recipe-groups");

@@ -26,12 +26,14 @@ export type HomeNavigationFamily = {
 export type HomeSidebarFamily = {
   id: number;
   name: string;
+  canEdit: boolean;
   editHref: string;
 };
 
 export type HomeSidebarRecipe = {
   id: number;
   title: string;
+  canEdit: boolean;
   href: string;
   editHref: string;
 };
@@ -78,6 +80,7 @@ export function buildHomeNavigationViewModel(input: {
     .map((recipe) => ({
       id: recipe.id,
       title: recipe.title,
+      canEdit: recipe.createdByUserId === input.userId,
       href: `/recipes/${recipe.id}`,
       editHref: `/recipes/${recipe.id}/edit`,
     }));
@@ -86,6 +89,7 @@ export function buildHomeNavigationViewModel(input: {
     families: input.families.slice(0, 6).map((family) => ({
       id: family.id,
       name: family.name,
+      canEdit: family.role === "admin",
       editHref: "/account/families",
     })),
     recipes: ownedRecipes,
