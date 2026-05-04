@@ -58,6 +58,10 @@ export class VercelBlobStorageProvider implements ImageStorageProvider {
 
   private toBlobPathname(key: string): string {
     const normalized = normalizeKey(key);
+    if (this.keyPrefix && normalized.startsWith(this.keyPrefix)) {
+      return normalized;
+    }
+
     return `${this.keyPrefix}${normalized}`;
   }
 }

@@ -39,6 +39,13 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 - Desktop/mobile empty, loading, error, and success states were reviewed during the final handwritten import pass.
 - Automated verification remains green via `npm run test:import`.
 
+## OCR Blob Staging Update (2026-05-04)
+- Hosted handwritten import now stages original OCR source images through Vercel Blob client multipart uploads before parsing.
+- The parse route accepts ordered staged `RecipeSourceDocument` ids for handwritten mode, preserving client-selected page order while avoiding Vercel function payload limits.
+- Document import behavior remains unchanged, and the raw multipart handwritten parse path remains available for local/server fallback.
+- OCR source image limits are separate from saved recipe gallery photos: max 6 images, max 10MB per image, max 20MB combined batch, and accepted JPG/PNG/WEBP/TIFF/BMP source types.
+- OCR source images are not resized or compressed before recognition; original bytes are preserved for OCR and source-document review.
+
 ## 1. Workflow And Documentation Alignment
 - [x] Research pack created in `requirements/recipe-import/handwritten-ui-research-pack.md`.
 - [x] Approved implementation plan created in `requirements/recipe-import/handwritten-ui-option-b-implementation-plan.md`.
@@ -70,6 +77,7 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 - [x] Add `inputMode` request handling to `POST /api/recipes/import/parse`.
 - [x] Preserve existing document import behavior when `inputMode=document`.
 - [x] Accept one or more handwritten image files when `inputMode=handwritten`.
+- [x] Accept ordered staged source-document ids when `inputMode=handwritten` for hosted Blob-staged OCR uploads.
 - [x] Preserve handwritten upload order through OCR assembly.
 - [x] Extract handwritten OCR logic into `lib/application/recipes/handwritten-import.ts`.
 - [x] Persist handwritten metadata on created import sessions.
@@ -82,6 +90,7 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 - [x] Preserve handwritten metadata during `PATCH /api/recipes/import/sessions/[sessionId]`.
 - [x] Save handwritten source-image visibility changes from the review step.
 - [x] Carry handwritten import metadata into promoted recipe source documents.
+- [x] Attach staged handwritten source documents to the import session on successful parse instead of duplicating source bytes during parse.
 - [x] Gate source-document file access by private/public visibility metadata.
 - [x] Verify the private/public source-image behavior manually for owner, family-member, and public viewers.
 

@@ -10,6 +10,7 @@ import {
   appendHandwrittenFallbackHint,
   buildHandwrittenFallbackDraft,
   parseHandwrittenImportRequest,
+  parseHandwrittenImportSources,
   shouldUseHandwrittenDraftFallback,
 } from "@/lib/application/recipes/handwritten-import";
 import type {
@@ -39,7 +40,13 @@ import {
 } from "@/lib/application/recipes/openai-ocr";
 import { extractTextWithLocalOcrResult, isSupportedOcrMimeType } from "@/lib/application/recipes/local-ocr";
 import { extractTextFromPdfWithLocalOcr, isPdfFile } from "@/lib/application/recipes/pdf-import";
-import { stageImportSourceDocument, type ImportSourceType } from "@/lib/application/recipes/source-documents";
+import {
+  attachStagedSourceDocumentsToImportSession,
+  loadOrderedStagedHandwrittenSourceDocuments,
+  stageImportSourceDocument,
+  type ImportSessionSourceDocumentRef,
+  type ImportSourceType,
+} from "@/lib/application/recipes/source-documents";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { getRequestId, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
@@ -68,16 +75,55 @@ type ParsedImportRequest = {
   pdfExtractionMethod?: "text-layer" | "ocr-preview" | null;
   ocrDriver?: "local" | "openai" | null;
   sourceDocuments: Array<{
+    id?: number;
+    storageKey?: string;
     bytes: Buffer;
     sourceType: ImportSourceType;
     originalFilename: string;
     mimeType: string;
     sizeBytes: number;
   }>;
+  stagedSourceDocumentIds?: number[];
   handwrittenMetadata?: HandwrittenImportMetadata | null;
 };
 
-async function parseContentFromMultipartRequest(request: Request): Promise<ParsedImportRequest> {
+function parseStagedSourceDocumentIds(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0);
+}
+
+async function parseHandwrittenFromStagedSourceIds(
+  userId: number,
+  stagedSourceDocumentIds: number[],
+): Promise<ParsedImportRequest> {
+  if (!isRecipeImportHandwrittenEnabled()) {
+    throw new Error("Handwritten import is not enabled.");
+  }
+
+  const stagedSources = await loadOrderedStagedHandwrittenSourceDocuments({
+    userId,
+    sourceDocumentIds: stagedSourceDocumentIds,
+  });
+  const handwrittenResult = await parseHandwrittenImportSources(stagedSources);
+
+  return {
+    inputMode: "handwritten",
+    content: handwrittenResult.content,
+    sourceType: handwrittenResult.sourceType,
+    pdfExtractionMethod: null,
+    ocrDriver: handwrittenResult.ocrDriver,
+    sourceDocuments: handwrittenResult.sourceDocuments,
+    stagedSourceDocumentIds,
+    handwrittenMetadata: handwrittenResult.metadata,
+  };
+}
+
+async function parseContentFromMultipartRequest(request: Request, userId: number): Promise<ParsedImportRequest> {
   const formData = await request.formData();
   const inputMode = formData.get("inputMode");
   const parsedInputMode: RecipeImportInputMode =
@@ -87,10 +133,17 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   const forceOpenAiOcr = shouldForceRecipeImportOpenAiOcr();
 
   if (parsedInputMode === "handwritten") {
+    const stagedSourceDocumentIds = formData
+      .getAll("stagedSourceDocumentIds")
+      .map((item) => Number(item))
+      .filter((item) => Number.isInteger(item) && item > 0);
+    if (stagedSourceDocumentIds.length > 0) {
+      return parseHandwrittenFromStagedSourceIds(userId, stagedSourceDocumentIds);
+    }
+
     if (!isRecipeImportHandwrittenEnabled()) {
       throw new Error("Handwritten import is not enabled.");
     }
-
     const handwrittenResult = await parseHandwrittenImportRequest(formData);
     return {
       inputMode: "handwritten",
@@ -314,7 +367,7 @@ async function parseContentFromMultipartRequest(request: Request): Promise<Parse
   };
 }
 
-async function parseContentFromJsonRequest(request: Request): Promise<ParsedImportRequest> {
+async function parseContentFromJsonRequest(request: Request, userId: number): Promise<ParsedImportRequest> {
   let body: unknown;
   try {
     body = await request.json();
@@ -322,7 +375,19 @@ async function parseContentFromJsonRequest(request: Request): Promise<ParsedImpo
     throw new Error("Invalid JSON body.");
   }
 
-  const content = (body as { content?: unknown }).content;
+  const typedBody = body as {
+    content?: unknown;
+    inputMode?: unknown;
+    stagedSourceDocumentIds?: unknown;
+  };
+  if (typedBody.inputMode === "handwritten") {
+    return parseHandwrittenFromStagedSourceIds(
+      userId,
+      parseStagedSourceDocumentIds(typedBody.stagedSourceDocumentIds),
+    );
+  }
+
+  const content = typedBody.content;
   if (typeof content !== "string" || content.trim().length === 0) {
     throw new Error("content is required.");
   }
@@ -417,8 +482,8 @@ export async function POST(request: Request) {
       try {
         const contentType = request.headers.get("content-type") ?? "";
         parsedRequest = contentType.includes("multipart/form-data")
-          ? await parseContentFromMultipartRequest(request)
-          : await parseContentFromJsonRequest(request);
+          ? await parseContentFromMultipartRequest(request, authUser.userId)
+          : await parseContentFromJsonRequest(request, authUser.userId);
 
         try {
           extractionResult = await extractorProvider.extract(parsedRequest.content);
@@ -499,8 +564,20 @@ export async function POST(request: Request) {
         });
         createdSessionId = session.id;
 
+        let attachedStagedDocs: ImportSessionSourceDocumentRef[] = [];
+        if (parsedRequest.stagedSourceDocumentIds && parsedRequest.stagedSourceDocumentIds.length > 0) {
+          attachedStagedDocs = await attachStagedSourceDocumentsToImportSession({
+            userId: authUser.userId,
+            importSessionId: session.id,
+            sourceDocumentIds: parsedRequest.stagedSourceDocumentIds,
+          });
+        }
+
         for (const sourceDocumentInput of parsedRequest.sourceDocuments) {
-          const sourceDocument = await stageImportSourceDocument({
+          const attachedStagedDoc = sourceDocumentInput.id
+            ? attachedStagedDocs.find((doc) => doc.id === sourceDocumentInput.id)
+            : null;
+          const sourceDocument = attachedStagedDoc ?? await stageImportSourceDocument({
             userId: authUser.userId,
             importSessionId: session.id,
             originalFilename: sourceDocumentInput.originalFilename,

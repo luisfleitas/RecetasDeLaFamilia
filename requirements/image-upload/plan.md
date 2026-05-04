@@ -3,24 +3,24 @@
 ## Summary
 Add multi-image support to recipes with a principal image, server-side resizing, homepage principal snapshot display, file-type filtering, and image removal.
 Implementation will reuse current stack: Next.js API routes, Prisma + SQLite, and existing ownership checks.
-Storage strategy: pluggable storage provider abstraction with local storage now and S3-compatible backend support later, plus Prisma metadata and `sharp` processing.
+Storage strategy: pluggable storage provider abstraction with local storage for development and Vercel Blob for hosted environments, plus Prisma metadata and `sharp` processing.
 
 ## Confirmed Decisions
-- Storage: pluggable provider (`local` now, future `s3`), DB stores backend-agnostic keys/metadata.
+- Storage: pluggable provider (`local` for development, `vercel-blob` for hosted Vercel environments), DB stores backend-agnostic keys/metadata.
 - API shape: optional include flag for principal image (`includePrimaryImage=true`).
 - Resize profile: canonical `1200x800` JPEG + thumbnail `400x267` JPEG.
 - Supported uploads: JPEG, PNG, WEBP input.
-- Limits: max `8` images per recipe, max `10MB` per file.
+- Limits: max `8` images per recipe, max `4MB` per file to stay below Vercel's 4.5MB function payload limit.
 - Principal fallback on delete: auto-promote first remaining image.
 - UI scope: image management in both create and edit forms.
 - Access: image viewing follows current recipe visibility (public read, restricted writes).
 - Resize engine: add `sharp`.
 
 ## Technical Constraint (Extensibility)
-- All image persistence/read/delete/URL generation must flow through a storage abstraction (for example `ImageStorageProvider`) selected by configuration (for example `IMAGE_STORAGE_DRIVER=local|s3`).
+- All image persistence/read/delete/URL generation must flow through a storage abstraction (for example `ImageStorageProvider`) selected by configuration (for example `IMAGE_STORAGE_DRIVER=local|vercel-blob`).
 - Domain/use-case and API contracts must remain unchanged when switching storage backend.
 - DB must store storage keys (not absolute local file paths) to stay backend-agnostic.
-- Current implementation includes `LocalFileStorageProvider`; future S3 support is a new provider implementation only.
+- Current implementation includes `LocalFileStorageProvider` and `VercelBlobStorageProvider`; future S3 support would be a new provider implementation only.
 
 ## Data Model Changes
 Update `/Users/luisfleitas/Personal Projects/Recetas/prisma/schema.prisma`:
@@ -56,9 +56,13 @@ Add interface (in infrastructure layer) with methods equivalent to:
 - `getPublicUrl(key): string`
 
 ### Providers
-- Implement now: `LocalFileStorageProvider`
+- `LocalFileStorageProvider`
   - Writes to local base dir (for example `/Users/luisfleitas/Personal Projects/Recetas/uploads`).
-- Prepare for future: `S3StorageProvider` skeleton/adapter point (optional stub only in this phase).
+- `VercelBlobStorageProvider`
+  - Uses `@vercel/blob` for hosted environments.
+  - Selected with `IMAGE_STORAGE_DRIVER=vercel-blob` or `IMAGE_STORAGE_DRIVER=blob`.
+  - Requires `BLOB_READ_WRITE_TOKEN`.
+  - Supports `IMAGE_STORAGE_BLOB_ACCESS`, `IMAGE_STORAGE_BLOB_PREFIX`, and `IMAGE_STORAGE_BLOB_PUBLIC_BASE_URL`.
 
 ### Key format
 - Canonical key: `recipes/<recipeId>/img_<imageId>.jpg`
@@ -107,7 +111,7 @@ Add interface (in infrastructure layer) with methods equivalent to:
 
 ### Validation rules
 - Reject unsupported mime/extensions (allow: jpg/jpeg/png/webp).
-- Reject files > 10MB.
+- Reject files > 4MB.
 - Reject > 8 total images per recipe (existing + new).
 - Normalize output format to JPEG variants (full + thumb).
 - Enforce at most one primary image per recipe (service transaction logic).

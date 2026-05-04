@@ -37,6 +37,29 @@ test("storage factory returns Vercel Blob provider when IMAGE_STORAGE_DRIVER=ver
   process.env.BLOB_READ_WRITE_TOKEN = previousToken;
 });
 
+test("storage factory returns Vercel Blob provider when IMAGE_STORAGE_DRIVER=blob alias", () => {
+  const previousDriver = process.env.IMAGE_STORAGE_DRIVER;
+  const previousToken = process.env.BLOB_READ_WRITE_TOKEN;
+  process.env.IMAGE_STORAGE_DRIVER = "blob";
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_test";
+
+  const provider = buildImageStorageProvider();
+
+  assert.ok(provider instanceof VercelBlobStorageProvider);
+
+  process.env.IMAGE_STORAGE_DRIVER = previousDriver;
+  process.env.BLOB_READ_WRITE_TOKEN = previousToken;
+});
+
+test("Vercel Blob provider applies object prefix while keeping logical public URLs stable", () => {
+  const provider = new VercelBlobStorageProvider({
+    token: "vercel_blob_rw_test",
+    keyPrefix: "preview/recipe-save-qa",
+  });
+
+  assert.equal(provider.getPublicUrl("recipes/18/img_48.jpg"), "/uploads/recipes/18/img_48.jpg");
+});
+
 test("Vercel Blob provider keeps logical public URLs backend agnostic", () => {
   const provider = new VercelBlobStorageProvider({
     token: "vercel_blob_rw_test",
@@ -53,10 +76,10 @@ test("image service rejects unsupported mime type", () => {
   );
 });
 
-test("image service rejects files over 10MB", () => {
+test("image service rejects files over 4MB", () => {
   assert.throws(
     () => assertSupportedImageSize(imageConstraints.maxImageBytes + 1),
-    /10MB/,
+    /4MB/,
   );
 });
 
