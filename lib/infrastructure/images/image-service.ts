@@ -2,7 +2,7 @@ import sharp from "sharp";
 import {
   formatRecipeImageMaxUploadSize,
   RECIPE_IMAGE_MAX_UPLOAD_BYTES,
-} from "@/lib/application/recipes/image-upload-constraints";
+} from "../../application/recipes/image-upload-constraints";
 import type { ImageStorageProvider } from "./image-storage-provider";
 
 const MAX_IMAGE_BYTES = RECIPE_IMAGE_MAX_UPLOAD_BYTES;

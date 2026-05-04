@@ -101,8 +101,10 @@ async function sampleImageFile() {
   })
     .jpeg()
     .toBuffer();
+  const bytes = new Uint8Array(buffer.length);
+  bytes.set(buffer);
 
-  return new File([buffer], "photo.jpg", { type: "image/jpeg" });
+  return new File([bytes], "photo.jpg", { type: "image/jpeg" });
 }
 
 test("recipe image upload route stores one image per request", async () => {
