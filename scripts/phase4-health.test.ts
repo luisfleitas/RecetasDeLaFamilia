@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { getDeploymentHealthReport } from "../lib/application/deployment/health";
-import { getProviderDatabaseUrl } from "./database-provider.mjs";
+import { getDatabaseProvider, getProviderDatabaseUrl } from "./database-provider.mjs";
 
 test("deployment health reports healthy app, database, and local storage config", async () => {
   const report = await getDeploymentHealthReport({
@@ -71,4 +71,19 @@ test("provider URL helper ignores incompatible DATABASE_URL values", () => {
     /^postgresql:\/\//,
   );
   assert.equal(getProviderDatabaseUrl("sqlite", postgresEnv), "file:./dev.db");
+});
+
+test("provider helpers use the Neon integration database URL on branch previews", () => {
+  const branchPreviewEnv = {
+    ...process.env,
+    DATABASE_URL: "",
+    DATABASE_PROVIDER: "",
+    recetas_DATABASE_URL: "postgresql://recetas:recetas@localhost:5432/branch_preview",
+  };
+
+  assert.equal(getDatabaseProvider(branchPreviewEnv), "postgresql");
+  assert.equal(
+    getProviderDatabaseUrl("postgresql", branchPreviewEnv),
+    "postgresql://recetas:recetas@localhost:5432/branch_preview",
+  );
 });
