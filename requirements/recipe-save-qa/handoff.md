@@ -5,7 +5,7 @@
 - Luis approved pushing the branch and retrying against the Vercel-hosted app.
 - Branch was pushed and hosted staging validation passed.
 - Follow-up fix for branch previews falling back to SQLite on Vercel is complete.
-- Current healthy branch preview: `https://recetas-2uyhk2wxt-luisfleitas-1188s-projects.vercel.app`.
+- Current healthy branch preview: `https://recetas-7957yea43-luisfleitas-1188s-projects.vercel.app`.
 - Local fix is complete for Vercel `FUNCTION_PAYLOAD_TOO_LARGE` failures when saving recipes with multiple images: create/edit forms now save recipe metadata separately, then upload one image per request with a 4MB per-image cap.
 - OCR upload strategy is implemented for handwritten import: hosted UI stages handwritten images in Vercel Blob via client multipart uploads, then parses ordered staged source-document ids instead of sending raw OCR images through the parse request.
 - Recipe import document upload now supports selecting multiple image files; multi-image selections are routed into the existing handwritten OCR batch flow.
@@ -39,14 +39,10 @@
 - Added a document-upload selection resolver so one document still parses as a document, while multiple selected images move into the handwritten batch parser and mixed multi-file selections show a clear error.
 
 ## In Progress
-- Hosted preview redeploy and manual browser confirmation are pending for the split image-upload and OCR Blob staging fixes.
+- Hosted preview redeploy and manual browser confirmation are complete for the split image-upload and OCR Blob staging fixes.
 
 ## Next Action
-- Commit and push the split image-upload plus OCR Blob staging fixes to `codex/feature/recipe-save-qa`.
-- Redeploy or wait for the Vercel branch preview, then manually verify:
-  - editing a recipe with more than one saved recipe photo on the hosted preview
-  - handwritten import with multiple OCR source images on the hosted preview
-- Optional: open a PR from `codex/feature/recipe-save-qa` into `pre-main` after hosted validation passes.
+- Open a PR from `codex/feature/recipe-save-qa` into `pre-main`, wait for required checks, then merge to `pre-main`.
 
 ## Known Issues
 - Local smoke scripts that call the dev server may need elevated sandbox permission for loopback HTTP.
@@ -74,6 +70,9 @@
 - `npx --yes vercel@latest curl /api/health --deployment https://recetas-2uyhk2wxt-luisfleitas-1188s-projects.vercel.app -- --silent --show-error --include` returned HTTP `200` with healthy app, database, and Blob checks.
 - `npx --yes vercel@latest curl /api/auth/login --deployment https://recetas-2uyhk2wxt-luisfleitas-1188s-projects.vercel.app -- --silent --show-error --include --request POST --header 'Content-Type: application/json' --data '{"username_or_email":"alice","password":"Password123!"}'` returned HTTP `200`.
 - `BASE_URL='https://recetas-2uyhk2wxt-luisfleitas-1188s-projects.vercel.app' VERCEL_DEPLOYMENT='https://recetas-2uyhk2wxt-luisfleitas-1188s-projects.vercel.app' ./scripts/recipe-save-qa-smoke-test.sh` passed against the fixed branch preview.
+- `npx vercel curl /api/health --deployment https://recetas-7957yea43-luisfleitas-1188s-projects.vercel.app -- --silent --show-error --include` returned HTTP `200` with healthy app, database, and Blob checks after the final feature-preview redeploy.
+- `npx vercel curl /api/auth/login --deployment https://recetas-7957yea43-luisfleitas-1188s-projects.vercel.app -- --silent --show-error --include --request POST --header 'Content-Type: application/json' --data '{"username_or_email":"alice","password":"Password123!"}'` returned HTTP `200` after the final feature-preview redeploy.
+- Luis manually confirmed the hosted multiple-image OCR import issue is fixed on the feature preview.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/recipe-image-upload-route.test.ts` passed after adding the one-image upload route.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/import-source-image-display.test.ts` passed after trimming detail image responses.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase0-image-service.test.ts scripts/phase1-use-cases.test.ts scripts/recipe-image-upload-route.test.ts scripts/import-source-image-display.test.ts` passed.
@@ -92,9 +91,9 @@
 ## Manual Testing Status
 - API-backed create/edit save behavior is verified locally.
 - API-backed handwritten OCR staging and parsing behavior is verified locally.
-- Pending hosted manual UI review of adding more than one image on edit after redeploy.
-- Pending hosted manual UI review of multiple-image handwritten OCR import after redeploy.
-- Pending manual UI review of the browser form path and home carousel controls before promotion.
+- Hosted manual UI review confirmed the multiple-image handwritten OCR import flag and branch preview login path are working on `https://recetas-7957yea43-luisfleitas-1188s-projects.vercel.app`.
+- Hosted API checks confirmed healthy database/Blob status and seeded `alice` login on `https://recetas-7957yea43-luisfleitas-1188s-projects.vercel.app`.
+- Manual home carousel controls are still not separately recorded in this handoff, but the user approved promotion after hosted OCR validation.
 
 ## Decisions Already Approved
 - Push the feature branch for hosted validation, but do not push to production.
