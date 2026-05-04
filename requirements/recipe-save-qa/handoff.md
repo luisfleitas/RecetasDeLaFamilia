@@ -8,6 +8,7 @@
 - Current healthy branch preview: `https://recetas-2uyhk2wxt-luisfleitas-1188s-projects.vercel.app`.
 - Local fix is complete for Vercel `FUNCTION_PAYLOAD_TOO_LARGE` failures when saving recipes with multiple images: create/edit forms now save recipe metadata separately, then upload one image per request with a 4MB per-image cap.
 - OCR upload strategy is implemented for handwritten import: hosted UI stages handwritten images in Vercel Blob via client multipart uploads, then parses ordered staged source-document ids instead of sending raw OCR images through the parse request.
+- Recipe import document upload now supports selecting multiple image files; multi-image selections are routed into the existing handwritten OCR batch flow.
 
 ## Completed
 - Baseline local dev server launched at `http://localhost:3000`.
@@ -35,6 +36,7 @@
 - Updated handwritten parse to accept ordered staged source document ids and attach those staged docs to the created import session without re-uploading bytes during parse.
 - Added OCR-specific limits separate from saved recipe photos: max 6 images, max 10MB per OCR source image, max 20MB combined OCR batch, accepted JPG/PNG/WEBP/TIFF/BMP.
 - Added cleanup coverage in the source-document cleanup path for expired unclaimed handwritten staging rows.
+- Added a document-upload selection resolver so one document still parses as a document, while multiple selected images move into the handwritten batch parser and mixed multi-file selections show a clear error.
 
 ## In Progress
 - Hosted preview redeploy and manual browser confirmation are pending for the split image-upload and OCR Blob staging fixes.
@@ -82,6 +84,10 @@
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/import-routes.integration.test.ts` passed after adding staged handwritten parse coverage.
 - `npm run test:import` passed after adding OCR source-image staging.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase0-image-service.test.ts scripts/phase1-use-cases.test.ts scripts/recipe-image-upload-route.test.ts scripts/import-source-image-display.test.ts` passed after the OCR staging changes.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/import-file-selection.test.ts` passed after adding document-upload multi-image selection coverage.
+- `npm run test:import` passed after routing multi-image document selections to the handwritten batch parser.
+- `git diff --check` passed after the multi-image selection fix.
+- `npm run build` passed after the multi-image selection fix.
 
 ## Manual Testing Status
 - API-backed create/edit save behavior is verified locally.

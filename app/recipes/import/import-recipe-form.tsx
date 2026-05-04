@@ -12,6 +12,10 @@ import {
   getImportWarningsForDraft,
   type ImportWarning,
 } from "@/lib/application/recipes/import-warnings";
+import {
+  isAcceptedHandwrittenImageFile,
+  resolveRecipeImportFileSelection,
+} from "@/lib/application/recipes/import-file-selection";
 import type {
   HandwrittenSourceImageVisibility,
   ImportSessionMetadata,
@@ -78,12 +82,6 @@ function sanitizeUploadPathSegment(value: string) {
 function formatFileSize(bytes: number) {
   const megabytes = bytes / (1024 * 1024);
   return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)}MB`;
-}
-
-function isAcceptedHandwrittenImage(file: File) {
-  return ["image/jpeg", "image/png", "image/webp", "image/tiff", "image/bmp"].includes(
-    file.type || "application/octet-stream",
-  );
 }
 
 async function waitForStagedSources(uploadBatchId: string, expectedCount: number): Promise<StagedSourceImageRef[]> {
@@ -218,6 +216,37 @@ export default function ImportRecipeForm({
     resetParsedState();
   }
 
+  function handleDocumentFileSelection(files: FileList | null) {
+    const selection = resolveRecipeImportFileSelection({
+      files: Array.from(files ?? []),
+      handwrittenEnabled,
+    });
+
+    setError(null);
+    resetParsedState();
+
+    if (selection.kind === "empty") {
+      setSelectedDocumentFile(null);
+      return;
+    }
+
+    if (selection.kind === "error") {
+      setSelectedDocumentFile(null);
+      setError(selection.message);
+      return;
+    }
+
+    if (selection.kind === "handwritten-images") {
+      setRawText("");
+      setSelectedDocumentFile(null);
+      setHandwrittenFiles(selection.files);
+      setInputMode("handwritten");
+      return;
+    }
+
+    setSelectedDocumentFile(selection.file);
+  }
+
   async function handleParse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -229,7 +258,7 @@ export default function ImportRecipeForm({
       if (inputMode === "handwritten") {
         const handwrittenTotalBytes = handwrittenFiles.reduce((total, file) => total + file.size, 0);
         const oversizedFile = handwrittenFiles.find((file) => file.size > handwrittenMaxImageBytes);
-        const unsupportedFile = handwrittenFiles.find((file) => !isAcceptedHandwrittenImage(file));
+        const unsupportedFile = handwrittenFiles.find((file) => !isAcceptedHandwrittenImageFile(file));
         if (handwrittenFiles.length > handwrittenMaxImageCount) {
           resetParsedState();
           setError(`Upload up to ${handwrittenMaxImageCount} handwritten images per import.`);
@@ -595,8 +624,9 @@ export default function ImportRecipeForm({
                     <input
                       id="recipe-import-file-input"
                       type="file"
+                      multiple
                       accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
-                      onChange={(event) => setSelectedDocumentFile(event.target.files?.[0] ?? null)}
+                      onChange={(event) => handleDocumentFileSelection(event.target.files)}
                       className="input-base"
                     />
                   </div>
