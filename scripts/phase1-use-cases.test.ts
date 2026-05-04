@@ -446,3 +446,37 @@ test("updateRecipeWithImages can save new primary image after all saved images a
   assert.equal(result.recipe?.images?.length, 1);
   assert.equal(result.recipe?.primaryImage?.id, result.recipe?.images?.[0]?.id);
 });
+
+test("updateRecipeWithImages rejects stale primaryImageId before persisting new images", async () => {
+  const repo = new FakeRecipeRepository();
+  const storage = new InMemoryStorageProvider();
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+
+  const recipe = await useCases.createRecipeWithImages(1, {
+    recipe: sampleRecipeInput(),
+    images: [await sampleImage()],
+    primaryImageIndex: 0,
+  });
+  const deletedImageId = recipe.images?.[0]?.id as number;
+  await useCases.deleteRecipeImage(1, recipe.id, deletedImageId);
+  const replacementImage = await sampleImage();
+
+  await assert.rejects(
+    () =>
+      useCases.updateRecipeWithImages(1, recipe.id, {
+        recipe: { ...sampleRecipeInput(), title: "Should not persist" },
+        newImages: [replacementImage],
+        primaryImageId: deletedImageId,
+      }),
+    /primaryImageId does not belong to this recipe/,
+  );
+
+  const persisted = await repo.getById(recipe.id, {
+    viewerUserId: 1,
+    includeImages: true,
+    includePrimaryImage: true,
+  });
+  assert.equal(persisted?.title, "Test");
+  assert.equal(persisted?.images?.length, 0);
+  assert.equal(storage.objects.size, 0);
+});
