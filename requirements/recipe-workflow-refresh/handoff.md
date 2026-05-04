@@ -12,6 +12,7 @@ Design direction approved for the unified Add Recipe workflow. The feature branc
 - Generated and iterated the branded visual mockup.
 - Approved guided Option A with adaptive wizard paths and combined media handling.
 - Wrote the requirements brief.
+- Added recipe-workflow branding guidance for app chrome, forms, and create/edit/modify processes.
 
 ## In Progress
 
@@ -25,6 +26,7 @@ Write `requirements/recipe-workflow-refresh/implementation-plan.md` for review. 
 
 - `.superpowers/` contains temporary visual companion files and should remain untracked.
 - The current implementation has separate `/recipes/new` and `/recipes/import` routes; the implementation plan must decide whether to route both through a new unified page or progressively compose existing components into the Add Recipe workflow.
+- The landing page now needs to adopt the approved top bar and left hand menu app frame.
 - Current source image visibility defaults need to change for public recipes.
 - Supporting source images as primary display images likely requires API/view-model changes because source images currently flow separately from recipe images.
 - Rich text storage/rendering needs an explicit migration or compatibility plan because current fields are `description` and `stepsMarkdown`.
@@ -58,3 +60,5 @@ Write `requirements/recipe-workflow-refresh/implementation-plan.md` for review. 
 - Public recipe gallery uses grouped media.
 - Source thumbnails open a reusable full-size modal carousel.
 - Modal carousel is also available from home/landing recipe cards through a separate media action.
+- Landing page should use the new top bar and left hand menu layout.
+- Branding guidance should cover form details plus create, edit, and modify processes.

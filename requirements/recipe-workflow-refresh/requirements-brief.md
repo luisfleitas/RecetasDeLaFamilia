@@ -54,6 +54,18 @@ Once the user moves past Start, the selected path is locked for that in-progress
 
 ## Functional Requirements
 
+### Landing Page Layout
+
+- Update the home/landing page to use the newly approved app chrome:
+  - top bar with brand lockup on the left
+  - language/account actions grouped on the right
+  - left hand menu using the new compact rail and drawer location from the approved mockup
+- The landing page should keep its task-first recipe browsing behavior; this change updates the app frame and navigation layout, not the page into a marketing landing page.
+- The left menu Add Recipe action must route to the unified Add Recipe workflow.
+- Recipe cards on the landing page must preserve their primary navigation behavior.
+- When visible source/media is available, the landing page card-level media/source action opens the reusable media modal carousel.
+- The landing page must use the same top bar, left menu, media modal, and warm cream/orange state language documented in `requirements/recipe-workflow-refresh/branding-guidelines.md`.
+
 ### Add Recipe Entry
 
 - The left menu Add Recipe link must route to the unified Add Recipe workflow.
@@ -257,6 +269,8 @@ Desktop and mobile behavior must be defined and verified for:
 - Public recipe gallery with grouped media
 - Home card with media action
 - Home card without media action
+- Landing page top bar and left-menu desktop layout
+- Landing page top bar and left-menu mobile layout
 - Full-size modal carousel open/next/previous/close
 
 ## Approved Decisions
@@ -276,6 +290,7 @@ Desktop and mobile behavior must be defined and verified for:
 - Public recipe page gallery uses grouped media.
 - Source page thumbnails open a full-size modal carousel.
 - The modal carousel is reusable from public recipe detail and home/landing recipe cards.
+- Landing page should adopt the approved top bar and left hand menu layout from the branded mockup.
 
 ## Next Action
 
