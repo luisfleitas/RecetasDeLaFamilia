@@ -418,3 +418,31 @@ test("updateRecipeWithImages reload uses viewer context for private/family recip
   assert.equal(repo.lastGetByIdOptions?.includeImages, true);
   assert.equal(repo.lastGetByIdOptions?.includePrimaryImage, true);
 });
+
+test("updateRecipeWithImages can save new primary image after all saved images are deleted", async () => {
+  const repo = new FakeRecipeRepository();
+  const storage = new InMemoryStorageProvider();
+  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+
+  const recipe = await useCases.createRecipeWithImages(1, {
+    recipe: sampleRecipeInput(),
+    images: [await sampleImage(), await sampleImage()],
+    primaryImageIndex: 0,
+  });
+
+  for (const image of recipe.images ?? []) {
+    const result = await useCases.deleteRecipeImage(1, recipe.id, image.id);
+    assert.equal(result.deleted, true);
+  }
+
+  const result = await useCases.updateRecipeWithImages(1, recipe.id, {
+    recipe: { ...sampleRecipeInput(), title: "Updated with replacement image" },
+    newImages: [await sampleImage()],
+    primaryImageIndex: 0,
+  });
+
+  assert.equal(result.forbidden, false);
+  assert.equal(result.recipe?.title, "Updated with replacement image");
+  assert.equal(result.recipe?.images?.length, 1);
+  assert.equal(result.recipe?.primaryImage?.id, result.recipe?.images?.[0]?.id);
+});

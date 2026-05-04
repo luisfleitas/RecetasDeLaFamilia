@@ -110,8 +110,9 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   const [familyOptions, setFamilyOptions] = useState<FamilyOption[]>([]);
   const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>(recipe.families.map((family) => family.id));
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRemovingImageId, setIsRemovingImageId] = useState<number | null>(null);
+  const [removingImageIds, setRemovingImageIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const isRemovingImage = removingImageIds.length > 0;
 
   useEffect(() => {
     async function loadFamilies() {
@@ -182,7 +183,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
   async function removeExistingImage(imageId: number) {
     setError(null);
-    setIsRemovingImageId(imageId);
+    setRemovingImageIds((current) => (current.includes(imageId) ? current : [...current, imageId]));
 
     try {
       const response = await fetch(`/api/recipes/${recipe.id}/images/${imageId}`, {
@@ -203,7 +204,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     } catch {
       setError(messages.recipe.errors.removeImageFailed);
     } finally {
-      setIsRemovingImageId(null);
+      setRemovingImageIds((current) => current.filter((id) => id !== imageId));
     }
   }
 
@@ -279,6 +280,11 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
     if (totalImageCount() > MAX_IMAGES) {
       setError(messages.recipe.errors.maxImages);
+      return;
+    }
+
+    if (isRemovingImage) {
+      setError(messages.recipe.errors.finishRemovingImages);
       return;
     }
 
@@ -533,10 +539,10 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
                     id={`edit-recipe-existing-image-remove-${image.id}`}
                     type="button"
                     onClick={() => removeExistingImage(image.id)}
-                    disabled={isRemovingImageId === image.id}
+                    disabled={isSubmitting || removingImageIds.includes(image.id)}
                     className={buttonClassName("secondary")}
                   >
-                    {isRemovingImageId === image.id ? messages.recipe.removing : messages.recipe.remove}
+                    {removingImageIds.includes(image.id) ? messages.recipe.removing : messages.recipe.remove}
                   </button>
                 </div>
               </li>
@@ -631,7 +637,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
       {error ? <p id="edit-recipe-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
 
-      <button id="edit-recipe-submit" type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
+      <button id="edit-recipe-submit" type="submit" disabled={isSubmitting || isRemovingImage} className={buttonClassName("primary")}>
         {isSubmitting ? messages.recipe.savingSubmit : messages.recipe.saveSubmit}
       </button>
     </form>
