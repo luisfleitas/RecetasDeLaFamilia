@@ -126,14 +126,19 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 ### TC-10: Rich Text Description And Steps
 
-**Goal:** Confirm rich text controls store v1-compatible content.
+**Goal:** Confirm rich text controls store v1-compatible content and the editor lets users review both markup/source and formatted preview before saving.
 
 **Steps:**
+- Open Add Recipe and reach Recipe details.
 - Add formatted description and steps using bold, italic, underline, text size, lists, and link.
+- Switch to the markup/source view and confirm the Markdown-compatible text is visible and editable.
+- Switch to the formatted preview view and confirm the pretty version matches the recipe detail rendering style.
 - Create or save the recipe.
 - Open the public recipe page.
 
-**Expected:** Public page renders formatted content only, existing Markdown remains compatible, and no editor controls are exposed.
+**Expected:** The editor provides clear markup/source and formatted preview modes, public page renders formatted content only, existing Markdown remains compatible, and no editor controls are exposed.
+
+**Slice 5B Status:** Verified. The implementation keeps the custom Recetas-owned editor after the build-vs-existing-component comparison, preserves `description` and `stepsMarkdown` storage, and adds Source/Preview tabs for both fields.
 
 ### TC-11: Media Groups And Primary Recipe Image
 
@@ -171,18 +176,26 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** Gallery shows Recipe photos and Imported source pages groups with accessible thumbnails.
 
-### TC-14: Home Card Media Action
+### TC-14: Landing Image Viewer From Featured Carousel And Cards
 
-**Goal:** Confirm home card media action opens the reusable carousel without changing card navigation.
+**Goal:** Confirm landing-page images open the reusable media modal while recipe navigation stays available through title/copy links.
 
 **Steps:**
 - Open `/`.
-- Find a recipe card with visible media/source pages.
-- Click the media/source action.
+- Confirm the compact featured carousel appears above the recipe groups when visible recipes have media.
+- Click a featured carousel image.
+- Confirm the reusable media modal opens with all visible media for that recipe, including recipe photos and imported source pages.
 - Close the modal.
-- Click the card image or primary card area.
+- Find a recipe card with visible media/source pages.
+- Click the recipe-card image.
+- Confirm the reusable media modal opens for that recipe.
+- Close the modal.
+- Click the recipe title/copy link.
+- Repeat at desktop and mobile widths.
 
-**Expected:** Media action opens the carousel; normal card/image click still opens recipe detail.
+**Expected:** Featured carousel images and recipe-card images open the media modal; recipe title/copy links still open recipe detail.
+
+**Slice 8A Status:** Verified with desktop and 390px Playwright smoke on `http://127.0.0.1:3105/`.
 
 ### TC-15: Modal Carousel Controls
 
@@ -215,3 +228,17 @@ Define the manual test cases that should be expanded and checked as each impleme
 - Save changes.
 
 **Expected:** The form language matches create where practical, permissions remain intact, and the action is Save rather than Create Recipe.
+
+### TC-18: Landing Featured Carousel No-Media State
+
+**Goal:** Confirm the restored landing featured carousel does not render an empty or placeholder-only shell.
+
+**Steps:**
+- Open `/` with a dataset where visible recipes have no recipe photos or source-page media.
+- Confirm the landing page still shows the app frame, greeting, left navigation, and recipe groups.
+- Confirm no `home-featured-carousel` shell appears.
+- Repeat at desktop and mobile widths.
+
+**Expected:** The landing page remains task-first and usable, and the featured carousel is omitted when there is no real media to show.
+
+**Slice 8A Status:** Automated no-media omission coverage is verified in `scripts/home-navigation-view-model.test.ts`; manual no-media dataset smoke remains pending.

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyRichTextMarkdownFormat,
+  getRichTextEditorPreviewContent,
+  normalizeRichTextEditorSource,
   normalizeFormattedRecipeContent,
   normalizeRichTextMarkdown,
   sanitizeMarkdownLinkUrl,
@@ -15,6 +17,18 @@ test("keeps existing markdown formatting compatible", () => {
   const content = "## Prep\n\n- Chop onions\n- **Toast** spices\n\n1. Simmer";
 
   assert.equal(normalizeRichTextMarkdown(content), content);
+});
+
+test("keeps editor source as the markdown storage contract", () => {
+  assert.equal(normalizeRichTextEditorSource("  ## Prep\n\n- Chop onions  "), "## Prep\n\n- Chop onions");
+});
+
+test("uses public rendering normalization for editor preview content", () => {
+  assert.equal(
+    getRichTextEditorPreviewContent("Use [bad link](javascript:alert(1)) and [good](https://example.com)."),
+    "Use bad link and [good](https://example.com).",
+  );
+  assert.equal(getRichTextEditorPreviewContent("   "), null);
 });
 
 test("applies allowed rich text controls as deterministic markdown", () => {

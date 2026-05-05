@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RecipeMediaCarouselItem } from "@/lib/application/recipes/recipe-media-groups";
 
@@ -8,9 +8,17 @@ type RecipeMediaCarouselProps = {
   items: RecipeMediaCarouselItem[];
   triggerId: string;
   triggerLabel: string;
+  triggerClassName?: string;
+  triggerChildren?: ReactNode;
 };
 
-export default function RecipeMediaCarousel({ items, triggerId, triggerLabel }: RecipeMediaCarouselProps) {
+export default function RecipeMediaCarousel({
+  items,
+  triggerId,
+  triggerLabel,
+  triggerClassName = "recipe-media-carousel-trigger",
+  triggerChildren,
+}: RecipeMediaCarouselProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const safeActiveIndex = items.length > 0 ? Math.min(activeIndex, items.length - 1) : 0;
@@ -75,12 +83,13 @@ export default function RecipeMediaCarousel({ items, triggerId, triggerLabel }: 
       <button
         id={triggerId}
         type="button"
-        className="recipe-media-carousel-trigger"
+        className={triggerClassName}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
+        aria-label={triggerChildren ? triggerLabel : undefined}
         onClick={() => openCarousel(0)}
       >
-        {triggerLabel}
+        {triggerChildren ?? triggerLabel}
       </button>
 
       {isOpen ? createPortal(

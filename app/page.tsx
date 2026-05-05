@@ -1,9 +1,9 @@
 // Home page that lists recipes from the API.
 import Link from "next/link";
-import Image from "next/image";
 import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
 import HomeAccountMenu from "@/app/_components/home-account-menu";
+import HomeFeaturedCarousel from "@/app/_components/home-featured-carousel";
 import HomeLeftNavigation from "@/app/_components/home-left-navigation";
 import RecipeCardCarousel from "@/app/_components/recipe-card-carousel";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
@@ -11,9 +11,11 @@ import RecipeVisibilityTabs, { type RecipeVisibilityTabGroup } from "@/app/_comp
 import { formatDate } from "@/lib/i18n/format";
 import { getRequestMessages } from "@/lib/i18n/server";
 import {
+  buildFeaturedRecipeSlides,
   buildHomeRecipeMediaCarouselItems,
   buildRecipeVisibilityTabGroups,
   buildHomeNavigationViewModel,
+  getHomeRecipeDisplayMediaRefs,
 } from "@/lib/application/home-navigation/view-model";
 import { loadHomeNavigationFamiliesForPage } from "@/lib/application/home-navigation/page-home-navigation-loader";
 import { loadRecipeListForPage } from "@/lib/application/recipes/page-recipe-list-loader";
@@ -28,6 +30,7 @@ export default async function HomePage() {
   const { recipes } = recipesResponse;
   const publicRecipes = recipes.filter((recipe) => recipe.visibility === "public");
   const visibleRecipes = authUser ? recipes : publicRecipes;
+  const featuredSlides = buildFeaturedRecipeSlides(visibleRecipes);
   const familyMemberships = authUser ? await loadHomeNavigationFamiliesForPage(authUser.user_id) : [];
   const homeNavigation = authUser
     ? buildHomeNavigationViewModel({
@@ -115,6 +118,15 @@ export default async function HomePage() {
             </section>
 
             <section id="home-content-section" className="home-content-section">
+              <HomeFeaturedCarousel
+                slides={featuredSlides}
+                labels={{
+                  title: messages.home.featuredRecipes,
+                  previous: messages.home.previousFeaturedRecipe,
+                  next: messages.home.nextFeaturedRecipe,
+                }}
+              />
+
               <div id="home-recipe-groups" className="min-w-0">
                 {visibleRecipes.length === 0 ? (
                   <article id="home-empty-state-card" className="surface-card p-10 text-center">
@@ -131,38 +143,33 @@ export default async function HomePage() {
                       {messages.home.publicRecipesLabel} ({publicRecipes.length})
                     </p>
                     <ul id="home-public-recipes-list" className="home-recipe-card-grid">
-                      {publicRecipes.map((recipe) => (
-                        <li id={`home-public-recipes-item-${recipe.id}`} key={recipe.id} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
-                          {recipe.images && recipe.images.length > 0 ? (
-                            <RecipeCardCarousel
-                              recipeId={recipe.id}
-                              title={recipe.title}
-                              images={recipe.images}
-                              mediaItems={buildHomeRecipeMediaCarouselItems(recipe)}
-                            />
-                          ) : recipe.primaryImage ? (
-                            <Image
-                              id={`home-public-recipes-image-${recipe.id}`}
-                              src={recipe.primaryImage.thumbnailUrl}
-                              alt={recipe.title}
-                              width={640}
-                              height={360}
-                              className="block h-36 w-full object-cover"
-                            />
-                          ) : null}
-                          <div id={`home-public-recipes-item-content-${recipe.id}`} className="p-3">
-                            <Link id={`home-public-recipes-link-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
-                              {recipe.title}
-                            </Link>
-                            <p id={`home-public-recipes-date-${recipe.id}`} className="mt-1 text-xs text-[var(--color-text-muted)]">
-                              {messages.home.addedOn} {formatDate(recipe.createdAt, locale)}
-                            </p>
-                            <p id={`home-public-recipes-summary-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--brand-orange-700)]">
-                              {messages.home.publicVisibility}
-                            </p>
-                          </div>
-                        </li>
-                      ))}
+                      {publicRecipes.map((recipe) => {
+                        const mediaItems = buildHomeRecipeMediaCarouselItems(recipe);
+                        const displayImages = getHomeRecipeDisplayMediaRefs(recipe);
+                        return (
+                          <li id={`home-public-recipes-item-${recipe.id}`} key={recipe.id} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
+                            {mediaItems.length > 0 ? (
+                              <RecipeCardCarousel
+                                recipeId={recipe.id}
+                                title={recipe.title}
+                                images={displayImages}
+                                mediaItems={mediaItems}
+                              />
+                            ) : null}
+                            <div id={`home-public-recipes-item-content-${recipe.id}`} className="p-3">
+                              <Link id={`home-public-recipes-link-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
+                                {recipe.title}
+                              </Link>
+                              <p id={`home-public-recipes-date-${recipe.id}`} className="mt-1 text-xs text-[var(--color-text-muted)]">
+                                {messages.home.addedOn} {formatDate(recipe.createdAt, locale)}
+                              </p>
+                              <p id={`home-public-recipes-summary-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--brand-orange-700)]">
+                                {messages.home.publicVisibility}
+                              </p>
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </article>
                 )}

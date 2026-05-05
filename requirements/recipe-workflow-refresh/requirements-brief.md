@@ -162,6 +162,8 @@ Users can type custom units. Custom units become suggestions only within the cur
 
 Description and steps must use simple rich text editing rather than raw Markdown/source editing.
 
+The editor should not feel like a raw text box with helper buttons. Users must be able to inspect and edit the Markdown-compatible markup/source text and also review a polished formatted preview before saving.
+
 Toolbar controls for v1:
 
 - bold

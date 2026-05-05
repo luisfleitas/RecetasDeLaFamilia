@@ -4,7 +4,10 @@ import Link from "next/link";
 import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import RecipeCardCarousel from "@/app/_components/recipe-card-carousel";
-import { buildHomeRecipeMediaCarouselItems } from "@/lib/application/home-navigation/view-model";
+import {
+  buildHomeRecipeMediaCarouselItems,
+  getHomeRecipeDisplayMediaRefs,
+} from "@/lib/application/home-navigation/view-model";
 import { formatDate } from "@/lib/i18n/format";
 
 type PrimaryImageRef = {
@@ -147,36 +150,33 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
             </p>
           ) : (
             <ul id={`home-visibility-tabs-recipes-${activeGroup.id}`} className="home-recipe-card-grid">
-              {activeGroup.recipes.map((recipe) => (
-                <li id={`home-visibility-tabs-item-${activeGroup.id}-${recipe.id}`} key={`${activeGroup.id}-${recipe.id}`} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
-                  {recipe.images && recipe.images.length > 0 ? (
-                    <RecipeCardCarousel
-                      recipeId={recipe.id}
-                      title={recipe.title}
-                      images={recipe.images}
-                      mediaItems={buildHomeRecipeMediaCarouselItems(recipe)}
-                    />
-                  ) : recipe.primaryImage ? (
-                    <img
-                      id={`home-visibility-tabs-image-${activeGroup.id}-${recipe.id}`}
-                      src={recipe.primaryImage.thumbnailUrl}
-                      alt={recipe.title}
-                      className="block h-36 w-full object-cover"
-                    />
-                  ) : null}
-                  <div id={`home-visibility-tabs-item-content-${activeGroup.id}-${recipe.id}`} className="p-3">
-                    <Link id={`home-visibility-tabs-link-${activeGroup.id}-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
-                      {recipe.title}
-                    </Link>
-                    <p id={`home-visibility-tabs-date-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs text-[var(--color-text-muted)]">
-                      {messages.home.addedOn} {formatDate(recipe.createdAt, locale)}
-                    </p>
-                    <p id={`home-visibility-tabs-summary-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--brand-orange-700)]">
-                      {getRecipeVisibilitySummary(recipe, messages)}
-                    </p>
-                  </div>
-                </li>
-              ))}
+              {activeGroup.recipes.map((recipe) => {
+                const mediaItems = buildHomeRecipeMediaCarouselItems(recipe);
+                const displayImages = getHomeRecipeDisplayMediaRefs(recipe);
+                return (
+                  <li id={`home-visibility-tabs-item-${activeGroup.id}-${recipe.id}`} key={`${activeGroup.id}-${recipe.id}`} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
+                    {mediaItems.length > 0 ? (
+                      <RecipeCardCarousel
+                        recipeId={recipe.id}
+                        title={recipe.title}
+                        images={displayImages}
+                        mediaItems={mediaItems}
+                      />
+                    ) : null}
+                    <div id={`home-visibility-tabs-item-content-${activeGroup.id}-${recipe.id}`} className="p-3">
+                      <Link id={`home-visibility-tabs-link-${activeGroup.id}-${recipe.id}`} href={`/recipes/${recipe.id}`} className="text-base font-semibold hover:underline">
+                        {recipe.title}
+                      </Link>
+                      <p id={`home-visibility-tabs-date-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs text-[var(--color-text-muted)]">
+                        {messages.home.addedOn} {formatDate(recipe.createdAt, locale)}
+                      </p>
+                      <p id={`home-visibility-tabs-summary-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--brand-orange-700)]">
+                        {getRecipeVisibilitySummary(recipe, messages)}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

@@ -45,7 +45,8 @@ export type FeaturedRecipeSlide = {
   title: string;
   description: string | null;
   href: string;
-  imageUrl: string | null;
+  imageUrl: string;
+  mediaItems: RecipeMediaCarouselItem[];
 };
 
 export type HomeNavigationViewModel = {
@@ -111,24 +112,31 @@ export function buildHomeNavigationViewModel(input: {
 export function buildFeaturedRecipeSlides(recipes: HomeNavigationRecipe[], limit = 6): FeaturedRecipeSlide[] {
   return [...recipes]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .slice(0, limit)
-    .map((recipe) => {
-      const firstImage = recipe.images?.[0] ?? recipe.primaryImage ?? null;
+    .flatMap((recipe) => {
+      const mediaItems = buildHomeRecipeMediaCarouselItems(recipe);
+      const firstMediaItem = mediaItems[0];
+      if (!firstMediaItem) {
+        return [];
+      }
+
       return {
         id: recipe.id,
         title: recipe.title,
         description: recipe.description ?? null,
         href: `/recipes/${recipe.id}`,
-        imageUrl: firstImage?.thumbnailUrl ?? null,
+        imageUrl: firstMediaItem.thumbnailUrl,
+        mediaItems,
       };
-    });
+    })
+    .slice(0, limit);
 }
 
 export function buildHomeRecipeMediaCarouselItems(recipe: HomeRecipeMediaInput): RecipeMediaCarouselItem[] {
   let recipeImageCount = 0;
   let sourcePageCount = 0;
+  const imageRefs = getHomeRecipeDisplayMediaRefs(recipe);
 
-  return (recipe.images ?? []).map((image) => {
+  return imageRefs.map((image) => {
     if (image.id < 0) {
       sourcePageCount += 1;
       const sourceDocumentId = Math.abs(image.id);
@@ -153,9 +161,17 @@ export function buildHomeRecipeMediaCarouselItems(recipe: HomeRecipeMediaInput):
       thumbnailUrl: image.thumbnailUrl,
       fullUrl: image.fullUrl,
       accessibleLabel: `Open recipe image ${label}`,
-      isPrimary: image.id === recipe.primaryImage?.id,
+      isPrimary: image.id === recipe.primaryImage?.id || imageRefs.length === 1,
     };
   });
+}
+
+export function getHomeRecipeDisplayMediaRefs(recipe: HomeRecipeMediaInput): RecipeImageRef[] {
+  if (recipe.images && recipe.images.length > 0) {
+    return recipe.images;
+  }
+
+  return recipe.primaryImage ? [recipe.primaryImage] : [];
 }
 
 export function getRecipeGroupDisplayLabel(group: RecipeGroupForDisplay) {

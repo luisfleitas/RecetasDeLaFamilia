@@ -22,6 +22,10 @@ export function normalizeRichTextMarkdown(content: string) {
   return content.trim();
 }
 
+export function normalizeRichTextEditorSource(content: string) {
+  return normalizeRichTextMarkdown(content);
+}
+
 export function sanitizeMarkdownLinkUrl(url: string) {
   const trimmedUrl = url.trim();
 
@@ -67,6 +71,10 @@ export function normalizeFormattedRecipeContent(content: string | null | undefin
   normalizedContent += markdownContent.slice(lastIndex);
 
   return normalizedContent.length > 0 ? normalizedContent : null;
+}
+
+export function getRichTextEditorPreviewContent(content: string | null | undefined) {
+  return normalizeFormattedRecipeContent(content);
 }
 
 export function applyRichTextMarkdownFormat(input: ApplyRichTextMarkdownFormatInput) {
