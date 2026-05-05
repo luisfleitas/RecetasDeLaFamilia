@@ -11,7 +11,10 @@ import {
   assertHandwrittenSourceImageUpload,
 } from "@/lib/application/recipes/handwritten-source-staging";
 import type { ImportSourceType } from "@/lib/application/recipes/source-documents";
-import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
+import {
+  importRecipeFromTextDocument,
+  type ImportedRecipeDraft,
+} from "@/lib/application/recipes/text-document-import";
 
 export type HandwrittenImportSourceDocument = {
   id?: number;
@@ -187,6 +190,13 @@ export function buildHandwrittenFallbackDraft(content: string): ImportedRecipeDr
     .map((line) => line.trim())
     .filter(Boolean)
     .filter((line) => !/^page\s+\d+$/i.test(line));
+  const normalizedContent = lines.join("\n");
+
+  try {
+    return importRecipeFromTextDocument(normalizedContent);
+  } catch {
+    // Keep the review flow usable when OCR is too noisy for even the tolerant parser.
+  }
 
   const title = lines[0] ?? "Imported handwritten recipe";
   const stepLines = lines.slice(1);

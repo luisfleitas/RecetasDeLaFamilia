@@ -87,11 +87,14 @@ const UNIT_CANONICAL_MAP: Record<string, string> = {
   slices: "slice",
   tablespoons: "tablespoon",
   teaspoons: "teaspoon",
+  cucharadas: "cucharada",
+  cucharaditas: "cucharadita",
   tazas: "taza",
   unidades: "unidad",
 };
 
 const INGREDIENT_PREFIX_WORDS = new Set(["de", "del", "la", "el", "los", "las", "of"]);
+const INGREDIENT_SUBSECTION_HEADINGS = new Set(["filling", "relleno", "masa", "dough"]);
 const UNICODE_FRACTION_MAP: Record<string, number> = {
   "¼": 1 / 4,
   "½": 1 / 2,
@@ -219,6 +222,9 @@ function parseIngredientLine(line: string, position: number): CreateIngredientIn
   if (!cleaned) {
     return null;
   }
+  if (INGREDIENT_SUBSECTION_HEADINGS.has(cleaned.toLowerCase().replace(/[?!.,;:]+$/g, ""))) {
+    return null;
+  }
 
   const { qty, rest } = parseLeadingQuantity(cleaned);
   if (!rest) {
@@ -267,6 +273,18 @@ function isLikelyIngredientBullet(rawLine: string): boolean {
   // Reduce false-positives from long narrative bullet points.
   const tokenCount = normalizeLine(trimmed).split(/\s+/).filter(Boolean).length;
   return tokenCount > 0 && tokenCount <= 16;
+}
+
+function isLikelyIngredientQuantityLine(rawLine: string): boolean {
+  const normalized = normalizeLine(rawLine);
+  const { qty, rest } = parseLeadingQuantity(normalized);
+  if (qty == null || !rest) {
+    return false;
+  }
+
+  // Handwritten OCR often drops the ingredients heading while preserving one measured item per line.
+  const tokenCount = normalized.split(/\s+/).filter(Boolean).length;
+  return tokenCount > 1 && tokenCount <= 16;
 }
 
 function formatStepsMarkdown(rawStepLines: string[]): string {
@@ -466,7 +484,7 @@ export function importRecipeFromTextDocument(content: string): ImportedRecipeDra
       section == null &&
       consumedFirstNonEmptyAsTitle &&
       buckets.ingredients.length === 0 &&
-      isLikelyIngredientBullet(rawLine)
+      (isLikelyIngredientBullet(rawLine) || isLikelyIngredientQuantityLine(rawLine))
     ) {
       section = "ingredients";
       buckets.ingredients.push(line);
