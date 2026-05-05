@@ -32,9 +32,11 @@ test("loads page recipes directly from use cases and appends visible source imag
           [
             {
               id: -10,
+              sourceDocumentId: 10,
               fullUrl: "/api/recipes/1/source-documents/10/file",
               thumbnailUrl: "/api/recipes/1/source-documents/10/file",
               isPrimary: false,
+              mediaReference: "source-document",
             },
           ],
         ],
@@ -50,9 +52,11 @@ test("loads page recipes directly from use cases and appends visible source imag
         images: [
           {
             id: -10,
+            sourceDocumentId: 10,
             fullUrl: "/api/recipes/1/source-documents/10/file",
             thumbnailUrl: "/api/recipes/1/source-documents/10/file",
             isPrimary: false,
+            mediaReference: "source-document",
           },
         ],
       },

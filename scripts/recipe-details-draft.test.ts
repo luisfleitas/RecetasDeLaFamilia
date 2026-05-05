@@ -97,7 +97,6 @@ test("hydrates imported source metadata for the unified add workflow", () => {
       mimeType: "image/jpeg",
       sizeBytes: 1200,
       storageKey: "imports/card-front.jpg",
-      pageNumber: 1,
     },
   ];
   const metadata: ImportSessionMetadata = {
@@ -204,7 +203,6 @@ test("builds a source-document primary media reference without marking new image
           mimeType: "image/jpeg",
           sizeBytes: 1200,
           storageKey: "imports/card-front.jpg",
-          pageNumber: 1,
         },
       ],
       primarySourceDocumentId: 42,

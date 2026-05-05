@@ -206,6 +206,14 @@ class FakeRecipeRepository implements RecipeRepository {
     return [...this.images.values()].filter((image) => image.recipeId === recipeId).length;
   }
 
+  async clearPrimaryImage(recipeId: number): Promise<void> {
+    for (const image of this.images.values()) {
+      if (image.recipeId === recipeId) {
+        image.isPrimary = false;
+      }
+    }
+  }
+
   async setPrimaryImage(recipeId: number, imageId: number): Promise<boolean> {
     const target = this.images.get(imageId);
     if (!target || target.recipeId !== recipeId) {

@@ -19,10 +19,10 @@ test("starts with canonical ingredient units from the workflow requirements", ()
 test("dedupes canonical and custom units case-insensitively", () => {
   const suggestions = buildIngredientUnitSuggestions({
     ingredients: [
-      { rowId: 1, unit: "Cup" },
-      { rowId: 2, unit: "cup" },
-      { rowId: 3, unit: "Ears" },
-      { rowId: 4, unit: "ears" },
+      { unit: "Cup" },
+      { unit: "cup" },
+      { unit: "Ears" },
+      { unit: "ears" },
     ],
     typedValue: "",
   });
@@ -35,8 +35,8 @@ test("dedupes canonical and custom units case-insensitively", () => {
 test("uses custom units only from the current recipe draft", () => {
   const suggestions = buildIngredientUnitSuggestions({
     ingredients: [
-      { rowId: 1, unit: "ears" },
-      { rowId: 2, unit: "scoops" },
+      { unit: "ears" },
+      { unit: "scoops" },
     ],
     typedValue: "",
   });
@@ -49,9 +49,9 @@ test("uses custom units only from the current recipe draft", () => {
 test("filters suggestions by the typed value while preserving custom matches", () => {
   const suggestions = buildIngredientUnitSuggestions({
     ingredients: [
-      { rowId: 1, unit: "ears" },
-      { rowId: 2, unit: "each" },
-      { rowId: 3, unit: "scoop" },
+      { unit: "ears" },
+      { unit: "each" },
+      { unit: "scoop" },
     ],
     typedValue: "ea",
   });
