@@ -97,14 +97,6 @@ Ingredients:
 - User-entered custom units become suggestions only within the current recipe.
 - Keep quantity, unit, notes, and name editing compact on desktop and stacked on mobile.
 
-Rich text:
-
-- Description and steps use a simple toolbar.
-- Toolbar controls: bold, italic, underline, text size, bulleted list, numbered list, link.
-- Text sizes: Small, Normal, Large, Heading.
-- Do not expose source/edit-markup mode in v1.
-- Render formatted content on public pages without showing markup controls.
-
 Media:
 
 - Use one Media section with grouped subsections.
@@ -145,7 +137,7 @@ Editing an existing recipe should use the same form language as Recipe details.
 
 - Keep the app chrome consistent with the new top bar and left menu where the edit surface uses the app frame.
 - Use the same section order where practical: Basic info, Sharing, Ingredients, Media, Description, Steps, Save action.
-- Keep rich text controls consistent between create and edit.
+- Keep description and steps field placement consistent between create and edit. Editor UX is deferred to a separate phase.
 - Keep ingredient unit autocomplete consistent between create and edit.
 - Existing media should appear in the combined Media section.
 - Imported source pages should remain grouped separately from recipe images.
@@ -182,6 +174,6 @@ Future changes to this workflow should follow the documentation and approval pro
 - Keep page files focused on routing, auth, flags, and prepared props.
 - Move wizard behavior into a hook, helper, or view model.
 - Move ingredient unit suggestions outside JSX-heavy components.
-- Keep rich text editor behavior reusable and isolated.
+- Keep description and steps storage compatible with the existing recipe fields; defer editor behavior decisions to a separate phase.
 - Keep media/source image rules in application services.
 - Use the same modal carousel component from public recipe detail and home/landing pages.

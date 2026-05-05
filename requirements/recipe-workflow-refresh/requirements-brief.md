@@ -10,7 +10,7 @@ Recetas already has separate manual recipe creation and recipe import routes:
 - Import sessions can hydrate `/recipes/new?importSession=...`.
 - Source documents already exist for import history and handwritten source images.
 
-The approved direction is to make the user-facing workflow feel like one branded Add Recipe experience while preserving clean internal separation between page orchestration, import processing, form state, rich text editing, media handling, and persistence rules.
+The approved direction is to make the user-facing workflow feel like one branded Add Recipe experience while preserving clean internal separation between page orchestration, import processing, form state, media handling, and persistence rules.
 
 ## Problem Statement
 
@@ -158,33 +158,6 @@ Starter canonical suggestions:
 
 Users can type custom units. Custom units become suggestions only within the current recipe being edited or created. They do not become global suggestions.
 
-### Rich Text Editing
-
-Description and steps must use simple rich text editing rather than raw Markdown/source editing.
-
-The editor should not feel like a raw text box with helper buttons. Users must be able to inspect and edit the Markdown-compatible markup/source text and also review a polished formatted preview before saving.
-
-Toolbar controls for v1:
-
-- bold
-- italic
-- underline
-- text size
-- bulleted list
-- numbered list
-- link
-
-Text sizes:
-
-- Small
-- Normal
-- Large
-- Heading
-
-No source/edit-markup mode is required for v1.
-
-The public recipe page renders formatted content only.
-
 ### Media And Source Images
 
 Recipe details must use one combined Media section with groups:
@@ -235,7 +208,7 @@ When visible source/media is available, a small grouped media/source action on t
 
 - Creating saved draft recipe records before Create Recipe.
 - Global learning of user-entered custom units.
-- Source/edit-markup mode for rich text fields.
+- Description and steps editor UX changes. Keep those fields compatible with the current storage shape, but defer editor selection, toolbar behavior, source/preview behavior, and formatting requirements to a separate phase.
 - A separate Review import wizard step.
 - Copying source images into normal recipe image storage when selected as primary.
 - A dedicated source viewer page.
@@ -248,7 +221,6 @@ Implementation must preserve strict logic/view separation:
 - Wizard path/state logic should live in a focused hook, helper, or view model.
 - Import parsing and session persistence remain in application/API modules, not view components.
 - Ingredient unit suggestion logic should live outside JSX-heavy form components.
-- Rich text editor behavior should be a reusable component with formatting state isolated from recipe persistence.
 - Media/source image visibility and promotion rules should live in application services.
 - Modal carousel should be reusable from recipe detail and home/landing surfaces.
 

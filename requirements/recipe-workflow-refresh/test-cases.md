@@ -25,6 +25,8 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** The app frame matches the approved warm cream/orange direction, and the recipe browsing flow remains task-first.
 
+**Slice 10 Status:** Verified at 1440px and 390px on `http://127.0.0.1:3100/`.
+
 ### TC-02: Start Screen Manual Path
 
 **Goal:** Confirm manual recipe creation starts from the unified Add Recipe workflow.
@@ -37,7 +39,7 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** Manual path is `Start -> Recipe details`, preserves state, and does not create a saved draft recipe.
 
-**Slice 1 Status:** Automated workflow-state coverage added; desktop/mobile manual smoke pending.
+**Slice 10 Status:** Verified at 1440px and 390px. The manual choice advances to the shared Recipe details form without creating a saved draft recipe.
 
 ### TC-03: Start Screen Import Path
 
@@ -51,7 +53,7 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** Import path is `Start -> Import source -> Recipe details`.
 
-**Slice 1 Status:** Automated workflow-state coverage added for path selection and completed-step navigation; real import controls land in Slice 4.
+**Slice 10 Status:** Verified at 1440px and 390px. The import choice advances to the embedded Import source screen with the approved tab pattern.
 
 ### TC-04: Text Import Success
 
@@ -64,6 +66,8 @@ Define the manual test cases that should be expanded and checked as each impleme
 - Submit valid recipe text.
 
 **Expected:** Import success appears, the workflow advances to Recipe details, and title, ingredients, description, steps, language, and source metadata hydrate without a browser redirect.
+
+**Slice 10 Status:** Verified with pasted text at 1440px and 390px. The workflow advanced to Recipe details and hydrated the imported title.
 
 ### TC-05: Document Import Success
 
@@ -102,6 +106,8 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** Error messaging appears on Import source, controls recover cleanly, and selected text/files are preserved where practical.
 
+**Slice 10 Status:** Verified with invalid pasted text at 1440px and 390px. The embedded import error rendered and the flow recovered for a subsequent successful pasted import.
+
 ### TC-08: Recipe Details Validation
 
 **Goal:** Confirm validation is clear and field-local.
@@ -123,22 +129,6 @@ Define the manual test cases that should be expanded and checked as each impleme
 - Add another ingredient and check suggestions.
 
 **Expected:** Canonical suggestions appear, custom units from the current recipe appear, and custom units are not global.
-
-### TC-10: Rich Text Description And Steps
-
-**Goal:** Confirm rich text controls store v1-compatible content and the editor lets users review both markup/source and formatted preview before saving.
-
-**Steps:**
-- Open Add Recipe and reach Recipe details.
-- Add formatted description and steps using bold, italic, underline, text size, lists, and link.
-- Switch to the markup/source view and confirm the Markdown-compatible text is visible and editable.
-- Switch to the formatted preview view and confirm the pretty version matches the recipe detail rendering style.
-- Create or save the recipe.
-- Open the public recipe page.
-
-**Expected:** The editor provides clear markup/source and formatted preview modes, public page renders formatted content only, existing Markdown remains compatible, and no editor controls are exposed.
-
-**Slice 5B Status:** Verified. The implementation keeps the custom Recetas-owned editor after the build-vs-existing-component comparison, preserves `description` and `stepsMarkdown` storage, and adds Source/Preview tabs for both fields.
 
 ### TC-11: Media Groups And Primary Recipe Image
 
@@ -195,7 +185,7 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** Featured carousel images and recipe-card images open the media modal; recipe title/copy links still open recipe detail.
 
-**Slice 8A Status:** Verified with desktop and 390px Playwright smoke on `http://127.0.0.1:3105/`.
+**Slice 10 Status:** Verified with desktop and 390px Playwright smoke on `http://127.0.0.1:3100/`. Featured image and card image clicks open the modal, while title/copy links remain recipe-detail links.
 
 ### TC-15: Modal Carousel Controls
 
@@ -206,6 +196,8 @@ Define the manual test cases that should be expanded and checked as each impleme
 - Use next, previous, close, Escape, ArrowLeft, and ArrowRight.
 
 **Expected:** Controls work, focus behavior is accessible, and the modal closes cleanly.
+
+**Slice 10 Status:** Verified at 1440px and 390px. The smoke reproduced and fixed the case where modal-level keydown handling swallowed Escape before the document listener saw it.
 
 ### TC-16: Compatibility Routes
 
@@ -218,6 +210,8 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** Compatibility routes still work until unified flow verification is complete.
 
+**Slice 10 Status:** Verified at 1440px and 390px for `/recipes/new` and `/recipes/import`.
+
 ### TC-17: Edit Flow Shared Form Language
 
 **Goal:** Confirm edit uses the shared Recipe details form language while preserving save semantics.
@@ -228,6 +222,8 @@ Define the manual test cases that should be expanded and checked as each impleme
 - Save changes.
 
 **Expected:** The form language matches create where practical, permissions remain intact, and the action is Save rather than Create Recipe.
+
+**Slice 10 Status:** Verified at 1440px and 390px for `/recipes/42/edit`, including the shared media section and Save Changes button.
 
 ### TC-18: Landing Featured Carousel No-Media State
 
@@ -241,4 +237,4 @@ Define the manual test cases that should be expanded and checked as each impleme
 
 **Expected:** The landing page remains task-first and usable, and the featured carousel is omitted when there is no real media to show.
 
-**Slice 8A Status:** Automated no-media omission coverage is verified in `scripts/home-navigation-view-model.test.ts`; manual no-media dataset smoke remains pending.
+**Slice 10 Status:** Verified through `scripts/home-navigation-view-model.test.ts`; the seeded browser dataset includes media, so the no-media omission remains covered at the helper boundary rather than by a separate seeded manual browser dataset.

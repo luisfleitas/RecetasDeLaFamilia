@@ -25,6 +25,14 @@ type RecipeImage = {
   thumbnailUrl: string;
 };
 
+type RecipeSourceDocument = {
+  id: number;
+  originalFilename: string;
+  fileUrl: string;
+  publiclyVisible?: boolean;
+  isPrimary?: boolean;
+};
+
 type Recipe = {
   id: number;
   title: string;
@@ -36,10 +44,23 @@ type Recipe = {
   ingredients: Ingredient[];
   images?: RecipeImage[];
   primaryImage?: { id: number } | null;
+  sourceDocuments?: Array<{
+    id: number;
+    originalFilename: string;
+    thumbnailUrl: string;
+    fullUrl: string;
+    publiclyVisible: boolean;
+    isPrimary: boolean;
+  }>;
 };
 
 type RecipeResponse = {
   recipe?: Recipe;
+  error?: string;
+};
+
+type RecipeSourceDocumentsResponse = {
+  sourceDocuments?: RecipeSourceDocument[];
   error?: string;
 };
 
@@ -88,11 +109,40 @@ async function fetchRecipe(id: string) {
   return data.recipe;
 }
 
+async function fetchRecipeSourceDocuments(id: string) {
+  const requestHeaders = await headers();
+  const baseUrl = getBaseUrl(requestHeaders);
+  const cookie = requestHeaders.get("cookie") ?? "";
+
+  const response = await fetch(`${baseUrl}/api/recipes/${id}/source-documents`, {
+    cache: "no-store",
+    headers: cookie ? { cookie } : undefined,
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as RecipeSourceDocumentsResponse;
+  return (data.sourceDocuments ?? []).map((sourceDocument) => ({
+    id: sourceDocument.id,
+    originalFilename: sourceDocument.originalFilename,
+    thumbnailUrl: sourceDocument.fileUrl,
+    fullUrl: sourceDocument.fileUrl,
+    publiclyVisible: sourceDocument.publiclyVisible === true,
+    isPrimary: sourceDocument.isPrimary === true,
+  }));
+}
+
 export default async function EditRecipePage({ params }: Params) {
   await requireAuthPage();
 
   const { id } = await params;
-  const [{ locale, messages }, recipe] = await Promise.all([getRequestMessages(), fetchRecipe(id)]);
+  const [{ locale, messages }, recipe, sourceDocuments] = await Promise.all([
+    getRequestMessages(),
+    fetchRecipe(id),
+    fetchRecipeSourceDocuments(id),
+  ]);
 
   return (
     <main id="edit-recipe-main" className="app-shell max-w-5xl space-y-6">
@@ -107,7 +157,7 @@ export default async function EditRecipePage({ params }: Params) {
           </div>
         </div>
 
-        <EditRecipeForm recipe={recipe} />
+        <EditRecipeForm recipe={{ ...recipe, sourceDocuments }} />
       </div>
     </main>
   );

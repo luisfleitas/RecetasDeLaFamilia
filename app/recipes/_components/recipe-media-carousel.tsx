@@ -75,6 +75,24 @@ export default function RecipeMediaCarousel({
       return;
     }
 
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      setIsOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.stopPropagation();
+      showPrevious();
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.stopPropagation();
+      showNext();
+      return;
+    }
+
     event.stopPropagation();
   }
 

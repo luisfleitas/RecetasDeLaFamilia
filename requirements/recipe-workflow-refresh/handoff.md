@@ -2,7 +2,7 @@
 
 ## Current State
 
-Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, Slice 5B is verified with the app-owned Markdown editor upgraded to Source/Preview modes for description and steps on create/add and edit flows.
+Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, and Slice 10 promotion readiness is locally verified with final automated checks plus desktop/mobile browser smoke on `http://127.0.0.1:3100`. Description and steps editor requirements have been removed from this phase and deferred to a separate future phase.
 
 ## Completed
 
@@ -14,7 +14,7 @@ Design direction and implementation plan are approved for the unified Add Recipe
 - Wrote the requirements brief.
 - Added recipe-workflow branding guidance for app chrome, forms, and create/edit/modify processes.
 - Wrote `requirements/recipe-workflow-refresh/implementation-plan.md` for review.
-- Revised the implementation plan after review to add Slice 0, define the import-session handoff, define the rich-text v1 storage contract, and make landing app chrome an explicit implementation slice.
+- Revised the implementation plan after review to add Slice 0, define the import-session handoff, and make landing app chrome an explicit implementation slice.
 - Created baseline `requirements/recipe-workflow-refresh/qa-checklist.md`.
 - Created baseline `requirements/recipe-workflow-refresh/test-cases.md`.
 - Approved the revised implementation plan by moving into implementation after user requested the next step.
@@ -37,12 +37,6 @@ Design direction and implementation plan are approved for the unified Add Recipe
 - Replaced the placeholder Add Recipe import source screen with the real import controls and a success callback that advances to Recipe details without a browser redirect.
 - Wired Add Recipe imported details to read session source refs/metadata and show imported source file visibility context.
 - Kept `/recipes/import` as the standalone flow that continues to `/recipes/new?importSession=...`.
-- Added `scripts/rich-text.test.ts` and confirmed the expected missing-module failure before implementation.
-- Added `lib/application/recipes/rich-text.ts` with Markdown-compatible normalization, deterministic toolbar formatting, and safe link handling.
-- Added `app/recipes/_components/simple-rich-text-editor.tsx` with stable toolbar/input ids for description and steps fields.
-- Added `app/recipes/_components/formatted-recipe-content.tsx` and wired public recipe detail description/steps rendering through it.
-- Wired the shared create form and existing edit form to use `SimpleRichTextEditor` while preserving existing `description` and `stepsMarkdown` storage fields.
-- Added English and Spanish rich-text toolbar labels.
 - Added `scripts/recipe-media-groups.test.ts` for grouped recipe/source media, owner-private source visibility, source primary selection, and typed media reference serialization.
 - Added `lib/application/recipes/recipe-media-groups.ts` for typed recipe-image/source-document media references and grouped media view models.
 - Extended recipe details draft payloads so imported source pages can be selected as primary without marking new uploaded images primary.
@@ -61,19 +55,24 @@ Design direction and implementation plan are approved for the unified Add Recipe
 - Extended the reusable media carousel trigger API so featured images and recipe-card images can open the same modal directly while title/copy links continue to route to recipe detail.
 - Replaced the separate home-card media action with stable image trigger ids `home-recipe-carousel-image-button-{id}`.
 - Verified Slice 8A with helper tests, media tests, phase 4 tests, lint, build, diff check, and desktop/mobile Playwright smoke.
-- Added Slice 5B to the implementation plan, QA checklist, and manual test cases so the rich text editor is not considered complete while it still feels like a temporary toolbar/textarea box.
-- Completed the Slice 5B build-vs-existing-component decision: keep improving the custom Recetas-owned editor now because `react-markdown` already supplies the public-rendering preview path and no full editor framework is installed.
-- Added Source and Preview tabs to the shared rich text editor, preserving the existing Markdown value/onChange contract and the `description` / `stepsMarkdown` storage fields.
-- Reused `FormattedRecipeContent` and the rich-text normalization helper for editor previews so unsafe links are sanitized the same way before public rendering.
-- Verified Slice 5B with rich-text contract tests, phase tests, lint, build, and desktop/mobile browser smoke for `/recipes/add` and `/recipes/42/edit`.
+- Removed description and steps editor UX requirements from this phase and deferred editor selection, toolbar behavior, source/preview behavior, formatting controls, and any storage-model decisions to a separate future phase.
+- Added edit hydration and payload helper coverage in `scripts/recipe-details-draft.test.ts` for existing recipe images, source documents, family visibility, new image uploads, and primary media references.
+- Extended `lib/application/recipes/recipe-details-draft.ts` with edit-specific draft hydration, validation, and update payload building so edit business rules stay outside JSX-heavy form code.
+- Extended `RecipeDetailsForm` and `RecipeMediaSection` so the edit flow can reuse the shared form language, grouped media UI, existing image removal controls, and source-page visibility badges.
+- Updated `/recipes/{id}/edit` to fetch recipe source documents, pass prepared edit draft props into the shared form, keep Save Changes copy, and submit `primaryMediaReference` for existing recipe-image or source-document primary choices.
+- Verified Slice 9 with helper tests, media tests, phase tests, lint, build, diff check, and authenticated local smoke for `/recipes/42/edit`.
+- Added repeatable Slice 10 Playwright smoke coverage in `output/playwright/recipe-workflow-refresh/slice10-final-smoke.mjs`.
+- Fixed the reusable media modal keyboard handling so Escape, ArrowLeft, and ArrowRight work when focus is inside the dialog rather than being swallowed by the dialog-level keydown guard.
+- Verified Slice 10 final checks: import/phase suites, home-navigation helper coverage for no-media carousel omission, lint, build, diff check, and desktop/mobile browser smoke for `/`, `/recipes/add`, `/recipes/new`, `/recipes/import`, `/recipes/42`, and `/recipes/42/edit`.
+- Updated the implementation plan, QA checklist, and test cases with Slice 10 verification evidence.
 
 ## In Progress
 
-- Slice 9 edit-flow alignment has not started.
+- Slice 10 tracker refresh is complete. Branch cleanup, staging, commit, push, and PR readiness are the remaining repo workflow actions.
 
 ## Next Action
 
-Start Slice 9 from `requirements/recipe-workflow-refresh/implementation-plan.md`: align the edit flow with the shared form language while keeping Save semantics, permissions, image removal, and existing edit behavior intact.
+Review the final diff, then stage, commit, push `codex/feature/recipe-workflow-refresh`, and open or update the PR back into `pre-main`.
 
 ## Known Issues
 
@@ -81,13 +80,14 @@ Start Slice 9 from `requirements/recipe-workflow-refresh/implementation-plan.md`
 - The current implementation has separate `/recipes/new` and `/recipes/import` routes; the revised plan keeps them as compatibility routes while `/recipes/add` is introduced.
 - The landing page uses the approved top bar, left hand menu app frame, compact featured carousel, and image-click media modal behavior on the signed-in desktop and mobile smoke paths.
 - Current public source image visibility is handled for the unified Add Recipe import path.
-- Source image primary selection is stored on `RecipeSourceDocument.metadataJson` through typed `source-document:<id>` primary media refs. Slice 7 now surfaces imported source pages through public recipe detail and home-card media actions; deeper source-primary edit-flow alignment is still part of later edit work.
-- Rich text v1 now uses Markdown-compatible output through existing `description` and `stepsMarkdown` fields; no persisted HTML/JSON/new schema was introduced.
-- Rich text Source/Preview modes are implemented for the shared create/add and edit surfaces. A future full editor package can still be swapped in behind the same app-owned Markdown value contract if needed.
+- Source image primary selection is stored on `RecipeSourceDocument.metadataJson` through typed `source-document:<id>` primary media refs. Slice 9 aligned edit payloads with that typed primary-media path.
+- Description and steps editor UX is no longer part of this phase's acceptance criteria. Keep the existing `description` and `stepsMarkdown` storage shape compatible and handle editor decisions in a later phase.
 - The unified import handoff now reuses the existing import-session seam and hydrates `/recipes/add` workflow state without a browser redirect. Manual signed-in browser smoke for the embedded import flow is still pending.
 - Slice 6 added staged source-image previews for the Add Recipe form; signed-in browser verification of source thumbnails and primary selection is still pending.
 - Slice 8 exact responsive smoke originally exposed drawer stacking over home media actions; `home-left-navigation-drawer` now uses a higher foreground stack and the rerun passed at 1440px and 390px.
-- Slice 8A no-media carousel omission is covered by helper tests; a fully manual no-media dataset smoke is still pending.
+- Slice 8A/Slice 10 no-media carousel omission is covered by helper tests; the local seeded browser dataset includes visible media, so no separate no-media seeded browser run was created.
+- Slice 10 browser smoke covers pasted text import success and error recovery. Document/PDF and handwritten success remain covered by automated import route/session tests rather than live file uploads in the final browser smoke.
+- The local seeded browser dataset includes visible media, so the no-media featured-carousel omission was verified through `scripts/home-navigation-view-model.test.ts` instead of a separate no-media seeded browser run.
 
 ## Verification Already Run
 
@@ -109,11 +109,6 @@ Start Slice 9 from `requirements/recipe-workflow-refresh/implementation-plan.md`
 - `npm run build` passed and listed `/recipes/add` as a dynamic route.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/recipe-details-draft.test.ts` failed first with the expected missing metadata assertion, then passed after implementation.
 - `npm run test:import` passed.
-- `npm run lint` passed with existing warnings only (`@next/next/no-img-element` in existing image views plus unused test stub variables in older scripts).
-- `npm run build` passed and listed `/recipes/add` as a dynamic route.
-- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/rich-text.test.ts` failed first with the expected missing-module error, then passed after implementation.
-- `npm run test:phase1` passed.
-- `npm run test:phase2` passed.
 - `npm run lint` passed with existing warnings only (`@next/next/no-img-element` in existing image views plus unused test stub variables in older scripts).
 - `npm run build` passed and listed `/recipes/add` as a dynamic route.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/recipe-media-groups.test.ts` failed first with the expected missing-module error, then passed after implementation.
@@ -138,7 +133,6 @@ Start Slice 9 from `requirements/recipe-workflow-refresh/implementation-plan.md`
 - `npm run lint` passed after the drawer stacking fix with existing warnings only (`@next/next/no-img-element` in existing image/media views plus unused test-stub variables in older scripts).
 - `npm run build` passed after the drawer stacking fix and still lists `/recipes/add`, `/recipes/new`, and `/recipes/import`.
 - Documentation-only planning update incorporated Slice 8A into `implementation-plan.md`, `handoff.md`, `qa-checklist.md`, and `test-cases.md`; `git diff --check` passed and no application tests were required for the doc-only change.
-- Documentation-only planning update added Slice 5B for the rich text editor upgrade and build-vs-existing-component decision. No application tests were required for this doc-only change.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts` failed first with the expected missing Slice 8A behavior, then passed with 9 tests after implementation.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/recipe-media-groups.test.ts` passed after Slice 8A.
 - `npm run test:phase4` passed after Slice 8A.
@@ -146,12 +140,23 @@ Start Slice 9 from `requirements/recipe-workflow-refresh/implementation-plan.md`
 - `npm run build` passed after Slice 8A and still lists `/recipes/add`, `/recipes/new`, and `/recipes/import`.
 - `git diff --check` passed after Slice 8A.
 - `npx tsc --noEmit --pretty false` was run as an extra non-gating check; it still reports older script type errors unrelated to Slice 8A after the new test fixture shape was fixed.
-- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/rich-text.test.ts` failed first with the expected missing Slice 5B helper exports, then passed with 8 tests after implementation.
-- `npm run test:phase1` passed after Slice 5B.
-- `npm run test:phase2` passed after Slice 5B.
-- `npm run lint` passed after Slice 5B with existing warnings only (`@next/next/no-img-element` in image/media views plus older unused test-stub variables).
-- `npm run build` passed after Slice 5B and still lists `/recipes/add`, `/recipes/new`, `/recipes/import`, and `/recipes/[id]/edit`.
-- Slice 5B browser smoke passed at 1440px and 390px on `http://127.0.0.1:3000`: `/recipes/add` and `/recipes/42/edit` both showed Source/Preview tabs for description and steps, preview content rendered expected Markdown, unsafe `javascript:` links were not exposed in preview text, and no horizontal overflow was detected. Evidence files: `output/playwright/recipe-workflow-refresh/slice5b-add-rich-text-1440.png`, `slice5b-edit-rich-text-1440.png`, `slice5b-add-rich-text-390.png`, and `slice5b-edit-rich-text-390.png`.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/recipe-details-draft.test.ts` failed first with the expected missing Slice 9 edit helper exports, then passed with 11 tests after implementation.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/recipe-media-groups.test.ts` passed after Slice 9.
+- `npm run test:phase1` passed after Slice 9.
+- `npm run test:phase2` passed after Slice 9.
+- `npm run lint` passed after Slice 9 with existing warnings only (`@next/next/no-img-element` in image/media views plus older unused test-stub variables).
+- `npm run build` passed after Slice 9 and still lists `/recipes/[id]/edit`.
+- `git diff --check` passed after Slice 9.
+- Authenticated local curl smoke on `http://127.0.0.1:3106/recipes/42/edit` passed after Slice 9, confirming `edit-recipe-form`, `edit-recipe-media-section`, and Save Changes edit semantics rendered from the signed-in page.
+- `npm run test:import` passed for Slice 10 with 76 tests.
+- `npm run test:phase1` passed for Slice 10 with 9 tests.
+- `npm run test:phase2` passed for Slice 10 with 9 tests.
+- `npm run test:phase4` passed for Slice 10 with 7 tests.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts` passed for Slice 10 with 9 tests, including no-media featured-carousel omission.
+- `npm run lint` passed for Slice 10 with existing warnings only (`@next/next/no-img-element` in image/media views plus older unused test-stub variables).
+- `npm run build` passed for Slice 10 and still lists `/recipes/add`, `/recipes/new`, `/recipes/import`, and `/recipes/[id]/edit`.
+- `git diff --check` passed for Slice 10.
+- `node output/playwright/recipe-workflow-refresh/slice10-final-smoke.mjs` passed for Slice 10 on `http://127.0.0.1:3100` at 1440px and 390px. Evidence: `slice10-final-smoke.json`, `slice10-landing-1440.png`, `slice10-landing-390.png`, `slice10-add-manual-1440.png`, `slice10-add-manual-390.png`, `slice10-add-import-1440.png`, `slice10-add-import-390.png`, `slice10-recipes-new-1440.png`, `slice10-recipes-new-390.png`, `slice10-recipes-import-1440.png`, `slice10-recipes-import-390.png`, `slice10-recipe-detail-1440.png`, `slice10-recipe-detail-390.png`, `slice10-recipe-edit-1440.png`, and `slice10-recipe-edit-390.png`.
 
 ## Manual Testing Status
 
@@ -165,7 +170,8 @@ Start Slice 9 from `requirements/recipe-workflow-refresh/implementation-plan.md`
 - Exact signed-in Chromium smoke on `http://127.0.0.1:3105/` passed at 1440px and 390px after the drawer stacking fix. Desktop and mobile screenshots confirm the top bar, account actions, left rail/drawer, task-first recipe tabs/grid, no horizontal overflow, and drawer Add Recipe link targeting `/recipes/add`.
 - Slice 8A Playwright smoke on `http://127.0.0.1:3105/` passed at desktop width: `home-featured-carousel` rendered, featured image `home-featured-carousel-image-44` opened the modal, next/close worked, recipe-card image `home-recipe-carousel-image-button-42` opened the modal, Escape closed it, and the first title link still pointed to `/recipes/42`.
 - Slice 8A Playwright smoke on `http://127.0.0.1:3105/` passed at 390px: no horizontal overflow, featured image opened the modal, Escape closed it, recipe-card image opened the modal, and close worked.
-- Slice 5B Playwright smoke on `http://127.0.0.1:3000/recipes/add` and `/recipes/42/edit` passed at 1440px and 390px. It confirmed description and steps Source/Preview tabs, formatted preview rendering, unsafe-link preview sanitization, and no horizontal overflow.
+- Slice 9 authenticated local curl smoke on `http://127.0.0.1:3106/recipes/42/edit` confirmed the shared edit form, grouped media section, and Save Changes button render for seeded `alice`.
+- Slice 10 Playwright smoke on `http://127.0.0.1:3100` passed at 1440px and 390px with seeded `alice`. It confirmed landing app chrome, featured image modal, recipe-card image modal, title/copy detail links, modal next/previous/close/Escape/arrow-key controls, `/recipes/add` manual path, pasted import error recovery, pasted import success hydration, `/recipes/new`, `/recipes/import`, `/recipes/42`, and `/recipes/42/edit`, with no horizontal overflow.
 
 ## Decisions Already Approved
 
@@ -180,9 +186,7 @@ Start Slice 9 from `requirements/recipe-workflow-refresh/implementation-plan.md`
 - Recipe details remains unsaved until Create Recipe.
 - One long Recipe details form.
 - Ingredient units use autocomplete with local custom suggestions per recipe.
-- Description and steps use a simple rich text toolbar.
-- Description and steps should be upgraded beyond the temporary toolbar/textarea box before feature completion; users should be able to see markup/source text and a polished formatted preview.
-- Slice 5B decision: keep the custom Recetas-owned rich text editor for now, add Source/Preview tabs, and continue isolating the editor behind the shared Markdown value/onChange contract rather than adding a third-party editor package in this slice.
+- Description and steps editor UX is deferred to a separate phase; no editor toolbar, source/preview, formatting-control, or package-selection requirement remains in this phase.
 - Combined Media section with Recipe images and Imported source pages groups.
 - Source images can be primary without being copied.
 - Public recipe gallery uses grouped media.

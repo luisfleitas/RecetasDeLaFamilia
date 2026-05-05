@@ -23,12 +23,21 @@ export type RecipeDetailsImageDraft = {
   previewUrl: string;
 };
 
+export type RecipeDetailsExistingImageDraft = {
+  id: number;
+  label: string;
+  thumbnailUrl: string;
+  fullUrl: string;
+  isPrimary: boolean;
+};
+
 export type RecipeDetailsSourceDocumentDraft = {
   id: number;
   originalFilename: string;
   thumbnailUrl: string;
   fullUrl: string;
   publiclyVisible: boolean;
+  isPrimary?: boolean;
 };
 
 export type RecipeDetailsDraft = {
@@ -82,6 +91,56 @@ export type BuildCreateRecipeDetailsPayloadResult =
   | {
       ok: true;
       payload: CreateRecipeDetailsPayload;
+      imageUploads: RecipeDetailsImageUpload[];
+    }
+  | {
+      ok: false;
+      errors: RecipeDetailsValidationError[];
+    };
+
+export type EditRecipeDetailsRecipe = {
+  id: number;
+  title: string;
+  description: string | null;
+  stepsMarkdown: string;
+  language: RecipeLanguage;
+  visibility: RecipeDetailsVisibility;
+  families: Array<{ id: number; name: string }>;
+  ingredients: Array<{
+    id: number;
+    name: string;
+    qty: number;
+    unit: string;
+    notes: string | null;
+    position: number;
+  }>;
+  images?: Array<{
+    id: number;
+    isPrimary: boolean;
+    position: number;
+    fullUrl: string;
+    thumbnailUrl: string;
+  }>;
+  primaryImage?: { id: number } | null;
+  sourceDocuments?: RecipeDetailsSourceDocumentDraft[];
+};
+
+export type EditRecipeDetailsDraft = RecipeDetailsDraft & {
+  recipeId: number;
+  existingImages: RecipeDetailsExistingImageDraft[];
+  primaryExistingImageId: number | null;
+  sourceDocuments: RecipeDetailsSourceDocumentDraft[];
+};
+
+export type EditRecipeDetailsPayload = Omit<
+  CreateRecipeDetailsPayload,
+  "importSessionId"
+>;
+
+export type BuildEditRecipeDetailsPayloadResult =
+  | {
+      ok: true;
+      payload: EditRecipeDetailsPayload;
       imageUploads: RecipeDetailsImageUpload[];
     }
   | {
@@ -151,6 +210,70 @@ export function hydrateRecipeDetailsDraftFromImport(
     importMetadata: importContext.metadata ?? null,
     primarySourceDocumentId: importContext.sourceRefs?.find((sourceRef) => typeof sourceRef.id === "number")?.id ?? null,
   });
+}
+
+export function toIngredientDraftsFromRecipe(
+  ingredients: EditRecipeDetailsRecipe["ingredients"],
+): RecipeDetailsIngredientDraft[] {
+  if (ingredients.length === 0) {
+    return [EMPTY_RECIPE_DETAILS_INGREDIENT];
+  }
+
+  return [...ingredients]
+    .sort((first, second) => first.position - second.position)
+    .map((ingredient, index) => ({
+      rowId: index + 1,
+      name: ingredient.name,
+      qty: ingredient.qty.toString(),
+      unit: ingredient.unit,
+      notes: ingredient.notes ?? "",
+    }));
+}
+
+export function hydrateEditRecipeDetailsDraftFromRecipe(
+  recipe: EditRecipeDetailsRecipe,
+): EditRecipeDetailsDraft {
+  const sourceDocuments = recipe.sourceDocuments ?? [];
+  const primarySourceDocumentId = sourceDocuments.find((sourceDocument) => sourceDocument.isPrimary)?.id ?? null;
+  const existingImages = [...(recipe.images ?? [])]
+    .filter((image) => image.id > 0)
+    .sort((first, second) => first.position - second.position)
+    .map((image) => ({
+      id: image.id,
+      label: `Recipe image ${image.id}`,
+      thumbnailUrl: image.thumbnailUrl,
+      fullUrl: image.fullUrl,
+      isPrimary: primarySourceDocumentId == null && (image.isPrimary || recipe.primaryImage?.id === image.id),
+    }));
+
+  return {
+    ...createEmptyRecipeDetailsDraft({
+      title: recipe.title,
+      description: recipe.description ?? "",
+      stepsMarkdown: recipe.stepsMarkdown,
+      language: recipe.language,
+      ingredients: toIngredientDraftsFromRecipe(recipe.ingredients),
+      visibility: recipe.visibility,
+      selectedFamilyIds: recipe.families.map((family) => family.id),
+      primaryNewImageId: null,
+      primarySourceDocumentId,
+      importSourceRefs: sourceDocuments.map((sourceDocument) => ({
+        id: sourceDocument.id,
+        sourceType: "image",
+        originalFilename: sourceDocument.originalFilename,
+        mimeType: "image/*",
+        sizeBytes: 0,
+        storageKey: sourceDocument.fullUrl,
+      })),
+    }),
+    recipeId: recipe.id,
+    existingImages,
+    primaryExistingImageId:
+      primarySourceDocumentId == null
+        ? existingImages.find((image) => image.isPrimary)?.id ?? recipe.primaryImage?.id ?? null
+        : null,
+    sourceDocuments,
+  };
 }
 
 export function normalizeRecipeDetailsIngredients(
@@ -241,6 +364,66 @@ export function buildCreateRecipeDetailsPayload(
       draftId: image.id,
       file: image.file,
       makePrimary: draft.primarySourceDocumentId == null && draft.primaryNewImageId === image.id,
+    })),
+  };
+}
+
+export function validateEditRecipeDetailsDraft(
+  draft: EditRecipeDetailsDraft,
+): RecipeDetailsValidationError[] {
+  const errors = validateRecipeDetailsDraft({
+    ...draft,
+    importSourceRefs: draft.sourceDocuments.map((sourceDocument) => ({
+      id: sourceDocument.id,
+      sourceType: "image",
+      originalFilename: sourceDocument.originalFilename,
+      mimeType: "image/*",
+      sizeBytes: 0,
+      storageKey: sourceDocument.fullUrl,
+    })),
+  });
+
+  if (
+    draft.primaryExistingImageId != null &&
+    !draft.existingImages.some((image) => image.id === draft.primaryExistingImageId)
+  ) {
+    errors.push({ code: "PRIMARY_IMAGE_NOT_FOUND" });
+  }
+
+  return errors;
+}
+
+export function buildEditRecipeDetailsPayload(
+  draft: EditRecipeDetailsDraft,
+): BuildEditRecipeDetailsPayloadResult {
+  const errors = validateEditRecipeDetailsDraft(draft);
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  const primaryMediaReference =
+    draft.primarySourceDocumentId != null
+      ? { type: "source-document" as const, id: draft.primarySourceDocumentId }
+      : draft.primaryExistingImageId != null
+        ? { type: "recipe-image" as const, id: draft.primaryExistingImageId }
+        : null;
+
+  return {
+    ok: true,
+    payload: {
+      title: draft.title.trim(),
+      description: draft.description.trim(),
+      stepsMarkdown: draft.stepsMarkdown.trim(),
+      language: draft.language,
+      visibility: draft.visibility,
+      familyIds: draft.visibility === "family" ? draft.selectedFamilyIds : [],
+      ingredients: normalizeRecipeDetailsIngredients(draft.ingredients),
+      primaryMediaReference,
+    },
+    imageUploads: draft.newImages.map((image) => ({
+      draftId: image.id,
+      file: image.file,
+      makePrimary: primaryMediaReference == null && draft.primaryNewImageId === image.id,
     })),
   };
 }

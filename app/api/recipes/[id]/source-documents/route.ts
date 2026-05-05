@@ -136,14 +136,20 @@ export async function GET(request: Request, { params }: Params) {
       sourceType: string;
       metadataJson: string | null;
       createdAt: Date;
-    }) => ({
-      id: doc.id,
-      originalFilename: doc.originalFilename,
-      mimeType: doc.mimeType,
-      sizeBytes: doc.sizeBytes,
-      sourceType: doc.sourceType,
-      createdAt: doc.createdAt,
-      fileUrl: `/api/recipes/${recipeId}/source-documents/${doc.id}/file`,
-    })),
+    }) => {
+      const metadata = parseRecipeSourceDocumentMetadata(doc.metadataJson);
+
+      return {
+        id: doc.id,
+        originalFilename: doc.originalFilename,
+        mimeType: doc.mimeType,
+        sizeBytes: doc.sizeBytes,
+        sourceType: doc.sourceType,
+        createdAt: doc.createdAt,
+        fileUrl: `/api/recipes/${recipeId}/source-documents/${doc.id}/file`,
+        publiclyVisible: metadata?.publiclyVisible === true,
+        isPrimary: metadata?.isPrimary === true,
+      };
+    }),
   });
 }

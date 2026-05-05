@@ -4,7 +4,7 @@
 
 **Goal:** Build the approved unified Add Recipe workflow while preserving existing recipe creation/import behavior and gradually moving mixed UI/business logic into focused application helpers and reusable components.
 
-**Architecture:** Keep route files thin and introduce a small workflow shell at the Add Recipe entry point. Extract reusable form state, import orchestration, ingredient unit suggestions, rich text editing, grouped media, source-image display rules, and carousel behavior behind focused helpers/components so create, edit, public detail, and home cards can share the same rules without duplicating JSX-heavy logic.
+**Architecture:** Keep route files thin and introduce a small workflow shell at the Add Recipe entry point. Extract reusable form state, import orchestration, ingredient unit suggestions, grouped media, source-image display rules, and carousel behavior behind focused helpers/components so create, edit, public detail, and home cards can share the same rules without duplicating JSX-heavy logic.
 
 **Tech Stack:** Next.js App Router, React client components, Prisma, existing Node test runner with `scripts/alias-loader.mjs`, existing image/import APIs, existing Recetas CSS variables and component conventions.
 
@@ -37,7 +37,7 @@
 - `lib/application/recipes/display-source-images.ts`: current source-image visibility-to-display mapping.
 - `lib/domain/recipe.ts` and `lib/domain/recipe-repository.ts`: recipe/media domain contracts.
 - `lib/infrastructure/recipes/prisma-recipe-repository.ts`: Prisma repository mapping and image primary handling.
-- `lib/i18n/messages.ts`: English/Spanish copy for new workflow, rich text toolbar, media groups, carousel, and validations.
+- `lib/i18n/messages.ts`: English/Spanish copy for new workflow, media groups, carousel, and validations.
 - `app/globals.css`: shared recipe form, secondary menu, wizard, media, modal, and app-frame styling.
 
 ## Proposed New Files
@@ -55,19 +55,14 @@
 - `lib/application/recipes/recipe-details-draft.ts`: draft model, import-draft hydration, create/edit payload builders, local validation shape.
 - `lib/application/recipes/ingredient-unit-suggestions.ts`: canonical unit suggestions and per-recipe custom-unit merging.
 - `lib/application/recipes/recipe-media-groups.ts`: grouped media/source-image view models, primary selection model, public visibility defaults.
-- `lib/application/recipes/rich-text.ts`: rich-text storage compatibility helpers and formatted-content normalization.
 - `app/recipes/_components/recipe-details-form.tsx`: shared long-form view for create and later edit.
 - `app/recipes/_components/recipe-media-section.tsx`: grouped recipe images and imported source pages.
 - `app/recipes/_components/ingredient-unit-combobox.tsx`: unit autocomplete input.
-- `app/recipes/_components/simple-rich-text-editor.tsx`: reusable toolbar and editor.
-- `app/recipes/_components/formatted-recipe-content.tsx`: public rendering for stored formatted content with Markdown compatibility.
-- `app/recipes/_components/recipe-rich-text-editor.tsx`: candidate replacement for the simple editor after the build-vs-existing-component spike.
 - `app/recipes/_components/recipe-media-carousel.tsx`: reusable modal carousel for recipe detail and home card media actions.
 - `scripts/add-workflow-state.test.ts`: workflow reducer coverage.
 - `scripts/ingredient-unit-suggestions.test.ts`: unit suggestion coverage.
 - `scripts/recipe-details-draft.test.ts`: create payload and import hydration coverage.
 - `scripts/recipe-media-groups.test.ts`: grouped media, source visibility, and primary selection coverage.
-- `scripts/rich-text.test.ts`: rich-text compatibility coverage.
 
 ## Data And Compatibility Decisions
 
@@ -75,14 +70,7 @@
 - Update all navigation entry points to route to `/recipes/add` only after the route has passing smoke coverage.
 - Keep v1 unsaved until Create Recipe. Do not add draft recipe rows.
 - Preserve existing `description` and `stepsMarkdown` fields for v1 storage compatibility.
-- Rich text v1 must round-trip through the current text fields as deterministic Markdown-compatible content. Do not persist sanitized HTML, structured JSON, or a new rich-text schema unless a separate migration decision is approved.
-- The rich text editor may expose formatting controls, but the storage compatibility helper must normalize those controls into the approved Markdown-compatible subset and keep existing Markdown rendering compatible on public recipe pages.
-- The rich text editor must improve beyond the temporary toolbar/textarea box before this feature is considered visually complete. Users should be able to see and edit markup/source text and also see a polished preview of the formatted recipe content.
-- Before replacing the editor, run a build-vs-existing-component spike:
-  - **Reuse current custom editor:** lowest dependency risk and keeps the existing Markdown-compatible helper, but likely means building source/preview tabs, preview synchronization, toolbar state, link editing, and mobile polish ourselves.
-  - **Adopt a Markdown-capable rich editor component/framework:** preferred if it preserves the current Markdown string contract, supports source/preview or exposes reliable Markdown serialization, and does not force a storage migration. Candidate families include Tiptap with Markdown support, Lexical/MDX-style Markdown editors, or another well-maintained React editor.
-  - **Use a lower-level editor framework:** acceptable only if a higher-level Markdown editor is not practical; it gives control but creates more custom toolbar, serialization, and accessibility work.
-- Final component choice must be documented before implementation. Favor reusing an existing editor package when it reduces custom editing logic without violating the storage contract, accessibility basics, mobile usability, or strict separation of concerns.
+- Defer all description/steps editor UX decisions to a separate phase. This phase should not require editor package selection, toolbar behavior, source/preview behavior, formatting controls, or a new rich-content storage model.
 - The unified import handoff uses the existing import-session seam. `/recipes/import` keeps redirecting to `/recipes/new?importSession=...`; `/recipes/add` receives the successful import session id, stores that id in workflow state, hydrates the recipe details draft through `recipe-details-draft.ts`, and advances to Recipe Details without a browser redirect.
 - Import-session hydration must include imported title, ingredients, description, steps, language, and source media metadata, while keeping the recipe unsaved until Create Recipe.
 - Use current `RecipeSourceDocument` rows for imported source pages. If source image primary selection cannot be represented safely with existing positive recipe image ids and negative source-image display ids, add an explicit domain-level primary media reference rather than overloading `primaryImageId`.
@@ -177,62 +165,11 @@
 - [x] Add stable ids: `add-recipe-import-source-screen`, `add-recipe-import-mode-tabs`, `add-recipe-import-paste-tab`, `add-recipe-import-document-tab`, `add-recipe-import-handwritten-tab`, `add-recipe-import-processing`, `add-recipe-import-error`, `add-recipe-import-success`.
 - [x] Run `npm run test:import`, the recipe details draft test, and `npm run lint`.
 
-### Slice 5: Add Rich Text Editing With Storage Compatibility
+### Deferred: Description And Steps Editor UX
 
-**Files:**
-- Create: `lib/application/recipes/rich-text.ts`
-- Create: `scripts/rich-text.test.ts`
-- Create: `app/recipes/_components/simple-rich-text-editor.tsx`
-- Create: `app/recipes/_components/formatted-recipe-content.tsx`
-- Modify: `app/recipes/_components/recipe-details-form.tsx`
-- Modify: `app/recipes/[id]/page.tsx`
-- Modify: `app/recipes/[id]/edit/edit-recipe-form.tsx`
-- Modify: `lib/i18n/messages.ts`
+All description/steps editor requirements are removed from this phase. A later feature phase should decide whether those fields remain plain text/Markdown, use a custom editor, or adopt a third-party editor behind an application-owned boundary.
 
-- [x] Write tests for plain text, existing Markdown compatibility, allowed formatting output, link sanitization, empty content handling, and public rendering input normalization.
-- [x] Run `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/rich-text.test.ts` and confirm the expected missing-module failure.
-- [x] Implement a small compatibility layer that lets existing Markdown continue rendering while new editor output is safe, deterministic, and Markdown-compatible.
-- [x] Confirm no new persisted HTML, JSON, or rich-text schema is introduced in v1.
-- [x] Build `SimpleRichTextEditor` with bold, italic, underline, text size, bulleted list, numbered list, and link controls.
-- [x] Add stable ids for description and steps toolbars, such as `recipe-description-rich-text-toolbar` and `recipe-steps-rich-text-toolbar`.
-- [x] Use `FormattedRecipeContent` on public recipe detail so stored content renders formatted output without exposing editor controls.
-- [x] Run the targeted rich-text test, `npm run test:phase1`, `npm run test:phase2`, and `npm run lint`.
-
-### Slice 5B: Improve Rich Text Box Editing Experience
-
-**Purpose:** Replace the temporary toolbar/textarea experience with a better recipe editor that lets users see the Markdown/source markup and the pretty formatted version before saving.
-
-**Files:**
-- Modify: `requirements/recipe-workflow-refresh/implementation-plan.md`
-- Modify: `requirements/recipe-workflow-refresh/qa-checklist.md`
-- Modify: `requirements/recipe-workflow-refresh/test-cases.md`
-- Modify: `requirements/recipe-workflow-refresh/handoff.md`
-- Modify: `app/recipes/_components/simple-rich-text-editor.tsx` or replace with `app/recipes/_components/recipe-rich-text-editor.tsx`
-- Modify: `app/recipes/_components/formatted-recipe-content.tsx`
-- Modify: `app/recipes/_components/recipe-details-form.tsx`
-- Modify: `app/recipes/[id]/edit/edit-recipe-form.tsx`
-- Modify: `lib/application/recipes/rich-text.ts`
-- Modify: `lib/i18n/messages.ts`
-- Modify: `app/globals.css`
-- Modify if adopting a package: `package.json`, `package-lock.json`
-- Modify or extend: `scripts/rich-text.test.ts`
-
-- [x] Inventory reusable editor options already available in the repo before adding dependencies. Current baseline: `react-markdown` is installed for preview rendering; no full rich text editor package is currently installed.
-- [x] Compare at least three approaches and document the decision in this slice:
-  - improve the existing custom editor with source/preview tabs or side-by-side preview,
-  - adopt a Markdown-capable React editor component/framework,
-  - use a lower-level editor framework and build the Recetas-specific toolbar/preview shell.
-- [x] Decision: improve the existing custom editor for Slice 5B. `react-markdown` already gives the exact preview path used by public recipe detail, while adding Tiptap/Lexical/MDXEditor now would add dependency, serialization, hydration, and mobile-accessibility risk before the feature needs a deeper editor model. The shared `SimpleRichTextEditor` remains the app-owned adapter boundary, so a later package swap can still live behind the same Markdown value/onChange props.
-- [x] Prefer an existing editor package only if it can emit the approved Markdown-compatible string, initialize from existing Markdown, support bold/italic/underline/list/link/heading behavior, work in a Next.js client component, and stay accessible on mobile.
-- [x] Preserve the existing `description` and `stepsMarkdown` storage fields. Do not introduce persisted HTML, JSON, or a rich-text schema in this slice.
-- [x] Provide a clear source/markup editing mode and a polished formatted preview mode for both Description and Steps.
-- [x] Make the preview use the same formatting normalization/rendering path as public recipe detail so users see a close match before saving.
-- [x] Keep rich text editor state and formatting behavior isolated from recipe persistence. Implement the editor behind a stable Recetas-owned component/adapter contract so form files use the same props and Markdown value shape regardless of whether the underlying implementation is custom, Tiptap, Lexical, MDXEditor, or another package.
-- [x] Contain third-party editor imports, command mapping, serialization, and hydration behavior inside the shared editor/adapter files. Do not spread package-specific APIs into `recipe-details-form.tsx`, edit form orchestration, page files, or persistence helpers.
-- [x] Test the app-owned rich text contract: initialize from Markdown, edit source, update preview, emit normalized Markdown, sanitize unsafe links, and preserve existing Markdown. Avoid tests that overfit to a replaceable editor package's internal document model.
-- [x] Preserve or replace stable ids with equivalent ids for description and steps source, preview, toolbar, and mode controls.
-- [x] Cover empty, loading/client-hydration, invalid/unsafe link, existing Markdown, long content, desktop, and mobile states.
-- [x] Run the targeted rich-text test, `npm run test:phase1`, `npm run test:phase2`, `npm run lint`, `npm run build`, and browser smoke `/recipes/add` plus `/recipes/{id}/edit` at desktop and mobile widths.
+No Slice 5 or Slice 5B work is required for promotion readiness of this phase.
 
 ### Slice 6: Build Grouped Media And Source Image Rules
 
@@ -337,11 +274,11 @@
 - Modify: `app/api/recipes/[id]/route.ts`
 - Modify: `lib/i18n/messages.ts`
 
-- [ ] Add draft helper tests for edit hydration, edit submit payload, existing media grouping, image deletion, source-page visibility messaging, and primary-media changes.
-- [ ] Refactor `edit-recipe-form.tsx` to pass prepared edit draft props into the shared `RecipeDetailsForm`.
-- [ ] Preserve existing edit permissions and route behavior in `page.tsx`.
-- [ ] Keep edit save semantics as Save action, not Create Recipe.
-- [ ] Run `npm run test:phase1`, `npm run test:phase2`, media group tests, and `npm run lint`.
+- [x] Add draft helper tests for edit hydration, edit submit payload, existing media grouping, image deletion, source-page visibility messaging, and primary-media changes.
+- [x] Refactor `edit-recipe-form.tsx` to pass prepared edit draft props into the shared `RecipeDetailsForm`.
+- [x] Preserve existing edit permissions and route behavior in `page.tsx`.
+- [x] Keep edit save semantics as Save action, not Create Recipe.
+- [x] Run `npm run test:phase1`, `npm run test:phase2`, media group tests, and `npm run lint`.
 
 ### Slice 10: QA Checklist, Manual Test Cases, And Promotion Readiness
 
@@ -350,9 +287,9 @@
 - Modify: `requirements/recipe-workflow-refresh/test-cases.md`
 - Modify: `requirements/recipe-workflow-refresh/handoff.md`
 
-- [ ] Finalize the QA checklist with per-slice results for every state listed in the requirements brief.
-- [ ] Finalize desktop and mobile test cases for Start, manual create, text import, document import, handwritten import, import failure, source-image primary, recipe-image primary, public gallery, restored landing featured carousel, home card image viewer, edit flow, compatibility routes, and landing app chrome.
-- [ ] Run local verification:
+- [x] Finalize the QA checklist with per-slice results for every state listed in the requirements brief.
+- [x] Finalize desktop and mobile test cases for Start, manual create, text import, document import, handwritten import, import failure, source-image primary, recipe-image primary, public gallery, restored landing featured carousel, home card image viewer, edit flow, compatibility routes, and landing app chrome.
+- [x] Run local verification:
   - `npm run test:import`
   - `npm run test:phase1`
   - `npm run test:phase2`
@@ -360,20 +297,20 @@
   - `npm run lint`
   - `npm run build`
   - `git diff --check`
-- [ ] Start local server with `PORT=3100 npm run dev` and manually smoke:
+- [x] Start local server with `PORT=3100 npm run dev` and manually smoke:
   - `/`
   - `/recipes/add`
   - `/recipes/new`
   - `/recipes/import`
   - `/recipes/{id}`
   - `/recipes/{id}/edit`
-- [ ] On `/`, manually smoke the restored featured carousel image click, recipe-card image click, recipe title/copy navigation, modal next/previous/close, keyboard controls, and no-media carousel omission.
-- [ ] Verify desktop width around 1440px and mobile width around 390px.
-- [ ] Update handoff with completed slices, verification output, manual testing status, known issues, and next action.
+- [x] On `/`, manually smoke the restored featured carousel image click, recipe-card image click, recipe title/copy navigation, modal next/previous/close, and keyboard controls; confirm no-media carousel omission with the helper coverage because the seeded local browser dataset includes media.
+- [x] Verify desktop width around 1440px and mobile width around 390px.
+- [x] Update handoff with completed slices, verification output, manual testing status, known issues, and next action.
 
 ## Risk Register
 
-- Rich text storage can become a migration trap. Keep v1 compatible with `description` and `stepsMarkdown` until the storage format is deliberately approved.
+- Description and steps editor behavior is deliberately deferred. Keep this phase compatible with the existing `description` and `stepsMarkdown` fields and avoid adding new editor requirements here.
 - Source image primary selection likely needs a domain/API contract instead of relying on current negative display ids.
 - Import source forms currently own a lot of client orchestration. Extract callbacks incrementally to avoid breaking `/recipes/import` while `/recipes/add` is built.
 - The manual create form mixes view, draft state, validation, family fetching, image state, and submit behavior. Extract only the logic needed for the touched slice and avoid a broad rewrite.

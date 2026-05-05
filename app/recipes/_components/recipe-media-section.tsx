@@ -6,46 +6,74 @@ import {
   buildRecipeMediaGroups,
   type RecipeMediaSourceDocumentInput,
 } from "@/lib/application/recipes/recipe-media-groups";
-import type { RecipeDetailsImageDraft } from "@/lib/application/recipes/recipe-details-draft";
+import type {
+  RecipeDetailsExistingImageDraft,
+  RecipeDetailsImageDraft,
+} from "@/lib/application/recipes/recipe-details-draft";
 
 type RecipeMediaSectionProps = {
   baseId: string;
+  existingImages?: RecipeDetailsExistingImageDraft[];
   maxImages: number;
   newImages: RecipeDetailsImageDraft[];
+  onRemoveExistingImage?: (imageId: number) => void;
   onImageSelection: (files: FileList | null) => void;
   onRemoveImage: (imageId: number) => void;
+  onSetPrimaryExistingImageId?: (imageId: number) => void;
   onSetPrimaryNewImageId: (imageId: number) => void;
   onSetPrimarySourceDocumentId: (sourceDocumentId: number) => void;
+  primaryExistingImageId?: number | null;
   primaryNewImageId: number | null;
   primarySourceDocumentId: number | null;
+  removingExistingImageIds?: number[];
   sourceDocuments: RecipeMediaSourceDocumentInput[];
 };
 
 export default function RecipeMediaSection({
   baseId,
+  existingImages = [],
   maxImages,
   newImages,
+  onRemoveExistingImage,
   onImageSelection,
   onRemoveImage,
+  onSetPrimaryExistingImageId,
   onSetPrimaryNewImageId,
   onSetPrimarySourceDocumentId,
+  primaryExistingImageId = null,
   primaryNewImageId,
   primarySourceDocumentId,
+  removingExistingImageIds = [],
   sourceDocuments,
 }: RecipeMediaSectionProps) {
   const messages = useMessages();
+  const existingImageIds = new Set(existingImages.map((image) => image.id));
   const mediaGroups = buildRecipeMediaGroups({
-    recipeImages: newImages.map((image) => ({
-      id: image.id,
-      label: image.file.name,
-      thumbnailUrl: image.previewUrl,
-      fullUrl: image.previewUrl,
-      isPrimary: primarySourceDocumentId == null && primaryNewImageId === image.id,
-    })),
+    recipeImages: [
+      ...existingImages.map((image) => ({
+        id: image.id,
+        label: image.label,
+        thumbnailUrl: image.thumbnailUrl,
+        fullUrl: image.fullUrl,
+        isPrimary: primarySourceDocumentId == null && primaryExistingImageId === image.id,
+      })),
+      ...newImages.map((image) => ({
+        id: image.id,
+        label: image.file.name,
+        thumbnailUrl: image.previewUrl,
+        fullUrl: image.previewUrl,
+        isPrimary:
+          primarySourceDocumentId == null &&
+          primaryExistingImageId == null &&
+          primaryNewImageId === image.id,
+      })),
+    ],
     sourceDocuments,
     primaryMediaReference:
       primarySourceDocumentId != null
         ? { type: "source-document", id: primarySourceDocumentId }
+        : primaryExistingImageId != null
+          ? { type: "recipe-image", id: primaryExistingImageId }
         : primaryNewImageId != null
           ? { type: "recipe-image", id: primaryNewImageId }
           : null,
@@ -65,7 +93,7 @@ export default function RecipeMediaSection({
           </p>
         </div>
         <span id={`${baseId}-media-count`} className="text-xs text-[var(--color-text-muted)]">
-          {newImages.length}/{maxImages}
+          {existingImages.length + newImages.length}/{maxImages}
         </span>
       </div>
 
@@ -107,7 +135,13 @@ export default function RecipeMediaSection({
                         type="radio"
                         name={`${baseId}-primary-media`}
                         checked={image.isPrimary}
-                        onChange={() => onSetPrimaryNewImageId(image.mediaReference.id)}
+                        onChange={() => {
+                          if (existingImageIds.has(image.mediaReference.id)) {
+                            onSetPrimaryExistingImageId?.(image.mediaReference.id);
+                            return;
+                          }
+                          onSetPrimaryNewImageId(image.mediaReference.id);
+                        }}
                         className="mr-1"
                       />
                       {messages.recipe.primaryImage}
@@ -115,10 +149,19 @@ export default function RecipeMediaSection({
                     <button
                       id={`${baseId}-recipe-image-remove-${image.mediaReference.id}`}
                       type="button"
-                      onClick={() => onRemoveImage(image.mediaReference.id)}
+                      onClick={() => {
+                        if (existingImageIds.has(image.mediaReference.id)) {
+                          onRemoveExistingImage?.(image.mediaReference.id);
+                          return;
+                        }
+                        onRemoveImage(image.mediaReference.id);
+                      }}
+                      disabled={removingExistingImageIds.includes(image.mediaReference.id)}
                       className={buttonClassName("secondary")}
                     >
-                      {messages.recipe.remove}
+                      {removingExistingImageIds.includes(image.mediaReference.id)
+                        ? messages.recipe.removing
+                        : messages.recipe.remove}
                     </button>
                   </div>
                 </li>

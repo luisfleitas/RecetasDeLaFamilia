@@ -8,6 +8,7 @@ import RecipeMediaSection from "@/app/recipes/_components/recipe-media-section";
 import SimpleRichTextEditor from "@/app/recipes/_components/simple-rich-text-editor";
 import { useMessages } from "@/app/_components/locale-provider";
 import type {
+  RecipeDetailsExistingImageDraft,
   RecipeDetailsImageDraft,
   RecipeDetailsIngredientDraft,
   RecipeDetailsSourceDocumentDraft,
@@ -24,15 +25,19 @@ type RecipeDetailsFormProps = {
   baseId: string;
   description: string;
   error: string | null;
+  existingImages?: RecipeDetailsExistingImageDraft[];
   familyOptions: RecipeDetailsFamilyOption[];
   ingredients: RecipeDetailsIngredientDraft[];
   isSubmitting: boolean;
+  mode?: "create" | "edit";
   newImages: RecipeDetailsImageDraft[];
+  onRemoveExistingImage?: (imageId: number) => void;
   onAddIngredient: () => void;
   onImageSelection: (files: FileList | null) => void;
   onRemoveImage: (imageId: number) => void;
   onRemoveIngredient: (rowId: number) => void;
   onSetDescription: (value: string) => void;
+  onSetPrimaryExistingImageId?: (imageId: number) => void;
   onSetPrimaryNewImageId: (imageId: number) => void;
   onSetPrimarySourceDocumentId: (sourceDocumentId: number) => void;
   onSetRecipeLanguage: (value: RecipeLanguage) => void;
@@ -46,9 +51,11 @@ type RecipeDetailsFormProps = {
     field: keyof Omit<RecipeDetailsIngredientDraft, "rowId">,
     value: string,
   ) => void;
+  primaryExistingImageId?: number | null;
   primaryNewImageId: number | null;
   primarySourceDocumentId: number | null;
   recipeLanguage: RecipeLanguage;
+  removingExistingImageIds?: number[];
   selectedFamilyIds: number[];
   sourceDocuments: RecipeDetailsSourceDocumentDraft[];
   stepsMarkdown: string;
@@ -62,15 +69,19 @@ export function RecipeDetailsForm({
   baseId,
   description,
   error,
+  existingImages = [],
   familyOptions,
   ingredients,
   isSubmitting,
+  mode = "create",
   newImages,
+  onRemoveExistingImage,
   onAddIngredient,
   onImageSelection,
   onRemoveImage,
   onRemoveIngredient,
   onSetDescription,
+  onSetPrimaryExistingImageId,
   onSetPrimaryNewImageId,
   onSetPrimarySourceDocumentId,
   onSetRecipeLanguage,
@@ -80,9 +91,11 @@ export function RecipeDetailsForm({
   onSubmit,
   onToggleSelectedFamily,
   onUpdateIngredient,
+  primaryExistingImageId = null,
   primaryNewImageId,
   primarySourceDocumentId,
   recipeLanguage,
+  removingExistingImageIds = [],
   selectedFamilyIds,
   sourceDocuments,
   stepsMarkdown,
@@ -94,6 +107,7 @@ export function RecipeDetailsForm({
   const descriptionInputId = `${baseId}-description-input`;
   const stepsInputId = `${baseId}-steps-input`;
   const richTextLabels = messages.recipe.richText;
+  const isEditMode = mode === "edit";
 
   return (
     <form id={`${baseId}-form`} onSubmit={onSubmit} className="space-y-4">
@@ -104,7 +118,7 @@ export function RecipeDetailsForm({
               {messages.recipe.basicInfoTitle}
             </p>
             <p id={`${baseId}-basic-info-description`} className="recipe-form-section-description">
-              {messages.recipe.basicInfoDescription}
+              {isEditMode ? messages.recipe.editBasicInfoDescription : messages.recipe.basicInfoDescription}
             </p>
           </div>
         </div>
@@ -155,7 +169,7 @@ export function RecipeDetailsForm({
               {messages.recipe.sharingTitle}
             </p>
             <p id={`${baseId}-sharing-description`} className="recipe-form-section-description">
-              {messages.recipe.sharingCreateDescription}
+              {isEditMode ? messages.recipe.sharingEditDescription : messages.recipe.sharingCreateDescription}
             </p>
           </div>
         </div>
@@ -239,14 +253,19 @@ export function RecipeDetailsForm({
 
       <RecipeMediaSection
         baseId={baseId}
+        existingImages={existingImages}
         maxImages={MAX_IMAGES}
         newImages={newImages}
         onImageSelection={onImageSelection}
+        onRemoveExistingImage={onRemoveExistingImage}
         onRemoveImage={onRemoveImage}
+        onSetPrimaryExistingImageId={onSetPrimaryExistingImageId}
         onSetPrimaryNewImageId={onSetPrimaryNewImageId}
         onSetPrimarySourceDocumentId={onSetPrimarySourceDocumentId}
+        primaryExistingImageId={primaryExistingImageId}
         primaryNewImageId={primaryNewImageId}
         primarySourceDocumentId={primarySourceDocumentId}
+        removingExistingImageIds={removingExistingImageIds}
         sourceDocuments={sourceDocuments}
       />
 
@@ -257,7 +276,7 @@ export function RecipeDetailsForm({
               {messages.recipe.stepsTitle}
             </p>
             <p id={`${baseId}-steps-description`} className="recipe-form-section-description">
-              {messages.recipe.stepsCreateDescription}
+              {isEditMode ? messages.recipe.stepsEditDescription : messages.recipe.stepsCreateDescription}
             </p>
           </div>
         </div>
@@ -284,7 +303,13 @@ export function RecipeDetailsForm({
       ) : null}
 
       <button id={`${baseId}-submit`} type="submit" disabled={isSubmitting} className={buttonClassName("primary")}>
-        {isSubmitting ? messages.recipe.creatingSubmit : messages.recipe.createSubmit}
+        {isSubmitting
+          ? isEditMode
+            ? messages.recipe.savingSubmit
+            : messages.recipe.creatingSubmit
+          : isEditMode
+            ? messages.recipe.saveSubmit
+            : messages.recipe.createSubmit}
       </button>
     </form>
   );
