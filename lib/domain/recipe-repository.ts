@@ -27,6 +27,7 @@ export interface RecipeRepository {
   delete(id: number): Promise<boolean>;
   addImage(recipeId: number, input: AddRecipeImageInput): Promise<RecipeImage>;
   countImagesByRecipeId(recipeId: number): Promise<number>;
+  clearPrimaryImage(recipeId: number): Promise<void>;
   setPrimaryImage(recipeId: number, imageId: number): Promise<boolean>;
   getPrimaryImageByRecipeId(recipeId: number): Promise<RecipeImage | null>;
   getImageById(imageId: number): Promise<RecipeImage | null>;

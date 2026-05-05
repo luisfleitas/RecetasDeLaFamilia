@@ -1,3 +1,5 @@
+import type { RecipeMediaCarouselItem } from "@/lib/application/recipes/recipe-media-groups";
+
 type RecipeImageRef = {
   id: number;
   thumbnailUrl: string;
@@ -68,6 +70,12 @@ export type HomeRecipeVisibilityTabGroup<TRecipe extends HomeNavigationRecipe = 
   recipes: TRecipe[];
 };
 
+export type HomeRecipeMediaInput = {
+  title: string;
+  images?: RecipeImageRef[];
+  primaryImage?: RecipeImageRef | null;
+};
+
 export function buildHomeNavigationViewModel(input: {
   userId: number;
   recipes: HomeNavigationRecipe[];
@@ -94,7 +102,7 @@ export function buildHomeNavigationViewModel(input: {
     })),
     recipes: ownedRecipes,
     familyCreateHref: "/account/families",
-    recipeCreateHref: "/recipes/new",
+    recipeCreateHref: "/recipes/add",
     familiesMoreHref: "/account/families",
     recipesMoreHref: "#home-recipe-groups",
   };
@@ -114,6 +122,40 @@ export function buildFeaturedRecipeSlides(recipes: HomeNavigationRecipe[], limit
         imageUrl: firstImage?.thumbnailUrl ?? null,
       };
     });
+}
+
+export function buildHomeRecipeMediaCarouselItems(recipe: HomeRecipeMediaInput): RecipeMediaCarouselItem[] {
+  let recipeImageCount = 0;
+  let sourcePageCount = 0;
+
+  return (recipe.images ?? []).map((image) => {
+    if (image.id < 0) {
+      sourcePageCount += 1;
+      const sourceDocumentId = Math.abs(image.id);
+      const label = `${recipe.title} imported source page ${sourcePageCount}`;
+      return {
+        id: `source-document-${sourceDocumentId}`,
+        type: "source-document",
+        label,
+        thumbnailUrl: image.thumbnailUrl,
+        fullUrl: image.fullUrl,
+        accessibleLabel: `Open imported source page ${label}`,
+        isPrimary: false,
+      };
+    }
+
+    recipeImageCount += 1;
+    const label = `${recipe.title} image ${recipeImageCount}`;
+    return {
+      id: `recipe-image-${image.id}`,
+      type: "recipe-image",
+      label,
+      thumbnailUrl: image.thumbnailUrl,
+      fullUrl: image.fullUrl,
+      accessibleLabel: `Open recipe image ${label}`,
+      isPrimary: image.id === recipe.primaryImage?.id,
+    };
+  });
 }
 
 export function getRecipeGroupDisplayLabel(group: RecipeGroupForDisplay) {

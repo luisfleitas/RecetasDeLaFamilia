@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildFeaturedRecipeSlides,
+  buildHomeRecipeMediaCarouselItems,
   buildRecipeVisibilityTabGroups,
   buildHomeNavigationViewModel,
   getRecipeGroupDisplayLabel,
@@ -77,7 +78,7 @@ test("limits sidebar families and owned recipes to six and prepares approved rou
     { id: 2, title: "Family Sancocho", canEdit: true, href: "/recipes/2", editHref: "/recipes/2/edit" },
     { id: 1, title: "Public Arepas", canEdit: true, href: "/recipes/1", editHref: "/recipes/1/edit" },
   ]);
-  assert.equal(model.recipeCreateHref, "/recipes/new");
+  assert.equal(model.recipeCreateHref, "/recipes/add");
   assert.equal(model.recipesMoreHref, "#home-recipe-groups");
 });
 
@@ -137,4 +138,41 @@ test("builds recipe visibility groups outside the page layout", () => {
       { id: "private", label: "Just for me", type: "private", recipeIds: [3] },
     ],
   );
+});
+
+test("builds home card carousel items from recipe images and visible imported source pages", () => {
+  const items = buildHomeRecipeMediaCarouselItems({
+    id: 9,
+    title: "Media Recipe",
+    description: null,
+    createdByUserId: 7,
+    createdAt: "2026-01-06T00:00:00.000Z",
+    visibility: "public",
+    families: [],
+    images: [
+      { id: 14, thumbnailUrl: "/recipe-photo-thumb.jpg", fullUrl: "/recipe-photo-full.jpg" },
+      { id: -41, thumbnailUrl: "/source-page.jpg", fullUrl: "/source-page.jpg" },
+    ],
+  });
+
+  assert.deepEqual(items, [
+    {
+      id: "recipe-image-14",
+      type: "recipe-image",
+      label: "Media Recipe image 1",
+      thumbnailUrl: "/recipe-photo-thumb.jpg",
+      fullUrl: "/recipe-photo-full.jpg",
+      accessibleLabel: "Open recipe image Media Recipe image 1",
+      isPrimary: false,
+    },
+    {
+      id: "source-document-41",
+      type: "source-document",
+      label: "Media Recipe imported source page 1",
+      thumbnailUrl: "/source-page.jpg",
+      fullUrl: "/source-page.jpg",
+      accessibleLabel: "Open imported source page Media Recipe imported source page 1",
+      isPrimary: false,
+    },
+  ]);
 });

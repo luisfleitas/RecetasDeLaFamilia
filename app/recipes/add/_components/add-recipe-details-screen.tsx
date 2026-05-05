@@ -1,22 +1,26 @@
 "use client";
-// Client page for creating a recipe and ingredient rows.
 
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import LocaleSwitcher from "@/app/_components/locale-switcher";
+import { useRouter } from "next/navigation";
 import { RecipeDetailsForm, type RecipeDetailsFamilyOption } from "@/app/recipes/_components/recipe-details-form";
-import { useLocale, useMessages } from "@/app/_components/locale-provider";
-import { RECIPE_IMAGE_MAX_UPLOAD_BYTES } from "@/lib/application/recipes/image-upload-constraints";
+import { useMessages } from "@/app/_components/locale-provider";
 import {
   buildCreateRecipeDetailsPayload,
   createEmptyRecipeDetailsDraft,
   hydrateRecipeDetailsDraftFromImport,
   type RecipeDetailsImageDraft,
   type RecipeDetailsIngredientDraft,
+  type RecipeDetailsSourceDocumentDraft,
   type RecipeDetailsVisibility,
 } from "@/lib/application/recipes/recipe-details-draft";
+import { RECIPE_IMAGE_MAX_UPLOAD_BYTES } from "@/lib/application/recipes/image-upload-constraints";
+import { serializeRecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
+import type {
+  ImportSessionMetadata,
+  ImportSessionSourceRef,
+} from "@/lib/application/recipes/import-session-metadata";
+import type { AddRecipePath } from "@/lib/application/recipes/add-workflow-state";
 import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 
 type CreatedRecipe = {
@@ -33,23 +37,36 @@ type UploadRecipeImageResponse = {
   error?: string;
 };
 
-type NewRecipeFormProps = {
-  isRecipeImportEnabled: boolean;
+type AddRecipeDetailsScreenProps = {
+  importSessionId: string | null;
+  path: AddRecipePath | null;
 };
 
 const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = RECIPE_IMAGE_MAX_UPLOAD_BYTES;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormProps) {
+function toSourceDocumentDrafts(
+  sourceRefs: ImportSessionSourceRef[],
+  publiclyVisible: boolean,
+): RecipeDetailsSourceDocumentDraft[] {
+  return sourceRefs
+    .filter((sourceRef): sourceRef is ImportSessionSourceRef & { id: number } => typeof sourceRef.id === "number")
+    .map((sourceRef) => ({
+      id: sourceRef.id,
+      originalFilename: sourceRef.originalFilename,
+      thumbnailUrl: `/api/recipes/import/source-images/${sourceRef.id}/file`,
+      fullUrl: `/api/recipes/import/source-images/${sourceRef.id}/file`,
+      publiclyVisible,
+    }));
+}
+
+export default function AddRecipeDetailsScreen({ importSessionId, path }: AddRecipeDetailsScreenProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const locale = useLocale();
   const messages = useMessages();
-  const importSessionId = searchParams.get("importSession");
+  const emptyDraft = createEmptyRecipeDetailsDraft();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const emptyDraft = createEmptyRecipeDetailsDraft();
   const [title, setTitle] = useState(emptyDraft.title);
   const [description, setDescription] = useState(emptyDraft.description);
   const [stepsMarkdown, setStepsMarkdown] = useState(emptyDraft.stepsMarkdown);
@@ -58,9 +75,12 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
   const [newImages, setNewImages] = useState<RecipeDetailsImageDraft[]>(emptyDraft.newImages);
   const [nextImageId, setNextImageId] = useState(1);
   const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
+  const [primarySourceDocumentId, setPrimarySourceDocumentId] = useState<number | null>(emptyDraft.primarySourceDocumentId);
   const [visibility, setVisibility] = useState<RecipeDetailsVisibility>(emptyDraft.visibility);
   const [familyOptions, setFamilyOptions] = useState<RecipeDetailsFamilyOption[]>([]);
   const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>(emptyDraft.selectedFamilyIds);
+  const [importSourceRefs, setImportSourceRefs] = useState<ImportSessionSourceRef[]>(emptyDraft.importSourceRefs);
+  const [importMetadata, setImportMetadata] = useState<ImportSessionMetadata | null>(emptyDraft.importMetadata);
 
   useEffect(() => {
     async function loadFamilies() {
@@ -71,17 +91,15 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
           error?: string;
         };
 
-        if (!response.ok || !data.families) {
-          return;
+        if (response.ok && data.families) {
+          setFamilyOptions(data.families.map((family) => ({ id: family.id, name: family.name })));
         }
-
-        setFamilyOptions(data.families.map((family) => ({ id: family.id, name: family.name })));
       } catch {
-        // Leave family options empty if fetch fails.
+        // Keep family options empty if the optional selector cannot load.
       }
     }
 
-    loadFamilies();
+    void loadFamilies();
   }, []);
 
   useEffect(() => {
@@ -96,7 +114,12 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
         const response = await fetch(`/api/recipes/import/sessions/${encodeURIComponent(importSessionId)}`, {
           method: "GET",
         });
-        const data = (await response.json()) as { draft?: ImportedRecipeDraft; error?: string };
+        const data = (await response.json()) as {
+          draft?: ImportedRecipeDraft;
+          error?: string;
+          metadata?: ImportSessionMetadata | null;
+          sourceRefs?: ImportSessionSourceRef[];
+        };
         if (!response.ok || !data.draft) {
           if (!isCancelled) {
             setError(data.error ?? messages.recipe.errors.hydrateImportDraft);
@@ -105,12 +128,18 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
         }
 
         if (!isCancelled) {
-          const hydratedDraft = hydrateRecipeDetailsDraftFromImport(data.draft, importSessionId);
+          const hydratedDraft = hydrateRecipeDetailsDraftFromImport(data.draft, importSessionId, {
+            metadata: data.metadata ?? null,
+            sourceRefs: data.sourceRefs ?? [],
+          });
           setTitle(hydratedDraft.title);
           setDescription(hydratedDraft.description);
           setStepsMarkdown(hydratedDraft.stepsMarkdown);
           setRecipeLanguage(hydratedDraft.language);
           setIngredients(hydratedDraft.ingredients);
+          setImportSourceRefs(hydratedDraft.importSourceRefs);
+          setImportMetadata(hydratedDraft.importMetadata);
+          setPrimarySourceDocumentId(hydratedDraft.primarySourceDocumentId);
           setError(null);
         }
       } catch {
@@ -138,16 +167,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
   function addIngredientRow() {
     setIngredients((current) => {
       const maxRowId = current.reduce((max, ingredient) => Math.max(max, ingredient.rowId), 0);
-      return [
-        ...current,
-        {
-          rowId: maxRowId + 1,
-          name: "",
-          qty: "",
-          unit: "",
-          notes: "",
-        },
-      ];
+      return [...current, { rowId: maxRowId + 1, name: "", qty: "", unit: "", notes: "" }];
     });
   }
 
@@ -211,11 +231,21 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     setNextImageId((current) => current + drafted.length);
     setNewImages((current) => {
       const combined = [...current, ...drafted];
-      if (primaryNewImageId == null && combined.length > 0) {
+      if (primaryNewImageId == null && primarySourceDocumentId == null && combined.length > 0) {
         setPrimaryNewImageId(combined[0].id);
       }
       return combined;
     });
+  }
+
+  function handleSetPrimaryNewImageId(imageId: number) {
+    setPrimaryNewImageId(imageId);
+    setPrimarySourceDocumentId(null);
+  }
+
+  function handleSetPrimarySourceDocumentId(sourceDocumentId: number) {
+    setPrimarySourceDocumentId(sourceDocumentId);
+    setPrimaryNewImageId(null);
   }
 
   function toggleSelectedFamily(familyId: number) {
@@ -247,12 +277,6 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     setError(null);
     setIsSubmitting(true);
 
-    if (newImages.length > MAX_IMAGES) {
-      setError(messages.recipe.errors.maxImages);
-      setIsSubmitting(false);
-      return;
-    }
-
     const draftResult = buildCreateRecipeDetailsPayload({
       title,
       description,
@@ -264,10 +288,10 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
       visibility,
       selectedFamilyIds,
       importSessionId,
-      isImportComplete: Boolean(importSessionId),
-      importSourceRefs: [],
-      importMetadata: null,
-      primarySourceDocumentId: null,
+      isImportComplete: path === "import" && Boolean(importSessionId),
+      importSourceRefs,
+      importMetadata,
+      primarySourceDocumentId,
     });
 
     if (!draftResult.ok) {
@@ -296,7 +320,7 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
     if (draftResult.payload.primaryMediaReference) {
       recipeFormData.append(
         "primaryMediaReference",
-        `${draftResult.payload.primaryMediaReference.type}:${draftResult.payload.primaryMediaReference.id}`,
+        serializeRecipeMediaReference(draftResult.payload.primaryMediaReference),
       );
     }
 
@@ -305,7 +329,6 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
         method: "POST",
         body: recipeFormData,
       });
-
       const data = (await response.json()) as CreateRecipeResponse;
 
       if (!response.ok || !data.recipe) {
@@ -341,55 +364,74 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
   }
 
   return (
-    <main id="new-recipe-main" className="app-shell max-w-5xl">
-      <div id="new-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
-        <div id="new-recipe-header" className="flex items-center justify-between gap-3">
-          <h1 id="new-recipe-title" className="text-2xl font-semibold">{messages.recipe.newTitle}</h1>
-          <div id="new-recipe-header-links" className="flex flex-wrap items-center justify-end gap-3">
-            <LocaleSwitcher locale={locale} />
-            {isRecipeImportEnabled ? (
-              <Link id="new-recipe-import-link" href="/recipes/import" className="text-link text-sm">
-                {messages.recipe.importLink}
-              </Link>
-            ) : null}
-            <Link id="new-recipe-back-link" href="/" className="text-link text-sm">
-              {messages.common.backToRecipes}
-            </Link>
-          </div>
-        </div>
-
-        <RecipeDetailsForm
-          baseId="new-recipe"
-          description={description}
-          error={error}
-          familyOptions={familyOptions}
-          ingredients={ingredients}
-          isSubmitting={isSubmitting}
-          newImages={newImages}
-          onAddIngredient={addIngredientRow}
-          onImageSelection={handleImageSelection}
-          onRemoveImage={removeNewImage}
-          onRemoveIngredient={removeIngredientRow}
-          onSetDescription={setDescription}
-          onSetPrimaryNewImageId={setPrimaryNewImageId}
-          onSetPrimarySourceDocumentId={() => undefined}
-          onSetRecipeLanguage={setRecipeLanguage}
-          onSetStepsMarkdown={setStepsMarkdown}
-          onSetTitle={setTitle}
-          onSetVisibility={setVisibility}
-          onSubmit={handleSubmit}
-          onToggleSelectedFamily={toggleSelectedFamily}
-          onUpdateIngredient={updateIngredient}
-          primaryNewImageId={primaryNewImageId}
-          primarySourceDocumentId={null}
-          recipeLanguage={recipeLanguage}
-          selectedFamilyIds={selectedFamilyIds}
-          sourceDocuments={[]}
-          stepsMarkdown={stepsMarkdown}
-          title={title}
-          visibility={visibility}
-        />
+    <section id="add-recipe-details-screen" className="surface-panel grid gap-5 p-5">
+      <div id="add-recipe-details-copy" className="recipe-form-section-copy">
+        <h2 id="add-recipe-details-title" className="recipe-form-section-title">
+          {messages.recipe.addWorkflowRecipeDetailsTitle}
+        </h2>
+        <p id="add-recipe-details-description" className="recipe-form-section-description">
+          {path === "import" && importSessionId
+            ? messages.recipe.addWorkflowRecipeDetailsImportedDescription
+            : messages.recipe.addWorkflowRecipeDetailsManualDescription}
+        </p>
       </div>
-    </main>
+      {importSessionId ? (
+        <p id="add-recipe-details-import-session" className="text-sm text-[var(--color-text-muted)]">
+          {messages.recipe.addWorkflowImportSessionReady}
+        </p>
+      ) : null}
+      {importSourceRefs.length > 0 ? (
+        <div id="add-recipe-details-imported-source-summary" className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-4">
+          <p id="add-recipe-details-imported-source-summary-title" className="text-sm font-medium">
+            {messages.recipe.importedSourceFiles}
+          </p>
+          <ul id="add-recipe-details-imported-source-summary-list" className="mt-2 space-y-1 text-sm text-[var(--color-text-muted)]">
+            {importSourceRefs.map((sourceRef, index) => (
+              <li id={`add-recipe-details-imported-source-summary-item-${index + 1}`} key={`${sourceRef.id ?? sourceRef.originalFilename}-${index}`}>
+                {sourceRef.originalFilename}
+              </li>
+            ))}
+          </ul>
+          {importMetadata?.handwritten ? (
+            <p id="add-recipe-details-imported-source-visibility" className="mt-2 text-xs text-[var(--color-text-muted)]">
+              {importMetadata.handwritten.sourceImageVisibility === "public"
+                ? messages.recipe.sourceVisibilityPublic
+                : messages.recipe.sourceVisibilityPrivate}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      <RecipeDetailsForm
+        baseId="add-recipe-details"
+        description={description}
+        error={error}
+        familyOptions={familyOptions}
+        ingredients={ingredients}
+        isSubmitting={isSubmitting}
+        newImages={newImages}
+        onAddIngredient={addIngredientRow}
+        onImageSelection={handleImageSelection}
+        onRemoveImage={removeNewImage}
+        onRemoveIngredient={removeIngredientRow}
+        onSetDescription={setDescription}
+        onSetPrimaryNewImageId={handleSetPrimaryNewImageId}
+        onSetPrimarySourceDocumentId={handleSetPrimarySourceDocumentId}
+        onSetRecipeLanguage={setRecipeLanguage}
+        onSetStepsMarkdown={setStepsMarkdown}
+        onSetTitle={setTitle}
+        onSetVisibility={setVisibility}
+        onSubmit={handleSubmit}
+        onToggleSelectedFamily={toggleSelectedFamily}
+        onUpdateIngredient={updateIngredient}
+        primaryNewImageId={primaryNewImageId}
+        primarySourceDocumentId={primarySourceDocumentId}
+        recipeLanguage={recipeLanguage}
+        selectedFamilyIds={selectedFamilyIds}
+        sourceDocuments={toSourceDocumentDrafts(importSourceRefs, importMetadata?.handwritten?.sourceImageVisibility === "public")}
+        stepsMarkdown={stepsMarkdown}
+        title={title}
+        visibility={visibility}
+      />
+    </section>
   );
 }

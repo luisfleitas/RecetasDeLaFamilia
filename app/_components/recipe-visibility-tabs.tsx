@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import { useLocale, useMessages } from "@/app/_components/locale-provider";
 import RecipeCardCarousel from "@/app/_components/recipe-card-carousel";
+import { buildHomeRecipeMediaCarouselItems } from "@/lib/application/home-navigation/view-model";
 import { formatDate } from "@/lib/i18n/format";
 
 type PrimaryImageRef = {
@@ -149,7 +150,12 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
               {activeGroup.recipes.map((recipe) => (
                 <li id={`home-visibility-tabs-item-${activeGroup.id}-${recipe.id}`} key={`${activeGroup.id}-${recipe.id}`} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
                   {recipe.images && recipe.images.length > 0 ? (
-                    <RecipeCardCarousel recipeId={recipe.id} title={recipe.title} images={recipe.images} />
+                    <RecipeCardCarousel
+                      recipeId={recipe.id}
+                      title={recipe.title}
+                      images={recipe.images}
+                      mediaItems={buildHomeRecipeMediaCarouselItems(recipe)}
+                    />
                   ) : recipe.primaryImage ? (
                     <img
                       id={`home-visibility-tabs-image-${activeGroup.id}-${recipe.id}`}

@@ -5,11 +5,13 @@ import { getOptionalAuthPageUser } from "@/lib/auth/page-auth-user";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
 import HomeAccountMenu from "@/app/_components/home-account-menu";
 import HomeLeftNavigation from "@/app/_components/home-left-navigation";
+import RecipeCardCarousel from "@/app/_components/recipe-card-carousel";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 import RecipeVisibilityTabs, { type RecipeVisibilityTabGroup } from "@/app/_components/recipe-visibility-tabs";
 import { formatDate } from "@/lib/i18n/format";
 import { getRequestMessages } from "@/lib/i18n/server";
 import {
+  buildHomeRecipeMediaCarouselItems,
   buildRecipeVisibilityTabGroups,
   buildHomeNavigationViewModel,
 } from "@/lib/application/home-navigation/view-model";
@@ -132,13 +134,11 @@ export default async function HomePage() {
                       {publicRecipes.map((recipe) => (
                         <li id={`home-public-recipes-item-${recipe.id}`} key={recipe.id} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
                           {recipe.images && recipe.images.length > 0 ? (
-                            <Image
-                              id={`home-public-recipes-image-gallery-first-${recipe.id}`}
-                              src={recipe.images[0].thumbnailUrl}
-                              alt={recipe.title}
-                              width={640}
-                              height={360}
-                              className="block h-36 w-full object-cover"
+                            <RecipeCardCarousel
+                              recipeId={recipe.id}
+                              title={recipe.title}
+                              images={recipe.images}
+                              mediaItems={buildHomeRecipeMediaCarouselItems(recipe)}
                             />
                           ) : recipe.primaryImage ? (
                             <Image

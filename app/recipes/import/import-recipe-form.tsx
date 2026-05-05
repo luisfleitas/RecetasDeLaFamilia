@@ -49,6 +49,9 @@ type ImportRecipeFormProps = {
   handwrittenMaxImageCount: number;
   handwrittenMaxUploadBytes: number;
   handwrittenSourceUploadMode: "blob" | "server";
+  defaultSourceImageVisibility?: HandwrittenSourceImageVisibility;
+  layoutVariant?: "standalone" | "embedded";
+  onImportSucceeded?: (result: ImportRecipeSuccessResult) => void;
 };
 
 type StagedSourceImageRef = {
@@ -58,6 +61,17 @@ type StagedSourceImageRef = {
   mimeType: string;
   sizeBytes: number;
 };
+
+export type ImportRecipeSuccessResult = {
+  importSessionId: string;
+  draft: ImportedRecipeDraft;
+  warnings: ImportWarning[];
+  sourceRefs: ImportSessionSourceRef[];
+  metadata: ImportSessionMetadata | null;
+  inputMode: RecipeImportInputMode;
+};
+
+type ImportSourceTab = "paste" | "document" | "handwritten";
 
 function toEditableIngredients(draft: ImportedRecipeDraft): IngredientDraft[] {
   return draft.ingredients.map((ingredient, index) => ({
@@ -110,17 +124,21 @@ async function waitForStagedSources(uploadBatchId: string, expectedCount: number
 }
 
 export default function ImportRecipeForm({
+  defaultSourceImageVisibility = "private",
   handwrittenBlobUploadPathPrefix,
   handwrittenEnabled,
   handwrittenMaxImageBytes,
   handwrittenMaxImageCount,
   handwrittenMaxUploadBytes,
   handwrittenSourceUploadMode,
+  layoutVariant = "standalone",
+  onImportSucceeded,
 }: ImportRecipeFormProps) {
   const router = useRouter();
   const locale = useLocale();
   const messages = useMessages();
-  const [inputMode, setInputMode] = useState<RecipeImportInputMode>("document");
+  const [sourceTab, setSourceTab] = useState<ImportSourceTab>(layoutVariant === "embedded" ? "paste" : "document");
+  const inputMode: RecipeImportInputMode = sourceTab === "handwritten" ? "handwritten" : "document";
   const [rawText, setRawText] = useState("");
   const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
   const [handwrittenFiles, setHandwrittenFiles] = useState<File[]>([]);
@@ -137,7 +155,7 @@ export default function ImportRecipeForm({
   const [isParsing, setIsParsing] = useState(false);
   const [isContinuing, setIsContinuing] = useState(false);
   const [sourceImageVisibility, setSourceImageVisibility] =
-    useState<HandwrittenSourceImageVisibility>("private");
+    useState<HandwrittenSourceImageVisibility>(defaultSourceImageVisibility);
   const handwrittenUploadBytes = handwrittenFiles.reduce((total, file) => total + file.size, 0);
   const handwrittenUploadTooLarge = handwrittenUploadBytes > handwrittenMaxUploadBytes;
   const handwrittenUploadSizeWarning = handwrittenUploadTooLarge
@@ -147,12 +165,16 @@ export default function ImportRecipeForm({
     : null;
 
   const canParse = useMemo(() => {
-    if (inputMode === "handwritten") {
+    if (sourceTab === "handwritten") {
       return handwrittenFiles.length > 0 && !handwrittenUploadTooLarge;
     }
 
-    return rawText.trim().length > 0 || selectedDocumentFile != null;
-  }, [handwrittenFiles.length, handwrittenUploadTooLarge, inputMode, rawText, selectedDocumentFile]);
+    if (sourceTab === "paste") {
+      return rawText.trim().length > 0;
+    }
+
+    return selectedDocumentFile != null;
+  }, [handwrittenFiles.length, handwrittenUploadTooLarge, rawText, selectedDocumentFile, sourceTab]);
 
   const draftWarnings = useMemo<ImportWarning[]>(() => {
     if (!draft) {
@@ -221,10 +243,79 @@ export default function ImportRecipeForm({
     });
   }
 
-  function handleModeChange(nextMode: RecipeImportInputMode) {
-    setInputMode(nextMode);
+  function buildReviewedImportDraft(): ImportedRecipeDraft {
+    return {
+      title: title.trim(),
+      description: description.trim().length > 0 ? description.trim() : null,
+      stepsMarkdown: stepsMarkdown.trim(),
+      language: recipeLanguage,
+      ingredients: ingredients.map((ingredient, index) => ({
+        name: ingredient.name.trim(),
+        qty: Number(ingredient.qty),
+        unit: ingredient.unit.trim(),
+        notes: ingredient.notes.trim().length > 0 ? ingredient.notes.trim() : null,
+        position: index + 1,
+      })),
+    };
+  }
+
+  function hasInvalidReviewedImportDraft(payload: ImportedRecipeDraft) {
+    return (
+      !payload.title ||
+      !payload.stepsMarkdown ||
+      payload.ingredients.length === 0 ||
+      payload.ingredients.some(
+        (ingredient) =>
+          ingredient.name.length === 0 ||
+          ingredient.unit.length === 0 ||
+          !Number.isFinite(ingredient.qty) ||
+          ingredient.qty <= 0,
+      )
+    );
+  }
+
+  async function updateImportSessionDraft(input: {
+    importSessionId: string;
+    draft: ImportedRecipeDraft;
+    metadata?: {
+      handwritten?: {
+        sourceImageVisibility: HandwrittenSourceImageVisibility;
+      };
+    };
+  }): Promise<ParseResponse> {
+    const response = await fetch(`/api/recipes/import/sessions/${encodeURIComponent(input.importSessionId)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        draft: input.draft,
+        metadata: input.metadata,
+      }),
+    });
+
+    const data = (await response.json()) as ParseResponse;
+    if (!response.ok) {
+      throw new Error(data.error ?? messages.recipe.errors.saveImportedDraftFailed);
+    }
+
+    return data;
+  }
+
+  function handleModeChange(nextTab: ImportSourceTab) {
+    setSourceTab(nextTab);
     setError(null);
     resetParsedState();
+    if (nextTab === "paste") {
+      setSelectedDocumentFile(null);
+      setHandwrittenFiles([]);
+    }
+    if (nextTab === "document") {
+      setRawText("");
+      setHandwrittenFiles([]);
+    }
+    if (nextTab === "handwritten") {
+      setRawText("");
+      setSelectedDocumentFile(null);
+    }
   }
 
   function handleDocumentFileSelection(files: FileList | null) {
@@ -251,7 +342,7 @@ export default function ImportRecipeForm({
       setRawText("");
       setSelectedDocumentFile(null);
       setHandwrittenFiles(selection.files);
-      setInputMode("handwritten");
+      setSourceTab("handwritten");
       return;
     }
 
@@ -365,7 +456,7 @@ export default function ImportRecipeForm({
           }),
         });
       } else {
-        const hasText = rawText.trim().length > 0;
+        const hasText = sourceTab === "paste" && rawText.trim().length > 0;
         response = await fetch("/api/recipes/import/parse", {
           method: "POST",
           ...(hasText
@@ -394,11 +485,37 @@ export default function ImportRecipeForm({
       setImportSessionId(data.importSessionId);
       setMetadata(data.metadata ?? null);
       setSourceRefs(data.sourceRefs ?? []);
-      setSourceImageVisibility(data.metadata?.handwritten?.sourceImageVisibility ?? "private");
+      const nextSourceImageVisibility =
+        data.metadata?.handwritten?.sourceImageVisibility ?? defaultSourceImageVisibility;
+      setSourceImageVisibility(nextSourceImageVisibility);
       applyDraft(data.draft);
-    } catch {
+
+      if (onImportSucceeded) {
+        let successData = data;
+        if (inputMode === "handwritten" && nextSourceImageVisibility === "public") {
+          successData = await updateImportSessionDraft({
+            importSessionId: data.importSessionId,
+            draft: data.draft,
+            metadata: {
+              handwritten: {
+                sourceImageVisibility: nextSourceImageVisibility,
+              },
+            },
+          });
+        }
+
+        onImportSucceeded({
+          importSessionId: data.importSessionId,
+          draft: successData.draft ?? data.draft,
+          warnings: successData.warnings ?? data.warnings ?? [],
+          sourceRefs: successData.sourceRefs ?? data.sourceRefs ?? [],
+          metadata: successData.metadata ?? data.metadata ?? null,
+          inputMode,
+        });
+      }
+    } catch (parseError) {
       resetParsedState();
-      setError(messages.recipe.errors.parseRecipeFailed);
+      setError(parseError instanceof Error ? parseError.message : messages.recipe.errors.parseRecipeFailed);
     } finally {
       setIsParsing(false);
     }
@@ -409,29 +526,9 @@ export default function ImportRecipeForm({
       return;
     }
 
-    const payload: ImportedRecipeDraft = {
-      title: title.trim(),
-      description: description.trim().length > 0 ? description.trim() : null,
-      stepsMarkdown: stepsMarkdown.trim(),
-      language: recipeLanguage,
-      ingredients: ingredients.map((ingredient, index) => ({
-        name: ingredient.name.trim(),
-        qty: Number(ingredient.qty),
-        unit: ingredient.unit.trim(),
-        notes: ingredient.notes.trim().length > 0 ? ingredient.notes.trim() : null,
-        position: index + 1,
-      })),
-    };
+    const payload = buildReviewedImportDraft();
 
-    const hasInvalidIngredient = payload.ingredients.some(
-      (ingredient) =>
-        ingredient.name.length === 0 ||
-        ingredient.unit.length === 0 ||
-        !Number.isFinite(ingredient.qty) ||
-        ingredient.qty <= 0,
-    );
-
-    if (!payload.title || !payload.stepsMarkdown || payload.ingredients.length === 0 || hasInvalidIngredient) {
+    if (hasInvalidReviewedImportDraft(payload)) {
       setError(messages.recipe.errors.completeDraftFields);
       return;
     }
@@ -439,27 +536,18 @@ export default function ImportRecipeForm({
     setError(null);
     setIsContinuing(true);
     try {
-      const response = await fetch(`/api/recipes/import/sessions/${encodeURIComponent(importSessionId)}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          draft: payload,
-          metadata:
-            inputMode === "handwritten"
-              ? {
-                  handwritten: {
-                    sourceImageVisibility,
-                  },
-                }
-              : undefined,
-        }),
+      const data = await updateImportSessionDraft({
+        importSessionId,
+        draft: payload,
+        metadata:
+          inputMode === "handwritten"
+            ? {
+                handwritten: {
+                  sourceImageVisibility,
+                },
+              }
+            : undefined,
       });
-
-      const data = (await response.json()) as { error?: string; metadata?: ImportSessionMetadata | null };
-      if (!response.ok) {
-        setError(data.error ?? messages.recipe.errors.saveImportedDraftFailed);
-        return;
-      }
 
       if (data.metadata) {
         setMetadata(data.metadata);
@@ -493,50 +581,82 @@ export default function ImportRecipeForm({
     }
   }
 
-  return (
-    <main id="recipe-import-main" className="app-shell max-w-6xl">
-      <div id="recipe-import-panel" className="surface-panel space-y-6 p-6 sm:p-8">
-        <div id="recipe-import-header" className="page-header-bar">
-          <div id="recipe-import-header-copy" className="page-header-copy">
-            <p id="recipe-import-header-eyebrow" className="page-eyebrow">
-              {messages.recipe.importTitle}
-            </p>
-            <h1 id="recipe-import-title" className="text-2xl font-semibold">
-              {messages.recipe.importTitle}
-            </h1>
-            <p id="recipe-import-header-supporting-text" className="page-supporting-text max-w-3xl">
-              {messages.recipe.importSupport}
-            </p>
-          </div>
-          <div id="recipe-import-header-actions" className="flex flex-wrap items-center justify-end gap-3">
-            <LocaleSwitcher locale={locale} />
-            <Link id="recipe-import-back-link" href="/" className="text-link text-sm">
-              {messages.common.backToRecipes}
-            </Link>
-          </div>
-        </div>
+  const isEmbedded = layoutVariant === "embedded";
+  const Root = isEmbedded ? "section" : "main";
+  const modeTabBaseId = isEmbedded ? "add-recipe-import" : "recipe-import-mode";
+  const rootId = isEmbedded ? "add-recipe-import-source-screen" : "recipe-import-main";
+  const rootClassName = isEmbedded ? "surface-panel grid gap-5 p-5" : "app-shell max-w-6xl";
+  const panelClassName = isEmbedded ? "grid gap-5" : "surface-panel space-y-6 p-6 sm:p-8";
 
-        <div id="recipe-import-mode-tabs" className="secondary-tab-strip" role="tablist" aria-label={messages.recipe.importTitle}>
+  return (
+    <Root id={rootId} className={rootClassName}>
+      <div id={isEmbedded ? "add-recipe-import-panel" : "recipe-import-panel"} className={panelClassName}>
+        {isEmbedded ? (
+          <div id="add-recipe-import-source-copy" className="recipe-form-section-copy">
+            <h2 id="add-recipe-import-source-title" className="recipe-form-section-title">
+              {messages.recipe.addWorkflowImportSourceTitle}
+            </h2>
+            <p id="add-recipe-import-source-description" className="recipe-form-section-description">
+              {messages.recipe.addWorkflowImportSourceDescription}
+            </p>
+          </div>
+        ) : (
+          <div id="recipe-import-header" className="page-header-bar">
+            <div id="recipe-import-header-copy" className="page-header-copy">
+              <p id="recipe-import-header-eyebrow" className="page-eyebrow">
+                {messages.recipe.importTitle}
+              </p>
+              <h1 id="recipe-import-title" className="text-2xl font-semibold">
+                {messages.recipe.importTitle}
+              </h1>
+              <p id="recipe-import-header-supporting-text" className="page-supporting-text max-w-3xl">
+                {messages.recipe.importSupport}
+              </p>
+            </div>
+            <div id="recipe-import-header-actions" className="flex flex-wrap items-center justify-end gap-3">
+              <LocaleSwitcher locale={locale} />
+              <Link id="recipe-import-back-link" href="/" className="text-link text-sm">
+                {messages.common.backToRecipes}
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <div id={isEmbedded ? "add-recipe-import-mode-tabs" : "recipe-import-mode-tabs"} className="secondary-tab-strip" role="tablist" aria-label={messages.recipe.importTitle}>
+          {isEmbedded ? (
+            <button
+              id="add-recipe-import-paste-tab"
+              type="button"
+              role="tab"
+              aria-selected={sourceTab === "paste"}
+              aria-controls="recipe-import-source-section"
+              data-active={sourceTab === "paste"}
+              className="secondary-tab-strip-item"
+              onClick={() => handleModeChange("paste")}
+            >
+              {messages.recipe.pasteRecipeText}
+            </button>
+          ) : null}
           <button
-            id="recipe-import-mode-tab-document"
+            id={`${modeTabBaseId}-${isEmbedded ? "document-tab" : "tab-document"}`}
             type="button"
             role="tab"
-            aria-selected={inputMode === "document"}
+            aria-selected={isEmbedded ? sourceTab === "document" : inputMode === "document"}
             aria-controls="recipe-import-source-section"
-            data-active={inputMode === "document"}
+            data-active={isEmbedded ? sourceTab === "document" : inputMode === "document"}
             className="secondary-tab-strip-item"
-            onClick={() => handleModeChange("document")}
+            onClick={() => handleModeChange(isEmbedded ? "document" : "document")}
           >
             {messages.recipe.importDocumentTab}
           </button>
           {handwrittenEnabled ? (
             <button
-              id="recipe-import-mode-tab-handwritten"
+              id={`${modeTabBaseId}-${isEmbedded ? "handwritten-tab" : "tab-handwritten"}`}
               type="button"
               role="tab"
-              aria-selected={inputMode === "handwritten"}
+              aria-selected={sourceTab === "handwritten"}
               aria-controls="recipe-import-source-section"
-              data-active={inputMode === "handwritten"}
+              data-active={sourceTab === "handwritten"}
               className="secondary-tab-strip-item"
               onClick={() => handleModeChange("handwritten")}
             >
@@ -545,16 +665,30 @@ export default function ImportRecipeForm({
           ) : null}
         </div>
 
+        {isEmbedded ? (
+          <>
+            <p id="add-recipe-import-processing" className={isParsing ? "text-sm text-[var(--color-text-muted)]" : "hidden"}>
+              {inputMode === "handwritten" ? messages.recipe.readingHandwriting : messages.recipe.parsingSubmit}
+            </p>
+            <p id="add-recipe-import-success" className="hidden">
+              {messages.recipe.addWorkflowImportSuccess}
+            </p>
+          </>
+        ) : null}
+
         {error ? (
           <p
-            id="recipe-import-error-message"
+            id={isEmbedded ? "add-recipe-import-error" : "recipe-import-error-message"}
             className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700"
           >
             {error}
           </p>
         ) : null}
 
-        <div id="recipe-import-workspace" className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+        <div
+          id="recipe-import-workspace"
+          className={isEmbedded ? "grid gap-6" : "grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"}
+        >
           <section id="recipe-import-source-section" className="surface-card space-y-5 p-5 sm:p-6" role="tabpanel">
             <div id="recipe-import-source-header" className="recipe-form-section-header">
               <div id="recipe-import-source-copy" className="recipe-form-section-copy">
@@ -629,41 +763,45 @@ export default function ImportRecipeForm({
                 </div>
               ) : (
                 <>
-                  <div id="recipe-import-text-field">
-                    <label
-                      id="recipe-import-text-label"
-                      htmlFor="recipe-import-textarea"
-                      className="mb-1 block text-sm font-medium"
-                    >
-                      {messages.recipe.pasteRecipeText}
-                    </label>
-                    <textarea
-                      id="recipe-import-textarea"
-                      value={rawText}
-                      onChange={(event) => setRawText(event.target.value)}
-                      rows={12}
-                      className="input-base"
-                      placeholder={messages.recipe.pasteRecipePlaceholder}
-                    />
-                  </div>
+                  {!isEmbedded || sourceTab === "paste" ? (
+                    <div id="recipe-import-text-field">
+                      <label
+                        id="recipe-import-text-label"
+                        htmlFor="recipe-import-textarea"
+                        className="mb-1 block text-sm font-medium"
+                      >
+                        {messages.recipe.pasteRecipeText}
+                      </label>
+                      <textarea
+                        id="recipe-import-textarea"
+                        value={rawText}
+                        onChange={(event) => setRawText(event.target.value)}
+                        rows={12}
+                        className="input-base"
+                        placeholder={messages.recipe.pasteRecipePlaceholder}
+                      />
+                    </div>
+                  ) : null}
 
-                  <div id="recipe-import-file-field">
-                    <label
-                      id="recipe-import-file-label"
-                      htmlFor="recipe-import-file-input"
-                      className="mb-1 block text-sm font-medium"
-                    >
-                      {messages.recipe.uploadDocumentLabel}
-                    </label>
-                    <input
-                      id="recipe-import-file-input"
-                      type="file"
-                      multiple
-                      accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
-                      onChange={(event) => handleDocumentFileSelection(event.target.files)}
-                      className="input-base"
-                    />
-                  </div>
+                  {!isEmbedded || sourceTab === "document" ? (
+                    <div id="recipe-import-file-field">
+                      <label
+                        id="recipe-import-file-label"
+                        htmlFor="recipe-import-file-input"
+                        className="mb-1 block text-sm font-medium"
+                      >
+                        {messages.recipe.uploadDocumentLabel}
+                      </label>
+                      <input
+                        id="recipe-import-file-input"
+                        type="file"
+                        multiple
+                        accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
+                        onChange={(event) => handleDocumentFileSelection(event.target.files)}
+                        className="input-base"
+                      />
+                    </div>
+                  ) : null}
                 </>
               )}
 
@@ -730,6 +868,7 @@ export default function ImportRecipeForm({
             ) : null}
           </section>
 
+          {!isEmbedded ? (
           <section id="recipe-import-review-section" className="surface-card space-y-5 p-5 sm:p-6">
             <div id="recipe-import-review-header" className="recipe-form-section-header">
               <div id="recipe-import-review-copy" className="recipe-form-section-copy">
@@ -988,8 +1127,9 @@ export default function ImportRecipeForm({
               </>
             )}
           </section>
+          ) : null}
         </div>
       </div>
-    </main>
+    </Root>
   );
 }

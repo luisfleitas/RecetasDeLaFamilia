@@ -6,6 +6,7 @@ import { useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 import RecipeLanguageControl from "@/app/recipes/_components/recipe-language-control";
 import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
+import SimpleRichTextEditor from "@/app/recipes/_components/simple-rich-text-editor";
 import { RECIPE_IMAGE_MAX_UPLOAD_BYTES } from "@/lib/application/recipes/image-upload-constraints";
 import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 
@@ -119,6 +120,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   const [removingImageIds, setRemovingImageIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const isRemovingImage = removingImageIds.length > 0;
+  const richTextLabels = messages.recipe.richText;
 
   useEffect(() => {
     async function loadFamilies() {
@@ -408,16 +410,16 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         </div>
 
         <div id="edit-recipe-description-field">
-          <label id="edit-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
+          <label id="edit-recipe-description-label" htmlFor="edit-recipe-description-input" className="mb-1 block text-sm font-medium">
             {messages.recipe.descriptionLabel}
           </label>
-          <textarea
-            id="description"
+          <SimpleRichTextEditor
+            baseId="edit-recipe-description"
+            labels={richTextLabels}
             name="description"
             rows={2}
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            className="input-base"
+            onChange={setDescription}
           />
         </div>
 
@@ -636,17 +638,17 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
           </div>
         </div>
         <div id="edit-recipe-steps-field">
-          <label id="edit-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
+          <label id="edit-recipe-steps-label" htmlFor="edit-recipe-steps-input" className="mb-1 block text-sm font-medium">
             {messages.recipe.stepsLabel}
           </label>
-          <textarea
-            id="stepsMarkdown"
+          <SimpleRichTextEditor
+            baseId="edit-recipe-steps"
+            labels={richTextLabels}
             name="stepsMarkdown"
             rows={6}
             required
             value={stepsMarkdown}
-            onChange={(event) => setStepsMarkdown(event.target.value)}
-            className="input-base"
+            onChange={setStepsMarkdown}
           />
         </div>
       </div>
