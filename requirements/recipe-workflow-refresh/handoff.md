@@ -2,7 +2,7 @@
 
 ## Current State
 
-Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, and draft PR #26 is open back into `pre-main`. Slice 10 promotion readiness is locally verified with final automated checks plus desktop/mobile browser smoke on `http://127.0.0.1:3100`. Post-PR CI failures have been fixed locally: phase0 by aligning older script fixtures with updated media/repository contracts, and phase1 by injecting the source-document primary marker into recipe use cases so unit tests do not hit the Prisma-backed helper. Description and steps editor requirements have been removed from this phase and deferred to a separate future phase.
+Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, and draft PR #26 is open back into `pre-main`. Slice 10 promotion readiness is locally verified with final automated checks plus desktop/mobile browser smoke on `http://127.0.0.1:3100`. Latest GitHub CI is green on run `25380572131` after fixing phase0 fixture drift and isolating the source-document primary marker dependency in recipe use-case unit tests. Vercel preview deployment is still failing immediately for deployment `dpl_9SN8vtpukbsj3GRBdwQDUmAwhoR3`, and `vercel inspect --logs` currently returns only `status Error` without build log details. Description and steps editor requirements have been removed from this phase and deferred to a separate future phase.
 
 ## Completed
 
@@ -71,11 +71,11 @@ Design direction and implementation plan are approved for the unified Add Recipe
 
 ## In Progress
 
-- PR #26 CI repair is locally verified. Push the source-document primary marker dependency fix and re-check PR CI plus Vercel preview status.
+- PR #26 GitHub CI is green. Vercel preview deployment is still failing without build-log detail from the CLI.
 
 ## Next Action
 
-Commit and push the PR quality-gate dependency-boundary fix, then re-check PR #26 CI and Vercel preview status.
+Investigate the Vercel preview deployment failure for `dpl_9SN8vtpukbsj3GRBdwQDUmAwhoR3`, including dashboard/build-log access or a manual redeploy if the dashboard shows the failure is transient.
 
 ## Known Issues
 
@@ -172,6 +172,8 @@ Commit and push the PR quality-gate dependency-boundary fix, then re-check PR #2
 - `npm run test:phase0` passed after adding the source-document primary marker dependency boundary.
 - `npm run test:phase1` passed after adding the source-document primary marker dependency boundary.
 - `npm run test:phase2` passed after adding the source-document primary marker dependency boundary.
+- Latest PR GitHub run `25380572131` passed `quality-gate` and `auth-smoke`.
+- `npx vercel inspect dpl_9SN8vtpukbsj3GRBdwQDUmAwhoR3 --logs --scope luisfleitas-1188s-projects` returned `status Error` without build log details.
 
 ## Manual Testing Status
 
