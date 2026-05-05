@@ -33,7 +33,12 @@ export function toRecipeImportError(error: unknown): RecipeImportError {
     return new RecipeImportError("UNSUPPORTED_FILE_TYPE", message, 400);
   }
 
-  if (message.includes("exceeds 10MB") || message.includes("exceeds 512KB") || message.includes("Text exceeds")) {
+  if (
+    message.includes("exceeds 10MB") ||
+    message.includes("exceeds 512KB") ||
+    message.includes("Text exceeds") ||
+    message.includes("Combined upload size")
+  ) {
     return new RecipeImportError("FILE_TOO_LARGE", message, 400);
   }
 

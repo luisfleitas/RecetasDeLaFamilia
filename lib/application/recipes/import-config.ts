@@ -7,6 +7,8 @@ const DEFAULT_RECIPE_IMPORT_EXTRACTOR_DRIVER = "rule-based";
 const DEFAULT_OPENAI_RECIPE_IMPORT_MODEL = "gpt-4.1";
 const DEFAULT_RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER = "openai";
 const DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT = 6;
+const DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 function isEnabledFlag(raw: string | undefined): boolean {
   if (raw == null) {
@@ -121,4 +123,33 @@ export function getRecipeImportHandwrittenMaxImageCount(): number {
   }
 
   return Math.floor(raw);
+}
+
+export function getRecipeImportHandwrittenMaxImageBytes(): number {
+  const raw = Number(
+    process.env.RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_BYTES ?? DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_BYTES,
+  );
+
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_BYTES;
+  }
+
+  return Math.floor(raw);
+}
+
+export function getRecipeImportHandwrittenMaxUploadBytes(): number {
+  const raw = Number(
+    process.env.RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES ?? DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES,
+  );
+
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES;
+  }
+
+  return Math.floor(raw);
+}
+
+export function getRecipeImportHandwrittenBlobUploadPathPrefix(): string {
+  const raw = process.env.IMAGE_STORAGE_BLOB_PREFIX?.trim().replace(/^\/+|\/+$/g, "");
+  return raw ? `${raw}/` : "";
 }

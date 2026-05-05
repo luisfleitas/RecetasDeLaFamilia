@@ -29,6 +29,23 @@ Steps:
   assert.match(parsed.stepsMarkdown, /^1\. Boil pasta\./);
 });
 
+test("imports recipe text with an icon-decorated steps heading", () => {
+  const input = `
+Ingredients
+2 ripe avocados
+Salt, to taste
+🔪 Steps
+Prep the ingredients
+Blend everything
+`;
+
+  const parsed = importRecipeFromTextDocument(input);
+
+  assert.equal(parsed.ingredients.length, 2);
+  assert.equal(parsed.ingredients[0]?.unit, "unit");
+  assert.match(parsed.stepsMarkdown, /^1\. Prep the ingredients/);
+});
+
 test("imports recipe text with spanish headings", () => {
   const input = `
 Nombre: Arroz con Pollo

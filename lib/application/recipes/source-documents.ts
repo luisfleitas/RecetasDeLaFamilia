@@ -23,6 +23,34 @@ type StageImportSourceDocumentInput = {
   bytes: Buffer;
 };
 
+export type StagedHandwrittenSourceDocument = {
+  id: number;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageKey: string;
+  sourceType: "image";
+  bytes: Buffer;
+};
+
+export type ImportSessionSourceDocumentRef = {
+  id: number;
+  sourceType: ImportSourceType;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageKey: string;
+};
+
+type HandwrittenSourceMetadata = {
+  inputMode: "handwritten";
+  uploadBatchId: string;
+  clientFileId: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
 function sanitizeFilename(filename: string): string {
   const cleaned = filename
     .toLowerCase()
@@ -40,6 +68,360 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   }
 
   return Buffer.concat(chunks);
+}
+
+export function buildHandwrittenSourceMetadata(input: {
+  uploadBatchId: string;
+  clientFileId: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+}): string {
+  return JSON.stringify({
+    inputMode: "handwritten",
+    uploadBatchId: input.uploadBatchId,
+    clientFileId: input.clientFileId,
+    originalFilename: input.originalFilename,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+  } satisfies HandwrittenSourceMetadata);
+}
+
+function parseHandwrittenSourceMetadata(value: string | null): HandwrittenSourceMetadata | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<HandwrittenSourceMetadata> | null;
+    if (
+      !parsed ||
+      parsed.inputMode !== "handwritten" ||
+      typeof parsed.uploadBatchId !== "string" ||
+      typeof parsed.clientFileId !== "string" ||
+      typeof parsed.originalFilename !== "string" ||
+      typeof parsed.mimeType !== "string" ||
+      typeof parsed.sizeBytes !== "number"
+    ) {
+      return null;
+    }
+
+    return {
+      inputMode: "handwritten",
+      uploadBatchId: parsed.uploadBatchId,
+      clientFileId: parsed.clientFileId,
+      originalFilename: parsed.originalFilename,
+      mimeType: parsed.mimeType,
+      sizeBytes: parsed.sizeBytes,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function createStagedHandwrittenSourceDocument(input: {
+  userId: number;
+  uploadBatchId: string;
+  clientFileId: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageKey: string;
+}) {
+  const prisma = await getPrisma();
+  const prismaDb = prisma as unknown as {
+    recipeSourceDocument: {
+      create: (args: {
+        data: {
+          importSessionId: null;
+          recipeId: null;
+          uploadedByUserId: number;
+          originalFilename: string;
+          mimeType: string;
+          sizeBytes: number;
+          storageKey: string;
+          sourceType: "image";
+          metadataJson: string;
+        };
+        select: {
+          id: true;
+          originalFilename: true;
+          mimeType: true;
+          sizeBytes: true;
+          sourceType: true;
+          storageKey: true;
+          metadataJson: true;
+          createdAt: true;
+        };
+      }) => Promise<{
+        id: number;
+        originalFilename: string;
+        mimeType: string;
+        sizeBytes: number;
+        sourceType: string;
+        storageKey: string;
+        metadataJson: string | null;
+        createdAt: Date;
+      }>;
+    };
+  };
+
+  return prismaDb.recipeSourceDocument.create({
+    data: {
+      importSessionId: null,
+      recipeId: null,
+      uploadedByUserId: input.userId,
+      originalFilename: input.originalFilename,
+      mimeType: input.mimeType || "application/octet-stream",
+      sizeBytes: input.sizeBytes,
+      storageKey: input.storageKey,
+      sourceType: "image",
+      metadataJson: buildHandwrittenSourceMetadata(input),
+    },
+    select: {
+      id: true,
+      originalFilename: true,
+      mimeType: true,
+      sizeBytes: true,
+      sourceType: true,
+      storageKey: true,
+      metadataJson: true,
+      createdAt: true,
+    },
+  });
+}
+
+export async function listStagedHandwrittenSourceDocuments(input: {
+  userId: number;
+  uploadBatchId: string;
+}) {
+  const prisma = await getPrisma();
+  const prismaDb = prisma as unknown as {
+    recipeSourceDocument: {
+      findMany: (args: {
+        where: {
+          uploadedByUserId: number;
+          recipeId: null;
+          importSessionId: null;
+          sourceType: "image";
+        };
+        select: {
+          id: true;
+          originalFilename: true;
+          mimeType: true;
+          sizeBytes: true;
+          sourceType: true;
+          storageKey: true;
+          metadataJson: true;
+          createdAt: true;
+        };
+        orderBy: { createdAt: "asc" };
+      }) => Promise<Array<{
+        id: number;
+        originalFilename: string;
+        mimeType: string;
+        sizeBytes: number;
+        sourceType: string;
+        storageKey: string;
+        metadataJson: string | null;
+        createdAt: Date;
+      }>>;
+    };
+  };
+
+  const docs = await prismaDb.recipeSourceDocument.findMany({
+    where: {
+      uploadedByUserId: input.userId,
+      recipeId: null,
+      importSessionId: null,
+      sourceType: "image",
+    },
+    select: {
+      id: true,
+      originalFilename: true,
+      mimeType: true,
+      sizeBytes: true,
+      sourceType: true,
+      storageKey: true,
+      metadataJson: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return docs
+    .map((doc) => {
+      const metadata = parseHandwrittenSourceMetadata(doc.metadataJson);
+      return metadata?.uploadBatchId === input.uploadBatchId
+        ? {
+            ...doc,
+            clientFileId: metadata.clientFileId,
+          }
+        : null;
+    })
+    .filter((doc): doc is NonNullable<typeof doc> => Boolean(doc));
+}
+
+export async function loadOrderedStagedHandwrittenSourceDocuments(input: {
+  userId: number;
+  sourceDocumentIds: number[];
+}): Promise<StagedHandwrittenSourceDocument[]> {
+  if (input.sourceDocumentIds.length === 0) {
+    return [];
+  }
+
+  const prisma = await getPrisma();
+  const prismaDb = prisma as unknown as {
+    recipeSourceDocument: {
+      findMany: (args: {
+        where: {
+          id: { in: number[] };
+          uploadedByUserId: number;
+          recipeId: null;
+          importSessionId: null;
+          sourceType: "image";
+        };
+        select: {
+          id: true;
+          originalFilename: true;
+          mimeType: true;
+          sizeBytes: true;
+          sourceType: true;
+          storageKey: true;
+          metadataJson: true;
+        };
+      }) => Promise<Array<{
+        id: number;
+        originalFilename: string;
+        mimeType: string;
+        sizeBytes: number;
+        sourceType: string;
+        storageKey: string;
+        metadataJson: string | null;
+      }>>;
+    };
+  };
+
+  const docs = await prismaDb.recipeSourceDocument.findMany({
+    where: {
+      id: { in: input.sourceDocumentIds },
+      uploadedByUserId: input.userId,
+      recipeId: null,
+      importSessionId: null,
+      sourceType: "image",
+    },
+    select: {
+      id: true,
+      originalFilename: true,
+      mimeType: true,
+      sizeBytes: true,
+      sourceType: true,
+      storageKey: true,
+      metadataJson: true,
+    },
+  });
+  const byId = new Map(docs.map((doc) => [doc.id, doc]));
+  const orderedDocs = input.sourceDocumentIds.map((id) => byId.get(id));
+
+  if (orderedDocs.some((doc) => !doc)) {
+    throw new Error("Staged handwritten source image not found.");
+  }
+
+  return Promise.all(
+    orderedDocs.map(async (doc) => {
+      const metadata = parseHandwrittenSourceMetadata(doc!.metadataJson);
+      if (!metadata) {
+        throw new Error("Staged handwritten source image not found.");
+      }
+
+      return {
+        id: doc!.id,
+        originalFilename: doc!.originalFilename,
+        mimeType: doc!.mimeType,
+        sizeBytes: doc!.sizeBytes,
+        storageKey: doc!.storageKey,
+        sourceType: "image",
+        bytes: await streamToBuffer(await storageProvider.getObjectStream(doc!.storageKey)),
+      };
+    }),
+  );
+}
+
+export async function attachStagedSourceDocumentsToImportSession(input: {
+  userId: number;
+  importSessionId: string;
+  sourceDocumentIds: number[];
+}) {
+  if (input.sourceDocumentIds.length === 0) {
+    return [];
+  }
+
+  const prisma = await getPrisma();
+  const prismaDb = prisma as unknown as {
+    recipeSourceDocument: {
+      updateMany: (args: {
+        where: {
+          id: { in: number[] };
+          uploadedByUserId: number;
+          recipeId: null;
+          importSessionId: null;
+        };
+        data: { importSessionId: string };
+      }) => Promise<{ count: number }>;
+      findMany: (args: {
+        where: { id: { in: number[] }; uploadedByUserId: number; importSessionId: string };
+        select: {
+          id: true;
+          sourceType: true;
+          originalFilename: true;
+          mimeType: true;
+          sizeBytes: true;
+          storageKey: true;
+        };
+      }) => Promise<ImportSessionSourceDocumentRef[]>;
+    };
+  };
+
+  const { count } = await prismaDb.recipeSourceDocument.updateMany({
+    where: {
+      id: { in: input.sourceDocumentIds },
+      uploadedByUserId: input.userId,
+      recipeId: null,
+      importSessionId: null,
+    },
+    data: { importSessionId: input.importSessionId },
+  });
+
+  if (count !== input.sourceDocumentIds.length) {
+    throw new Error("Staged handwritten source image not found.");
+  }
+
+  const docs = await prismaDb.recipeSourceDocument.findMany({
+    where: {
+      id: { in: input.sourceDocumentIds },
+      uploadedByUserId: input.userId,
+      importSessionId: input.importSessionId,
+    },
+    select: {
+      id: true,
+      sourceType: true,
+      originalFilename: true,
+      mimeType: true,
+      sizeBytes: true,
+      storageKey: true,
+    },
+  });
+  const byId = new Map(docs.map((doc) => [doc.id, doc]));
+
+  const orderedDocs: ImportSessionSourceDocumentRef[] = [];
+  for (const id of input.sourceDocumentIds) {
+    const doc = byId.get(id);
+    if (doc) {
+      orderedDocs.push(doc);
+    }
+  }
+
+  return orderedDocs;
 }
 
 export async function stageImportSourceDocument(input: StageImportSourceDocumentInput) {
@@ -228,6 +610,10 @@ export function parseRecipeSourceDocumentMetadata(value: string | null): RecipeS
 
 export async function cleanupExpiredImportSessions(now = new Date()) {
   const prisma = await getPrisma();
+  const ttlHours = Number(process.env.RECIPE_IMPORT_SESSION_TTL_HOURS ?? 24);
+  const stagedSourceCutoff = new Date(
+    now.getTime() - (Number.isFinite(ttlHours) && ttlHours > 0 ? ttlHours : 24) * 60 * 60 * 1000,
+  );
   const prismaDb = prisma as unknown as {
     importSession: {
       findMany: (args: {
@@ -247,7 +633,14 @@ export async function cleanupExpiredImportSessions(now = new Date()) {
     };
     recipeSourceDocument: {
       findMany: (args: {
-        where: { recipeId: null; importSessionId: { in: string[] } };
+        where:
+          | { recipeId: null; importSessionId: { in: string[] } }
+          | {
+              recipeId: null;
+              importSessionId: null;
+              sourceType: "image";
+              createdAt: { lt: Date };
+            };
         select: { id: true; storageKey: true };
       }) => Promise<Array<{ id: number; storageKey: string }>>;
       deleteMany: (args: { where: { id: { in: number[] } } }) => Promise<{ count: number }>;
@@ -262,35 +655,46 @@ export async function cleanupExpiredImportSessions(now = new Date()) {
     select: { id: true },
   });
 
-  const expiredSessionIds = expiredSessions.map((session) => session.id);
-  if (expiredSessionIds.length === 0) {
-    return {
-      expiredSessionCount: 0,
-      markedExpiredCount: 0,
-      deletedSessionCount: 0,
-      deletedSourceDocumentCount: 0,
-      deletedSourceFileCount: 0,
-    };
-  }
-
-  const { count: markedExpiredCount } = await prismaDb.importSession.updateMany({
-    where: {
-      id: { in: expiredSessionIds },
-      status: { in: ["PARSED", "FAILED"] },
-    },
-    data: { status: "EXPIRED" },
-  });
-
-  const staleDocs = await prismaDb.recipeSourceDocument.findMany({
+  const orphanStagedDocs = await prismaDb.recipeSourceDocument.findMany({
     where: {
       recipeId: null,
-      importSessionId: { in: expiredSessionIds },
+      importSessionId: null,
+      sourceType: "image",
+      createdAt: { lt: stagedSourceCutoff },
     },
     select: {
       id: true,
       storageKey: true,
     },
   });
+
+  const expiredSessionIds = expiredSessions.map((session) => session.id);
+  const { count: markedExpiredCount } =
+    expiredSessionIds.length > 0
+      ? await prismaDb.importSession.updateMany({
+          where: {
+            id: { in: expiredSessionIds },
+            status: { in: ["PARSED", "FAILED"] },
+          },
+          data: { status: "EXPIRED" },
+        })
+      : { count: 0 };
+
+  const sessionStaleDocs =
+    expiredSessionIds.length > 0
+      ? await prismaDb.recipeSourceDocument.findMany({
+          where: {
+            recipeId: null,
+            importSessionId: { in: expiredSessionIds },
+          },
+          select: {
+            id: true,
+            storageKey: true,
+          },
+        })
+      : [];
+
+  const staleDocs = [...sessionStaleDocs, ...orphanStagedDocs];
 
   let deletedSourceFileCount = 0;
   for (const doc of staleDocs) {

@@ -146,6 +146,10 @@ function normalizeLine(line: string): string {
   return line.trim().replace(/^[-*•]\s+/, "").replace(/^\d+[.)]\s+/, "");
 }
 
+function normalizeSectionHeadingCandidate(line: string): string {
+  return line.trim().replace(/^[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+/u, "").trim();
+}
+
 function parseLeadingQuantity(text: string): { qty: number | null; rest: string } {
   const unicodeMixedFractionMatch = text.match(/^(\d+)([¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])\s+(.+)$/);
   if (unicodeMixedFractionMatch) {
@@ -444,7 +448,8 @@ export function importRecipeFromTextDocument(content: string): ImportedRecipeDra
       continue;
     }
 
-    const matchedSection = SECTION_MATCHERS.find((matcher) => matcher.pattern.test(line));
+    const headingCandidate = normalizeSectionHeadingCandidate(line);
+    const matchedSection = SECTION_MATCHERS.find((matcher) => matcher.pattern.test(headingCandidate));
     if (matchedSection) {
       section = matchedSection.name;
       continue;

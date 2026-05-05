@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+/.tmp
+/.playwright-mcp
+/home-phone-*.png
+/home-nav-final-*.png
 
 # next.js
 /.next/
@@ -43,3 +47,4 @@ next-env.d.ts
 /app/generated/prisma
 *.db
 /uploads
+.env*.local

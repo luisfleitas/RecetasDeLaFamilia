@@ -8,6 +8,7 @@ test("validateImportedRecipeDraft accepts a complete imported draft", () => {
     title: " Toast ",
     description: " Quick snack ",
     stepsMarkdown: " 1. Toast bread. ",
+    language: "en",
     ingredients: [
       {
         name: " bread ",
@@ -33,6 +34,7 @@ test("validateImportedRecipeDraft allows a missing title during import parsing",
     title: "   ",
     description: null,
     stepsMarkdown: " 1. Toast bread. ",
+    language: "en",
     ingredients: [
       {
         name: " bread ",
@@ -47,6 +49,26 @@ test("validateImportedRecipeDraft allows a missing title during import parsing",
   assert.equal(draft.title, "");
 });
 
+test("validateImportedRecipeDraft defaults blank imported units to reviewable generic units", () => {
+  const draft = validateImportedRecipeDraft({
+    title: "Guasacaca",
+    description: null,
+    stepsMarkdown: "1. Blend until smooth.",
+    language: "en",
+    ingredients: [
+      {
+        name: "ripe avocados",
+        qty: 2,
+        unit: "   ",
+        notes: null,
+        position: 1,
+      },
+    ],
+  });
+
+  assert.equal(draft.ingredients[0]?.unit, "unit");
+});
+
 test("validateImportedRecipeDraft rejects missing required fields", () => {
   assert.throws(
     () =>
@@ -54,6 +76,7 @@ test("validateImportedRecipeDraft rejects missing required fields", () => {
         title: "Toast",
         description: null,
         stepsMarkdown: "",
+        language: "en",
         ingredients: [],
       }),
     /missing required ingredients or steps/i,

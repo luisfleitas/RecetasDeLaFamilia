@@ -2,16 +2,27 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { getDatabaseProvider, getProviderDatabaseUrl } from "../scripts/database-provider.mjs";
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL ?? "file:./dev.db",
-});
-const prisma = new PrismaClient({ adapter });
+const databaseProvider = getDatabaseProvider();
+const prisma =
+  databaseProvider === "postgresql"
+    ? new PrismaClient({
+        adapter: new PrismaPg({
+          connectionString: getProviderDatabaseUrl(databaseProvider),
+        }),
+      })
+    : new PrismaClient({
+        adapter: new PrismaBetterSqlite3({
+          url: process.env.DATABASE_URL ?? "file:./dev.db",
+        }),
+      });
 const uploadsRoot = process.env.IMAGE_STORAGE_LOCAL_ROOT
   ? join(process.cwd(), process.env.IMAGE_STORAGE_LOCAL_ROOT)
   : join(process.cwd(), "uploads");

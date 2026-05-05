@@ -33,6 +33,11 @@ type UpdateRecipeWithImagesInput = {
   primaryImageIndex?: number | null;
 };
 
+type AddRecipeImageInput = {
+  image: UploadedRecipeImage;
+  makePrimary?: boolean;
+};
+
 export type RecipeUseCases = {
   listRecipes: (viewerUserId: number | null, options?: ListRecipeOptions) => Promise<RecipeListItem[]>;
   getRecipeById: (id: number, viewerUserId: number | null, options?: GetRecipeByIdOptions) => Promise<Recipe | null>;
@@ -48,6 +53,11 @@ export type RecipeUseCases = {
     id: number,
     input: UpdateRecipeWithImagesInput,
   ) => Promise<{ recipe: Recipe | null; forbidden: boolean }>;
+  addRecipeImage: (
+    userId: number,
+    id: number,
+    input: AddRecipeImageInput,
+  ) => Promise<{ recipe: Recipe | null; image: NonNullable<Recipe["images"]>[number] | null; forbidden: boolean }>;
   getRecipeImageAssetById: (imageId: number) => Promise<{ id: number; storageKey: string; thumbnailKey: string } | null>;
   deleteRecipeImage: (
     userId: number,
@@ -247,6 +257,13 @@ export function makeRecipeUseCases(
         return { recipe: null, forbidden: true };
       }
 
+      if (input.primaryImageId != null) {
+        const requestedPrimary = await recipeRepository.getImageById(input.primaryImageId);
+        if (!requestedPrimary || requestedPrimary.recipeId !== id) {
+          throw new Error("primaryImageId does not belong to this recipe");
+        }
+      }
+
       const updatedRecipe = await recipeRepository.update(id, input.recipe);
       if (!updatedRecipe) {
         return { recipe: null, forbidden: false };
@@ -272,6 +289,34 @@ export function makeRecipeUseCases(
         includeImages: true,
       });
       return { recipe, forbidden: false };
+    },
+
+    async addRecipeImage(userId: number, id: number, input: AddRecipeImageInput) {
+      const ownerId = await recipeRepository.getOwnerById(id);
+
+      if (!ownerId) {
+        return { recipe: null, image: null, forbidden: false };
+      }
+
+      if (ownerId !== userId) {
+        return { recipe: null, image: null, forbidden: true };
+      }
+
+      const { createdImageIds } = await persistNewImages(
+        id,
+        [input.image],
+        input.makePrimary === true ? 0 : null,
+      );
+
+      const recipe = await recipeRepository.getById(id, {
+        viewerUserId: userId,
+        includePrimaryImage: true,
+        includeImages: true,
+      });
+      const createdImageId = createdImageIds[0] ?? null;
+      const image = recipe?.images?.find((item) => item.id === createdImageId) ?? null;
+
+      return { recipe, image, forbidden: false };
     },
 
     async getRecipeImageAssetById(imageId: number) {

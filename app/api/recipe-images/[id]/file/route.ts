@@ -4,6 +4,7 @@ import { buildRecipeUseCases } from "@/lib/recipes/factory";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -45,7 +46,9 @@ export async function GET(request: Request, { params }: Params) {
     return new Response(stream, {
       headers: {
         "Content-Type": "image/jpeg",
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        // Image records can be deleted independently from their stable URLs, so
+        // CDN/browser caches must re-check the database-backed route each time.
+        "Cache-Control": "no-store",
       },
     });
   } catch {

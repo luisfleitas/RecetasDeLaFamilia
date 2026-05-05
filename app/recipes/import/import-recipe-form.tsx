@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
@@ -11,6 +12,10 @@ import {
   getImportWarningsForDraft,
   type ImportWarning,
 } from "@/lib/application/recipes/import-warnings";
+import {
+  isAcceptedHandwrittenImageFile,
+  resolveRecipeImportFileSelection,
+} from "@/lib/application/recipes/import-file-selection";
 import type {
   HandwrittenSourceImageVisibility,
   ImportSessionMetadata,
@@ -39,6 +44,19 @@ type IngredientDraft = {
 
 type ImportRecipeFormProps = {
   handwrittenEnabled: boolean;
+  handwrittenBlobUploadPathPrefix: string;
+  handwrittenMaxImageBytes: number;
+  handwrittenMaxImageCount: number;
+  handwrittenMaxUploadBytes: number;
+  handwrittenSourceUploadMode: "blob" | "server";
+};
+
+type StagedSourceImageRef = {
+  id: number;
+  clientFileId: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
 };
 
 function toEditableIngredients(draft: ImportedRecipeDraft): IngredientDraft[] {
@@ -51,7 +69,54 @@ function toEditableIngredients(draft: ImportedRecipeDraft): IngredientDraft[] {
   }));
 }
 
-export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFormProps) {
+function sanitizeUploadPathSegment(value: string) {
+  const cleaned = value
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return cleaned.length > 0 ? cleaned : "handwritten-source";
+}
+
+function formatFileSize(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes >= 1) {
+    return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB`;
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
+}
+
+async function waitForStagedSources(uploadBatchId: string, expectedCount: number): Promise<StagedSourceImageRef[]> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await fetch(
+      `/api/recipes/import/source-images?uploadBatchId=${encodeURIComponent(uploadBatchId)}`,
+      { cache: "no-store" },
+    );
+    const data = (await response.json()) as { sources?: StagedSourceImageRef[]; error?: string };
+    if (!response.ok || !data.sources) {
+      throw new Error(data.error ?? "Could not resolve uploaded source images.");
+    }
+
+    if (data.sources.length >= expectedCount) {
+      return data.sources;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error("Timed out while preparing handwritten source images.");
+}
+
+export default function ImportRecipeForm({
+  handwrittenBlobUploadPathPrefix,
+  handwrittenEnabled,
+  handwrittenMaxImageBytes,
+  handwrittenMaxImageCount,
+  handwrittenMaxUploadBytes,
+  handwrittenSourceUploadMode,
+}: ImportRecipeFormProps) {
   const router = useRouter();
   const locale = useLocale();
   const messages = useMessages();
@@ -73,14 +138,21 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
   const [isContinuing, setIsContinuing] = useState(false);
   const [sourceImageVisibility, setSourceImageVisibility] =
     useState<HandwrittenSourceImageVisibility>("private");
+  const handwrittenUploadBytes = handwrittenFiles.reduce((total, file) => total + file.size, 0);
+  const handwrittenUploadTooLarge = handwrittenUploadBytes > handwrittenMaxUploadBytes;
+  const handwrittenUploadSizeWarning = handwrittenUploadTooLarge
+    ? messages.recipe.uploadTotalTooLarge
+        .replace("{selectedSize}", formatFileSize(handwrittenUploadBytes))
+        .replace("{maxSize}", formatFileSize(handwrittenMaxUploadBytes))
+    : null;
 
   const canParse = useMemo(() => {
     if (inputMode === "handwritten") {
-      return handwrittenFiles.length > 0;
+      return handwrittenFiles.length > 0 && !handwrittenUploadTooLarge;
     }
 
     return rawText.trim().length > 0 || selectedDocumentFile != null;
-  }, [handwrittenFiles.length, inputMode, rawText, selectedDocumentFile]);
+  }, [handwrittenFiles.length, handwrittenUploadTooLarge, inputMode, rawText, selectedDocumentFile]);
 
   const draftWarnings = useMemo<ImportWarning[]>(() => {
     if (!draft) {
@@ -155,23 +227,142 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
     resetParsedState();
   }
 
+  function handleDocumentFileSelection(files: FileList | null) {
+    const selection = resolveRecipeImportFileSelection({
+      files: Array.from(files ?? []),
+      handwrittenEnabled,
+    });
+
+    setError(null);
+    resetParsedState();
+
+    if (selection.kind === "empty") {
+      setSelectedDocumentFile(null);
+      return;
+    }
+
+    if (selection.kind === "error") {
+      setSelectedDocumentFile(null);
+      setError(selection.message);
+      return;
+    }
+
+    if (selection.kind === "handwritten-images") {
+      setRawText("");
+      setSelectedDocumentFile(null);
+      setHandwrittenFiles(selection.files);
+      setInputMode("handwritten");
+      return;
+    }
+
+    setSelectedDocumentFile(selection.file);
+  }
+
+  function handleHandwrittenFilesChange(files: FileList | null) {
+    setError(null);
+    resetParsedState();
+    setHandwrittenFiles(Array.from(files ?? []));
+  }
+
   async function handleParse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (inputMode === "handwritten" && handwrittenUploadTooLarge) {
+      setError(handwrittenUploadSizeWarning ?? messages.recipe.errors.parseRecipeFailed);
+      return;
+    }
+
     setIsParsing(true);
 
     try {
       let response: Response;
 
       if (inputMode === "handwritten") {
-        const formData = new FormData();
-        formData.append("inputMode", "handwritten");
-        handwrittenFiles.forEach((file) => {
-          formData.append("files", file);
+        const handwrittenTotalBytes = handwrittenFiles.reduce((total, file) => total + file.size, 0);
+        const oversizedFile = handwrittenFiles.find((file) => file.size > handwrittenMaxImageBytes);
+        const unsupportedFile = handwrittenFiles.find((file) => !isAcceptedHandwrittenImageFile(file));
+        if (handwrittenFiles.length > handwrittenMaxImageCount) {
+          resetParsedState();
+          setError(`Upload up to ${handwrittenMaxImageCount} handwritten images per import.`);
+          return;
+        }
+        if (unsupportedFile) {
+          resetParsedState();
+          setError("Unsupported handwritten file type. Use JPG, PNG, WEBP, TIFF, or BMP.");
+          return;
+        }
+        if (oversizedFile) {
+          resetParsedState();
+          setError(`Each handwritten image must be ${formatFileSize(handwrittenMaxImageBytes)} or smaller.`);
+          return;
+        }
+        if (handwrittenTotalBytes > handwrittenMaxUploadBytes) {
+          resetParsedState();
+          setError(`Combined handwritten image uploads must be ${formatFileSize(handwrittenMaxUploadBytes)} or smaller.`);
+          return;
+        }
+
+        const uploadBatchId = crypto.randomUUID();
+        const clientFileIds = handwrittenFiles.map((file, index) => `${index + 1}-${sanitizeUploadPathSegment(file.name)}`);
+
+        if (handwrittenSourceUploadMode === "blob") {
+          await Promise.all(
+            handwrittenFiles.map((file, index) =>
+              upload(
+                `${handwrittenBlobUploadPathPrefix}imports/staging/${uploadBatchId}/${clientFileIds[index]}-${sanitizeUploadPathSegment(file.name)}`,
+                file,
+                {
+                  access: "private",
+                  clientPayload: JSON.stringify({
+                    uploadBatchId,
+                    clientFileId: clientFileIds[index],
+                    originalFilename: file.name || "handwritten-source",
+                    mimeType: file.type || "application/octet-stream",
+                    sizeBytes: file.size,
+                  }),
+                  contentType: file.type || "application/octet-stream",
+                  handleUploadUrl: "/api/recipes/import/source-images/upload",
+                  multipart: true,
+                },
+              ),
+            ),
+          );
+        } else {
+          for (let index = 0; index < handwrittenFiles.length; index += 1) {
+            const file = handwrittenFiles[index];
+            const sourceFormData = new FormData();
+            sourceFormData.append("uploadBatchId", uploadBatchId);
+            sourceFormData.append("clientFileId", clientFileIds[index]);
+            sourceFormData.append("image", file);
+            const sourceResponse = await fetch("/api/recipes/import/source-images", {
+              method: "POST",
+              body: sourceFormData,
+            });
+            if (!sourceResponse.ok) {
+              const sourceData = (await sourceResponse.json()) as { error?: string };
+              throw new Error(sourceData.error ?? messages.recipe.errors.parseRecipeFailed);
+            }
+          }
+        }
+
+        const stagedSources = await waitForStagedSources(uploadBatchId, handwrittenFiles.length);
+        const stagedSourceDocumentIds = clientFileIds.map((clientFileId) => {
+          const source = stagedSources.find((item) => item.clientFileId === clientFileId);
+          if (!source) {
+            throw new Error("Could not resolve uploaded source image order.");
+          }
+
+          return source.id;
         });
+
         response = await fetch("/api/recipes/import/parse", {
           method: "POST",
-          body: formData,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            inputMode: "handwritten",
+            stagedSourceDocumentIds,
+          }),
         });
       } else {
         const hasText = rawText.trim().length > 0;
@@ -416,13 +607,24 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     multiple
                     accept="image/jpeg,image/png,image/webp,image/tiff,image/bmp"
                     className="input-base mt-2"
-                    onChange={(event) => setHandwrittenFiles(Array.from(event.target.files ?? []))}
+                    onChange={(event) => handleHandwrittenFilesChange(event.target.files)}
+                    aria-describedby="recipe-import-handwritten-supported-formats recipe-import-handwritten-upload-size"
                   />
                   <p
                     id="recipe-import-handwritten-supported-formats"
                     className="mt-2 text-xs text-[var(--color-text-muted)]"
                   >
                     {messages.recipe.uploadFormats}
+                  </p>
+                  <p
+                    id="recipe-import-handwritten-upload-size"
+                    className={`mt-2 text-xs ${
+                      handwrittenUploadTooLarge ? "text-red-700" : "text-[var(--color-text-muted)]"
+                    }`}
+                    role={handwrittenUploadTooLarge ? "alert" : undefined}
+                  >
+                    {handwrittenUploadSizeWarning ??
+                      messages.recipe.uploadSizeLimit.replace("{maxSize}", formatFileSize(handwrittenMaxUploadBytes))}
                   </p>
                 </div>
               ) : (
@@ -456,8 +658,9 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                     <input
                       id="recipe-import-file-input"
                       type="file"
+                      multiple
                       accept=".txt,text/plain,.doc,application/msword,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
-                      onChange={(event) => setSelectedDocumentFile(event.target.files?.[0] ?? null)}
+                      onChange={(event) => handleDocumentFileSelection(event.target.files)}
                       className="input-base"
                     />
                   </div>
@@ -510,7 +713,7 @@ export default function ImportRecipeForm({ handwrittenEnabled }: ImportRecipeFor
                           id={`recipe-import-handwritten-page-file-${index + 1}`}
                           className="mt-2 text-sm text-[var(--color-text-muted)]"
                         >
-                          {file.name}
+                          {file.name} ({formatFileSize(file.size)})
                         </p>
                       </li>
                     ))}

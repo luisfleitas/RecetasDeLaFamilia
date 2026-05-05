@@ -48,6 +48,25 @@ function parseRecipePayloadFromFormData(formData: FormData) {
   });
 }
 
+function toRecipeImageResponseRef(
+  image: {
+    id: number;
+    fullUrl: string;
+    thumbnailUrl: string;
+    isPrimary?: boolean;
+    position?: number;
+  },
+  index: number,
+) {
+  return {
+    id: image.id,
+    fullUrl: image.fullUrl,
+    thumbnailUrl: image.thumbnailUrl,
+    isPrimary: image.isPrimary ?? false,
+    position: image.position ?? index + 1,
+  };
+}
+
 async function parseUploadedImagesFromFormData(formData: FormData, fieldName: string) {
   const files = formData.getAll(fieldName);
   const images: UploadedRecipeImage[] = [];
@@ -90,7 +109,7 @@ function toErrorStatus(error: unknown): number {
   const message = error.message;
   const isValidationError =
     message.includes("Unsupported image type") ||
-    message.includes("10MB") ||
+    message.includes("4MB") ||
     message.includes("supports up to 8 images") ||
     message.includes("primaryImage") ||
     message.includes("visibility") ||
@@ -162,7 +181,7 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({
       recipe: {
         ...recipe,
-        images: [...(recipe.images ?? []), ...visibleSourceImages],
+        images: [...(recipe.images ?? []), ...visibleSourceImages].map(toRecipeImageResponseRef),
       },
     });
   } catch (error) {

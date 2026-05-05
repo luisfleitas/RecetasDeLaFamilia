@@ -2,8 +2,10 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:3000}"
+VERCEL_DEPLOYMENT="${VERCEL_DEPLOYMENT:-}"
 USERNAME="${USERNAME:-alice}"
 PASSWORD="${PASSWORD:-Password123!}"
+REGISTER_TEST_USER="${REGISTER_TEST_USER:-0}"
 IMG1="${IMG1:-}"
 IMG2="${IMG2:-}"
 IMG3="${IMG3:-}"
@@ -88,11 +90,41 @@ request() {
   local response_file="$TMP_DIR/response.json"
 
   local code
-  code="$(curl -sS -X "$method" -D "$headers_file" -o "$response_file" -w "%{http_code}" "$url" "$@")"
+  if [[ -n "$VERCEL_DEPLOYMENT" ]]; then
+    local path="$url"
+    path="${path#"$BASE_URL"}"
+    # Vercel-protected deployments need the authenticated CLI wrapper, but app
+    # routes still receive the same path, method, cookies, and multipart body.
+    code="$(npx --yes vercel@latest curl "$path" --deployment "$VERCEL_DEPLOYMENT" -- \
+      --silent --show-error \
+      --request "$method" \
+      --dump-header "$headers_file" \
+      --output "$response_file" \
+      --write-out "%{http_code}" \
+      "$@")"
+  else
+    code="$(curl -sS -X "$method" -D "$headers_file" -o "$response_file" -w "%{http_code}" "$url" "$@")"
+  fi
 
   cp "$response_file" "$body_file"
   LAST_RESPONSE_FILE="$body_file"
   echo "$code"
+}
+
+fetch_file() {
+  local url="$1"
+  local output_path="$2"
+
+  if [[ -n "$VERCEL_DEPLOYMENT" ]]; then
+    local path="$url"
+    path="${path#"$BASE_URL"}"
+    npx --yes vercel@latest curl "$path" --deployment "$VERCEL_DEPLOYMENT" -- \
+      --silent --show-error \
+      --output "$output_path" \
+      --write-out "%{http_code}"
+  else
+    curl -sS -o "$output_path" -w "%{http_code}" "$url"
+  fi
 }
 
 json_field() {
@@ -131,14 +163,28 @@ expect_code() {
 
 echo "== Phase 1 Curl Smoke Test =="
 echo "BASE_URL=$BASE_URL"
+if [[ -n "$VERCEL_DEPLOYMENT" ]]; then
+  echo "VERCEL_DEPLOYMENT=$VERCEL_DEPLOYMENT"
+fi
 
-# 1) Login
-LOGIN_BODY="$TMP_DIR/login.json"
-LOGIN_CODE="$(request POST "$BASE_URL/api/auth/login" "$LOGIN_BODY" \
-  -c "$COOKIE_JAR" \
-  -H "Content-Type: application/json" \
-  -d "{\"username_or_email\":\"$USERNAME\",\"password\":\"$PASSWORD\"}")"
-expect_code "$LOGIN_CODE" "200" "login"
+# 1) Authenticate
+if [[ "$REGISTER_TEST_USER" == "1" ]]; then
+  USER_SUFFIX="$(date +%s)$$"
+  USERNAME="stageupload$USER_SUFFIX"
+  REGISTER_BODY="$TMP_DIR/register.json"
+  REGISTER_CODE="$(request POST "$BASE_URL/api/auth/register" "$REGISTER_BODY" \
+    -c "$COOKIE_JAR" \
+    -H "Content-Type: application/json" \
+    -d "{\"first_name\":\"Stage\",\"last_name\":\"Upload\",\"email\":\"$USERNAME@example.com\",\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}")"
+  expect_code "$REGISTER_CODE" "201" "register-test-user"
+else
+  LOGIN_BODY="$TMP_DIR/login.json"
+  LOGIN_CODE="$(request POST "$BASE_URL/api/auth/login" "$LOGIN_BODY" \
+    -c "$COOKIE_JAR" \
+    -H "Content-Type: application/json" \
+    -d "{\"username_or_email\":\"$USERNAME\",\"password\":\"$PASSWORD\"}")"
+  expect_code "$LOGIN_CODE" "200" "login"
+fi
 
 # 2) Create recipe with images
 CREATE_BODY="$TMP_DIR/create.json"
@@ -191,11 +237,11 @@ expect_code "$UPDATE_CODE" "200" "update-with-new-image"
 
 # 6) Fetch full + thumb files
 FULL_PATH="$TMP_DIR/full.jpg"
-FULL_CODE="$(curl -sS -o "$FULL_PATH" -w "%{http_code}" "$BASE_URL/api/recipe-images/$IMAGE_ID/file?variant=full")"
+FULL_CODE="$(fetch_file "$BASE_URL/api/recipe-images/$IMAGE_ID/file?variant=full" "$FULL_PATH")"
 expect_code "$FULL_CODE" "200" "fetch-full"
 
 THUMB_PATH="$TMP_DIR/thumb.jpg"
-THUMB_CODE="$(curl -sS -o "$THUMB_PATH" -w "%{http_code}" "$BASE_URL/api/recipe-images/$IMAGE_ID/file?variant=thumb")"
+THUMB_CODE="$(fetch_file "$BASE_URL/api/recipe-images/$IMAGE_ID/file?variant=thumb" "$THUMB_PATH")"
 expect_code "$THUMB_CODE" "200" "fetch-thumb"
 
 # 7) Unsupported type should fail with 400
@@ -217,6 +263,16 @@ UNAUTH_CODE="$(request PUT "$BASE_URL/api/recipes/$RECIPE_ID" "$UNAUTH_BODY" \
   -H "Content-Type: application/json" \
   -d '{"title":"No Auth","description":"","stepsMarkdown":"Step","ingredients":[{"name":"Salt","qty":1,"unit":"tsp","notes":"","position":1}]}')"
 expect_code "$UNAUTH_CODE" "401" "unauthorized-update"
+
+# 9) Delete the checked image and confirm it no longer serves
+DELETE_IMAGE_BODY="$TMP_DIR/delete-image.json"
+DELETE_IMAGE_CODE="$(request DELETE "$BASE_URL/api/recipes/$RECIPE_ID/images/$IMAGE_ID" "$DELETE_IMAGE_BODY" \
+  -b "$COOKIE_JAR")"
+expect_code "$DELETE_IMAGE_CODE" "200" "delete-image"
+
+DELETED_FULL_PATH="$TMP_DIR/deleted-full.jpg"
+DELETED_FULL_CODE="$(fetch_file "$BASE_URL/api/recipe-images/$IMAGE_ID/file?variant=full" "$DELETED_FULL_PATH")"
+expect_code "$DELETED_FULL_CODE" "404" "fetch-deleted-full"
 
 echo
 echo "All Phase 1 curl checks passed."

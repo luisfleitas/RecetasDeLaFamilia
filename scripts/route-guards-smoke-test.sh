@@ -61,8 +61,8 @@ assert_home_shows_auth_links() {
     exit 1
   fi
 
-  if [[ "$html" == *"id=\"home-auth-status-pill\""* ]]; then
-    echo "Expected unauthenticated home to not render auth status pill"
+  if [[ "$html" == *"id=\"home-account-menu-trigger\""* ]]; then
+    echo "Expected unauthenticated home to not render account menu trigger"
     exit 1
   fi
 }
@@ -82,8 +82,8 @@ assert_home_authenticated_header() {
     exit 1
   fi
 
-  if [[ "$html" != *"id=\"home-auth-status-pill\""* ]]; then
-    echo "Expected authenticated home to show auth status pill"
+  if [[ "$html" != *"id=\"home-account-menu-trigger\""* ]]; then
+    echo "Expected authenticated home to show account menu trigger"
     exit 1
   fi
 }

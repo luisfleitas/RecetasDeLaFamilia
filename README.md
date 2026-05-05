@@ -65,6 +65,12 @@ Environment variables:
 - `RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT`:
   - max number of handwritten images accepted in a single import
   - defaults to `6`
+- `RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_BYTES`:
+  - max size for each handwritten OCR source image
+  - defaults to `10485760` bytes (`10MB`)
+- `RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES`:
+  - max combined upload size for handwritten images in a single import
+  - defaults to `20971520` bytes (`20MB`)
 - `RECIPE_IMPORT_OCR_LANGS`:
   - Tesseract language packs used by local OCR
   - defaults to `eng+spa`
@@ -77,6 +83,7 @@ Handwritten import V1 configuration notes:
 - If `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=openai`, `OPENAI_API_KEY` must be set.
 - If `RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=local`, the host must have `tesseract` installed and available on `PATH`.
 - V1 handwritten import is intentionally scoped to the current `openai` or `local` provider path. There is no separate Google Vision fallback configuration.
+- Hosted handwritten imports stage original OCR source images in Vercel Blob before parsing. This keeps the parse function payload small while preserving the original image bytes for OCR and source-document review. Saved recipe gallery photos still use the separate `4MB` per-image cap.
 
 Example:
 
@@ -90,6 +97,8 @@ RECIPE_IMPORT_FORCE_OPENAI_OCR=true
 RECIPE_IMPORT_HANDWRITTEN_ENABLED=true
 RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER=openai
 RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT=6
+RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_BYTES=10485760
+RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES=20971520
 RECIPE_IMPORT_OCR_LANGS=eng+spa
 RECIPE_IMPORT_OCR_TIMEOUT_MS=30000
 ```
@@ -102,15 +111,23 @@ Environment variables:
 
 - `IMAGE_STORAGE_DRIVER`:
   - `local` (default, implemented)
-  - `s3` (reserved for future provider implementation)
+  - `vercel-blob` or `blob` (implemented for Vercel Blob)
 - `IMAGE_STORAGE_LOCAL_ROOT`:
   - local filesystem root for image objects
   - defaults to `<repo>/uploads`
+- `BLOB_READ_WRITE_TOKEN`:
+  - required when `IMAGE_STORAGE_DRIVER=vercel-blob`
+- `IMAGE_STORAGE_BLOB_ACCESS`:
+  - `private` by default; set `public` only if stored objects should be public
+- `IMAGE_STORAGE_BLOB_PREFIX`:
+  - optional object prefix for staging/preview isolation
+- `IMAGE_STORAGE_BLOB_PUBLIC_BASE_URL`:
+  - logical URL base, defaults to `/uploads`
 
 Current image constraints:
 
 - Max `8` images per recipe.
-- Max `10MB` per image.
+- Max `4MB` per image.
 - Accepted upload source types: `image/jpeg`, `image/png`, `image/webp`.
 - Canonical output variants:
   - full: `1200x800` JPEG
@@ -177,6 +194,7 @@ Current provider wiring:
 
 - Interface: `lib/infrastructure/images/image-storage-provider.ts`
 - Local provider: `lib/infrastructure/images/local-file-storage-provider.ts`
+- Vercel Blob provider: `lib/infrastructure/images/vercel-blob-storage-provider.ts`
 - Factory/env selection: `lib/infrastructure/images/storage-factory.ts`
 
 To add S3 later:

@@ -99,7 +99,7 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
         id="home-visibility-tabs-list"
         role="tablist"
         aria-label={messages.home.visibilityGroupsAriaLabel}
-        className="sticky top-2 z-10 -mx-1 flex gap-3 overflow-x-auto border-b border-[var(--color-border)] bg-[var(--color-surface)] px-1 pb-0.5 pt-0.5"
+        className="sticky top-2 z-10 flex gap-2 overflow-x-auto rounded-2xl border border-[var(--brand-line-warm)] bg-[rgba(255,249,239,0.9)] p-2 shadow-[var(--brand-shadow-card)]"
       >
         {groups.map((group, index) => {
           const isActive = group.id === activeGroupId;
@@ -116,10 +116,10 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
                 tabRefs.current[index] = element;
               }}
               onKeyDown={(event) => handleTabKeyDown(event, index)}
-              className={`relative shrink-0 rounded-t-md border-b-2 px-3.5 py-2 text-xs font-semibold uppercase tracking-wide transition-all duration-150 ${
+              className={`relative shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold uppercase transition-all duration-150 ${
                 isActive
-                  ? "border-[var(--color-primary)] bg-[var(--color-surface-soft)] text-[var(--color-text)]"
-                  : "border-transparent text-[var(--color-text-muted)] hover:-translate-y-0.5 hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-soft)] hover:text-[var(--color-text)]"
+                  ? "bg-[linear-gradient(135deg,var(--brand-orange-700),var(--brand-orange-300))] text-[var(--brand-cream-50)] shadow-sm"
+                  : "text-[var(--brand-brown-700)] hover:-translate-y-0.5 hover:bg-[var(--brand-cream-100)] hover:text-[var(--brand-brown-900)]"
               }`}
               onClick={() => setActiveGroupId(group.id)}
             >
@@ -145,7 +145,7 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
               {messages.home.emptyGroup}
             </p>
           ) : (
-            <ul id={`home-visibility-tabs-recipes-${activeGroup.id}`} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ul id={`home-visibility-tabs-recipes-${activeGroup.id}`} className="home-recipe-card-grid">
               {activeGroup.recipes.map((recipe) => (
                 <li id={`home-visibility-tabs-item-${activeGroup.id}-${recipe.id}`} key={`${activeGroup.id}-${recipe.id}`} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)]">
                   {recipe.images && recipe.images.length > 0 ? (
@@ -165,7 +165,7 @@ export default function RecipeVisibilityTabs({ groups }: RecipeVisibilityTabsPro
                     <p id={`home-visibility-tabs-date-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs text-[var(--color-text-muted)]">
                       {messages.home.addedOn} {formatDate(recipe.createdAt, locale)}
                     </p>
-                    <p id={`home-visibility-tabs-summary-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--color-primary)]">
+                    <p id={`home-visibility-tabs-summary-${activeGroup.id}-${recipe.id}`} className="mt-1 text-xs uppercase tracking-wide text-[var(--brand-orange-700)]">
                       {getRecipeVisibilitySummary(recipe, messages)}
                     </p>
                   </div>

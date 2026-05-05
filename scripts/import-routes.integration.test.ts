@@ -37,6 +37,7 @@ async function setupIntegrationEnv(options?: {
   recipeImportEnabled?: boolean;
   handwrittenEnabled?: boolean;
   handwrittenPrimaryOcrProvider?: "openai" | "local";
+  handwrittenMaxUploadBytes?: number;
   openAiApiKey?: string;
 }) {
   const rootDir = await mkdtemp(join(tmpdir(), "recetas-import-integration-"));
@@ -56,6 +57,8 @@ async function setupIntegrationEnv(options?: {
   process.env.RECIPE_IMPORT_HANDWRITTEN_ENABLED = options?.handwrittenEnabled ? "true" : "false";
   process.env.RECIPE_IMPORT_HANDWRITTEN_PRIMARY_OCR_PROVIDER = options?.handwrittenPrimaryOcrProvider ?? "openai";
   process.env.RECIPE_IMPORT_HANDWRITTEN_MAX_IMAGE_COUNT = "6";
+  process.env.RECIPE_IMPORT_HANDWRITTEN_MAX_UPLOAD_BYTES =
+    options?.handwrittenMaxUploadBytes == null ? "20971520" : String(options.handwrittenMaxUploadBytes);
 
   if (options?.openAiApiKey) {
     process.env.OPENAI_API_KEY = options.openAiApiKey;
@@ -566,6 +569,67 @@ Steps:
   }
 });
 
+test("handwritten parse rejects uploads over the configured combined size before OCR", async () => {
+  const { rootDir } = await setupIntegrationEnv({
+    handwrittenEnabled: true,
+    handwrittenPrimaryOcrProvider: "openai",
+    handwrittenMaxUploadBytes: 12,
+    openAiApiKey: "test-openai-key",
+  });
+
+  const originalFetch = globalThis.fetch;
+
+  try {
+    const prisma = await getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        firstName: "Handwritten",
+        lastName: "TooLarge",
+        email: "handwritten-too-large@example.com",
+        username: "handwritten-too-large-user",
+        passwordHash: "hash",
+      },
+    });
+
+    let fetchCallCount = 0;
+    globalThis.fetch = (async () => {
+      fetchCallCount += 1;
+      return new Response(JSON.stringify({ output_text: "" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const token = signAccessToken({ userId: user.id, username: user.username });
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+
+    const importFormData = new FormData();
+    importFormData.append("inputMode", "handwritten");
+    importFormData.append("files", new File(["1234567"], "card-front.jpg", { type: "image/jpeg" }));
+    importFormData.append("files", new File(["1234567"], "card-back.png", { type: "image/png" }));
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: importFormData,
+      }),
+    );
+
+    assert.equal(parseResponse.status, 400);
+    const parsePayload = (await parseResponse.json()) as { error?: string; code?: string };
+    assert.equal(parsePayload.code, "FILE_TOO_LARGE");
+    assert.match(parsePayload.error ?? "", /combined upload size/i);
+    assert.equal(fetchCallCount, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
 test("handwritten multi-image parse preserves upload order and metadata", async () => {
   const { rootDir, uploadsDir } = await setupIntegrationEnv({
     handwrittenEnabled: true,
@@ -706,6 +770,191 @@ test("handwritten multi-image parse preserves upload order and metadata", async 
     );
   } finally {
     globalThis.fetch = originalFetch;
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("handwritten parse accepts ordered staged source images without duplicating storage", async () => {
+  const { rootDir, uploadsDir } = await setupIntegrationEnv({
+    handwrittenEnabled: true,
+    handwrittenPrimaryOcrProvider: "openai",
+    openAiApiKey: "test-openai-key",
+  });
+
+  const originalFetch = globalThis.fetch;
+
+  try {
+    const prisma = await getPrisma();
+    const user = await prisma.user.create({
+      data: {
+        firstName: "Staged",
+        lastName: "Parse",
+        email: "staged-parse@example.com",
+        username: "staged-parse-user",
+        passwordHash: "hash",
+      },
+    });
+
+    const ocrTexts = ["Mango Jam\nIngredients:\n- mango", "Steps:\n1. Simmer until thick"];
+    let fetchCallCount = 0;
+    globalThis.fetch = (async () => {
+      const text = ocrTexts[fetchCallCount] ?? "";
+      fetchCallCount += 1;
+
+      return new Response(JSON.stringify({ output_text: text }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    const token = signAccessToken({ userId: user.id, username: user.username });
+    const sourceRoute = await loadRouteModule("../app/api/recipes/import/source-images/route.ts");
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+    const uploadBatchId = "staged-batch-order";
+    const stagedIds: number[] = [];
+
+    for (const [index, file] of [
+      new File(["front staged bytes"], "front.jpg", { type: "image/jpeg" }),
+      new File(["back staged bytes"], "back.png", { type: "image/png" }),
+    ].entries()) {
+      const formData = new FormData();
+      formData.append("uploadBatchId", uploadBatchId);
+      formData.append("clientFileId", `page-${index + 1}`);
+      formData.append("image", file);
+
+      const sourceResponse = await sourceRoute.POST!(
+        new Request("http://localhost/api/recipes/import/source-images", {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}` },
+          body: formData,
+        }),
+      );
+      assert.equal(sourceResponse.status, 201);
+      const sourcePayload = (await sourceResponse.json()) as { source: { id: number; storageKey: string } };
+      stagedIds.push(sourcePayload.source.id);
+    }
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          inputMode: "handwritten",
+          stagedSourceDocumentIds: stagedIds,
+        }),
+      }),
+    );
+    assert.equal(parseResponse.status, 200);
+
+    const parsePayload = (await parseResponse.json()) as {
+      importSessionId: string;
+      metadata: { handwritten: { pageOrder: string[]; ocrProvidersByImage: string[] } | null };
+      sourceRefs: Array<{ id: number; originalFilename: string; storageKey: string }>;
+      draft: { ingredients: Array<{ name: string }>; stepsMarkdown: string };
+    };
+
+    assert.equal(fetchCallCount, 2);
+    assert.deepEqual(parsePayload.sourceRefs.map((sourceRef) => sourceRef.id), stagedIds);
+    assert.deepEqual(parsePayload.metadata.handwritten?.pageOrder, ["front.jpg", "back.png"]);
+    assert.deepEqual(parsePayload.metadata.handwritten?.ocrProvidersByImage, ["openai", "openai"]);
+    assert.equal(parsePayload.draft.ingredients[0]?.name, "mango");
+    assert.match(parsePayload.draft.stepsMarkdown, /Simmer until thick/);
+
+    const sourceDocuments = await prisma.recipeSourceDocument.findMany({
+      where: { id: { in: stagedIds } },
+      select: { importSessionId: true, storageKey: true },
+      orderBy: { id: "asc" },
+    });
+    assert.deepEqual(sourceDocuments.map((doc) => doc.importSessionId), [
+      parsePayload.importSessionId,
+      parsePayload.importSessionId,
+    ]);
+
+    const stagedContents = await Promise.all(
+      sourceDocuments.map((doc) => readFile(join(uploadsDir, doc.storageKey), "utf8")),
+    );
+    assert.deepEqual(stagedContents, ["front staged bytes", "back staged bytes"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+    (globalThis as { prisma?: unknown }).prisma = undefined;
+    await rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("handwritten staged parse rejects another user's staged source image", async () => {
+  const { rootDir } = await setupIntegrationEnv({
+    handwrittenEnabled: true,
+    handwrittenPrimaryOcrProvider: "openai",
+    openAiApiKey: "test-openai-key",
+  });
+
+  try {
+    const prisma = await getPrisma();
+    const [owner, outsider] = await Promise.all([
+      prisma.user.create({
+        data: {
+          firstName: "Owner",
+          lastName: "Stage",
+          email: "owner-stage@example.com",
+          username: "owner-stage-user",
+          passwordHash: "hash",
+        },
+      }),
+      prisma.user.create({
+        data: {
+          firstName: "Outsider",
+          lastName: "Stage",
+          email: "outsider-stage@example.com",
+          username: "outsider-stage-user",
+          passwordHash: "hash",
+        },
+      }),
+    ]);
+    const ownerToken = signAccessToken({ userId: owner.id, username: owner.username });
+    const outsiderToken = signAccessToken({ userId: outsider.id, username: outsider.username });
+    const sourceRoute = await loadRouteModule("../app/api/recipes/import/source-images/route.ts");
+    const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
+    const formData = new FormData();
+    formData.append("uploadBatchId", "owner-batch");
+    formData.append("clientFileId", "page-1");
+    formData.append("image", new File(["owner bytes"], "owner.jpg", { type: "image/jpeg" }));
+
+    const sourceResponse = await sourceRoute.POST!(
+      new Request("http://localhost/api/recipes/import/source-images", {
+        method: "POST",
+        headers: { authorization: `Bearer ${ownerToken}` },
+        body: formData,
+      }),
+    );
+    assert.equal(sourceResponse.status, 201);
+    const sourcePayload = (await sourceResponse.json()) as { source: { id: number } };
+
+    const parseResponse = await parseRoute.POST!(
+      new Request("http://localhost/api/recipes/import/parse", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${outsiderToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          inputMode: "handwritten",
+          stagedSourceDocumentIds: [sourcePayload.source.id],
+        }),
+      }),
+    );
+
+    assert.equal(parseResponse.status, 400);
+    const payload = (await parseResponse.json()) as { error?: string };
+    assert.match(payload.error ?? "", /not found/i);
+  } finally {
     const prisma = await getPrisma();
     await prisma.$disconnect();
     (globalThis as { prisma?: unknown }).prisma = undefined;
