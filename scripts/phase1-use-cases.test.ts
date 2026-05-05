@@ -265,6 +265,13 @@ class MissingAfterCreateRecipeRepository extends FakeRecipeRepository {
   }
 }
 
+function makeTestRecipeUseCases(repo: RecipeRepository, storageProvider: ImageStorageProvider) {
+  return makeRecipeUseCases(repo, {
+    storageProvider,
+    markRecipeSourceDocumentPrimary: async () => {},
+  });
+}
+
 function sampleRecipeInput(): CreateRecipeInput {
   return {
     title: "Test",
@@ -300,7 +307,7 @@ async function sampleImage(mimeType = "image/png"): Promise<UploadedRecipeImage>
 test("createRecipeWithImages rejects unsupported mime type", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const badImage = await sampleImage("image/gif");
   await assert.rejects(
@@ -316,7 +323,7 @@ test("createRecipeWithImages rejects unsupported mime type", async () => {
 test("createRecipeWithImages rejects more than 8 images", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const image = await sampleImage();
   const images = Array.from({ length: 9 }, () => image);
@@ -334,7 +341,7 @@ test("createRecipeWithImages rejects more than 8 images", async () => {
 test("updateRecipeWithImages blocks non-owner", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const recipe = await repo.create(sampleRecipeInput(), 99);
   const result = await useCases.updateRecipeWithImages(1, recipe.id, {
@@ -349,7 +356,7 @@ test("updateRecipeWithImages blocks non-owner", async () => {
 test("createRecipeWithImages stores image and exposes retrievable asset keys", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const image = await sampleImage();
   const recipe = await useCases.createRecipeWithImages(1, {
@@ -371,7 +378,7 @@ test("createRecipeWithImages stores image and exposes retrievable asset keys", a
 test("createRecipeWithImages rolls back recipe and storage when reload fails after create", async () => {
   const repo = new MissingAfterCreateRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
   const image = await sampleImage();
 
   await assert.rejects(
@@ -391,7 +398,7 @@ test("createRecipeWithImages rolls back recipe and storage when reload fails aft
 test("createRecipeWithImages rolls back recipe and storage when image persistence fails", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new FailOnNthPutStorageProvider(2);
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
   const image = await sampleImage();
 
   await assert.rejects(
@@ -411,7 +418,7 @@ test("createRecipeWithImages rolls back recipe and storage when image persistenc
 test("updateRecipeWithImages reload uses viewer context for private/family recipes", async () => {
   const repo = new TrackingRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const recipe = await repo.create(sampleRecipeInput(), 42);
 
@@ -430,7 +437,7 @@ test("updateRecipeWithImages reload uses viewer context for private/family recip
 test("updateRecipeWithImages can save new primary image after all saved images are deleted", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const recipe = await useCases.createRecipeWithImages(1, {
     recipe: sampleRecipeInput(),
@@ -458,7 +465,7 @@ test("updateRecipeWithImages can save new primary image after all saved images a
 test("updateRecipeWithImages rejects stale primaryImageId before persisting new images", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const recipe = await useCases.createRecipeWithImages(1, {
     recipe: sampleRecipeInput(),

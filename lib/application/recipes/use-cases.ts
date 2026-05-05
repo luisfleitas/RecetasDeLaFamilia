@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { markRecipeSourceDocumentPrimary } from "@/lib/application/recipes/source-documents";
+import { markRecipeSourceDocumentPrimary as markRecipeSourceDocumentPrimaryDefault } from "@/lib/application/recipes/source-documents";
 import type { RecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
 import type { CreateRecipeInput, Recipe, RecipeListItem } from "@/lib/domain/recipe";
 import type {
@@ -78,6 +78,7 @@ export type RecipeUseCases = {
 
 type RecipeUseCaseDeps = {
   storageProvider?: ImageStorageProvider;
+  markRecipeSourceDocumentPrimary?: typeof markRecipeSourceDocumentPrimaryDefault;
 };
 
 export function makeRecipeUseCases(
@@ -85,6 +86,8 @@ export function makeRecipeUseCases(
   deps?: RecipeUseCaseDeps,
 ): RecipeUseCases {
   const storageProvider = deps?.storageProvider ?? buildImageStorageProvider();
+  const markRecipeSourceDocumentPrimary =
+    deps?.markRecipeSourceDocumentPrimary ?? markRecipeSourceDocumentPrimaryDefault;
 
   async function persistNewImages(
     recipeId: number,

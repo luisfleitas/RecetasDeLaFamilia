@@ -249,6 +249,13 @@ class FakeRecipeRepository implements RecipeRepository {
   }
 }
 
+function makeTestRecipeUseCases(repo: RecipeRepository, storageProvider: ImageStorageProvider) {
+  return makeRecipeUseCases(repo, {
+    storageProvider,
+    markRecipeSourceDocumentPrimary: async () => {},
+  });
+}
+
 function sampleRecipeInput(): CreateRecipeInput {
   return {
     title: "Test",
@@ -282,7 +289,7 @@ async function sampleImage(index: number): Promise<UploadedRecipeImage> {
 }
 
 async function buildRecipeWithThreeImages(repo: FakeRecipeRepository, storage: InMemoryStorageProvider) {
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
   const recipe = await useCases.createRecipeWithImages(1, {
     recipe: sampleRecipeInput(),
     images: [await sampleImage(1), await sampleImage(2), await sampleImage(3)],
@@ -324,7 +331,7 @@ test("deleting primary image auto-promotes first remaining image", async () => {
 test("deleting last image leaves recipe without a primary image", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const recipe = await useCases.createRecipeWithImages(1, {
     recipe: sampleRecipeInput(),
@@ -355,7 +362,7 @@ test("non-owner cannot delete image", async () => {
 test("unknown recipe/image returns notFound", async () => {
   const repo = new FakeRecipeRepository();
   const storage = new InMemoryStorageProvider();
-  const useCases = makeRecipeUseCases(repo, { storageProvider: storage });
+  const useCases = makeTestRecipeUseCases(repo, storage);
 
   const result = await useCases.deleteRecipeImage(1, 999, 999);
   assert.equal(result.deleted, false);

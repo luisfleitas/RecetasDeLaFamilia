@@ -2,7 +2,7 @@
 
 ## Current State
 
-Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, and draft PR #26 is open back into `pre-main`. Slice 10 promotion readiness is locally verified with final automated checks plus desktop/mobile browser smoke on `http://127.0.0.1:3100`. A post-PR CI phase0 type-check failure was fixed locally by aligning older script fixtures with the updated media and repository contracts. Description and steps editor requirements have been removed from this phase and deferred to a separate future phase.
+Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, and draft PR #26 is open back into `pre-main`. Slice 10 promotion readiness is locally verified with final automated checks plus desktop/mobile browser smoke on `http://127.0.0.1:3100`. Post-PR CI failures have been fixed locally: phase0 by aligning older script fixtures with updated media/repository contracts, and phase1 by injecting the source-document primary marker into recipe use cases so unit tests do not hit the Prisma-backed helper. Description and steps editor requirements have been removed from this phase and deferred to a separate future phase.
 
 ## Completed
 
@@ -67,14 +67,15 @@ Design direction and implementation plan are approved for the unified Add Recipe
 - Updated the implementation plan, QA checklist, and test cases with Slice 10 verification evidence.
 - Opened draft PR #26 (`https://github.com/luisfleitas/RecetasDeLaFamilia/pull/26`) from `codex/feature/recipe-workflow-refresh` into `pre-main`.
 - Fixed the PR quality-gate phase0 TypeScript failure by updating older test fixtures for `IngredientUnitSuggestionSource`, visible source-image refs, repository `clearPrimaryImage`, and import-session source refs.
+- Fixed the PR quality-gate phase1 unit-test failure by adding an injectable source-document primary marker dependency to `makeRecipeUseCases` and using a no-op marker in phase1/phase2 unit tests.
 
 ## In Progress
 
-- PR #26 CI repair is locally verified. Push the fixture-alignment fix and re-check PR CI plus Vercel preview status.
+- PR #26 CI repair is locally verified. Push the source-document primary marker dependency fix and re-check PR CI plus Vercel preview status.
 
 ## Next Action
 
-Commit and push the PR quality-gate fixture fix, then re-check PR #26 CI and Vercel preview status.
+Commit and push the PR quality-gate dependency-boundary fix, then re-check PR #26 CI and Vercel preview status.
 
 ## Known Issues
 
@@ -167,6 +168,10 @@ Commit and push the PR quality-gate fixture fix, then re-check PR #26 CI and Ver
 - `npm run test:phase2` passed after fixture alignment.
 - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/ingredient-unit-suggestions.test.ts scripts/recipe-details-draft.test.ts scripts/page-recipe-list-loader.test.ts` passed after fixture alignment.
 - `git diff --check` passed after fixture alignment.
+- Follow-up PR quality-gate failed at `npm run test:phase1` because `updateRecipeWithImages` called the Prisma-backed source-document primary helper from a unit test database that had no `RecipeSourceDocument` table.
+- `npm run test:phase0` passed after adding the source-document primary marker dependency boundary.
+- `npm run test:phase1` passed after adding the source-document primary marker dependency boundary.
+- `npm run test:phase2` passed after adding the source-document primary marker dependency boundary.
 
 ## Manual Testing Status
 
