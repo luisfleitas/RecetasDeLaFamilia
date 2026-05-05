@@ -6,7 +6,7 @@ Phase 1 completed on `codex/feature/deployment-pipeline`; Phase 4 local health e
 
 ## Current Phase
 
-Phase 5: Vercel Project, Environments, And Domains. Staging validation is complete for the API/health/image-upload lifecycle; production clean-database validation and manual production promotion remain.
+Phase 5: Vercel Project, Environments, And Domains. Staging validation is complete for the API/health/image-upload lifecycle; release PR #28 is open from `pre-main` to `main`; explicit production approval, merge, and production validation remain.
 
 ## Phase 1 Tasks
 
@@ -152,7 +152,7 @@ Keep production promotion manual after `pre-main` staging validation.
 
 ## Next Action
 
-Run production preflight for the clean production Neon database and production Blob configuration, then perform the manual GitHub-visible production approval/promotion gate.
+Review and explicitly approve PR #28 for production promotion, then merge `pre-main` to `main` and run production post-deploy validation.
 
 ## Phase 5 Progress
 
@@ -189,6 +189,10 @@ Run production preflight for the clean production Neon database and production B
 - The later tracker-only deployment `dpl_5ivXtiyqZXUBaVNjPaMjpy2qNmmh` / `https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` also reached Ready with alias `https://staging.recetasfamilia.app`.
 - Final post-tracker staging checks on `https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` passed for `/api/health` and the full image upload/read/delete smoke, including deleted image file `404`.
 - `curl -i -s https://recetasfamilia.app/api/health` still returns `503` on the current production deployment with database degraded and Blob not applicable; production has not yet been promoted to the staging-ready build.
+- Production preflight on 2026-05-05 confirmed current production deployment `dpl_Ar6AGb6ZCxjqM2Xc23rwFWgcg9To` is still running older SQLite-path code from commit `7fa6729`: `/api/health` returns degraded database status and `/api/recipes` returns `Cannot open database because the directory does not exist`.
+- Release PR #28 opened from `pre-main` to `main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/28.
+- PR #28 initially reported `DIRTY`; `pre-main` was reconciled with `origin/main` using `git merge -s ours origin/main -m "chore: reconcile main history into pre-main"`, preserving the `pre-main` tree while making `main` an ancestor.
+- PR #28 checks passed after reconciliation: Vercel, Vercel Preview Comments, `CI / auth-smoke`, and `CI / quality-gate`.
 
 ## Phase 6/7 Progress
 

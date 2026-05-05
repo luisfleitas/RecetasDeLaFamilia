@@ -10,7 +10,7 @@
 - Phase 2 blocked on provisioned Neon staging/production resources.
 - Phase 3 local/provider slice completed: Vercel Blob storage provider added behind the existing abstraction.
 - Phase 4 completed: `/api/health` and health smoke coverage.
-- Phase 5 in progress: Vercel project setup, GitHub repository connection, custom domains, environment-variable configuration, staging health, and staging image upload lifecycle validation are complete; production promotion remains.
+- Phase 5 in progress: Vercel project setup, GitHub repository connection, custom domains, environment-variable configuration, staging health, and staging image upload lifecycle validation are complete; release PR #28 is open from `pre-main` to `main`; explicit production approval and merge remain.
 - Phase 6/7 operational readiness is documented in `requirements/deployment-pipeline/operations-runbook.md` while Phase 5 waits on live secrets/resources.
 - Vercel project `recetas` is linked locally through `.vercel/project.json` and connected to `https://github.com/luisfleitas/RecetasDeLaFamilia`.
 - PR #16 from `codex/feature/deployment-pipeline` into `pre-main` was merged on 2026-05-01.
@@ -80,12 +80,12 @@
 
 - Phase 2 Neon resource validation: baseline SQL has been applied to staging; production still needs validation before production promotion.
 - Phase 3 Blob resource validation: live staging Blob writes/reads/deletes passed on protected Vercel staging deployments.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, PR #18, staging schema baseline, staging seed data, staging redeploy, homepage/API/health verification, and image upload lifecycle verification are done.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, PR #18, staging schema baseline, staging seed data, staging redeploy, homepage/API/health verification, image upload lifecycle verification, and release PR #28 setup are done.
 - Phase 6/7 docs: operational checklist and rollback runbook are ready for production preflight and promotion.
 
 ## Next Action
 
-Run production preflight for the clean production Neon database and production Blob configuration, then perform the manual GitHub-visible production approval/promotion gate.
+Review and explicitly approve PR #28 for production promotion, then merge `pre-main` to `main` and run production post-deploy validation.
 
 ## Known Issues
 
@@ -170,6 +170,10 @@ Run production preflight for the clean production Neon database and production B
 - `npx --yes vercel@latest project protection` reported `ssoProtection.deploymentType` as `all_except_custom_domains`.
 - `curl -i -s https://staging.recetasfamilia.app/api/health` still returned Vercel Authentication `401`, so staging custom-domain smokes should use authenticated Vercel CLI access.
 - `curl -i -s https://recetasfamilia.app/api/health` returned `503` on the current production deployment with database degraded and Blob not applicable; production has not yet been promoted to the staging-ready build.
+- Production preflight on 2026-05-05 confirmed the current production deployment `dpl_Ar6AGb6ZCxjqM2Xc23rwFWgcg9To` is still running older SQLite-path code from commit `7fa6729`: `/api/health` returns degraded database status and `/api/recipes` returns `Cannot open database because the directory does not exist`.
+- Release PR #28 opened from `pre-main` to `main`: `https://github.com/luisfleitas/RecetasDeLaFamilia/pull/28`.
+- PR #28 initially reported `DIRTY`; `pre-main` was reconciled with `origin/main` using `git merge -s ours origin/main -m "chore: reconcile main history into pre-main"`, preserving the `pre-main` tree while making `main` an ancestor.
+- PR #28 checks passed after reconciliation: Vercel, Vercel Preview Comments, `CI / auth-smoke`, and `CI / quality-gate`.
 - `npm run test:phase4` passed: 4 tests.
 - `npm run lint` passed with existing warnings only.
 - `npx --yes vercel@latest deploy --yes` authenticated Vercel CLI, linked project `recetas`, connected the GitHub repository, and produced ready deployment `dpl_sBUGUvXx94Ltrzekmwd3opKBz3xi`.
