@@ -10,8 +10,11 @@
 - Phase 2 blocked on provisioned Neon staging/production resources.
 - Phase 3 local/provider slice completed: Vercel Blob storage provider added behind the existing abstraction.
 - Phase 4 completed: `/api/health` and health smoke coverage.
-- Phase 5 in progress: Vercel project setup, GitHub repository connection, custom domains, environment-variable configuration, staging health, and staging image upload lifecycle validation are complete; production promotion remains.
-- Phase 6/7 operational readiness is documented in `requirements/deployment-pipeline/operations-runbook.md` while Phase 5 waits on live secrets/resources.
+- Phase 5 in progress: Vercel project setup, GitHub repository connection, custom domains, environment-variable configuration, staging health, staging image upload lifecycle validation, and production promotion through PR #28 are complete.
+- Production deployment is live on `https://recetasfamilia.app` as Vercel deployment `dpl_5QTAVj1NniVZuRVP4ebTqvBjS5Lu` / `https://recetas-ryqiy2tuu-luisfleitas-1188s-projects.vercel.app`.
+- Production post-deploy validation found a data/environment blocker: `/api/health`, `/`, `/login`, `/register`, `/recipes/1`, `/api/recipes`, and seeded `alice` login are healthy, but recipe image file routes return `404` for image metadata currently exposed by production.
+- Root-cause evidence: production is serving staging/smoke-test recipe data such as `Staging Blob Upload Smoke` and `Phase1 Curl Recipe Updated`, while production Blob reads use the production storage prefix and cannot find the referenced objects. This indicates the production data/environment is not yet isolated/clean as approved, or production image objects were not migrated/backfilled.
+- Phase 6/7 operational readiness is documented in `requirements/deployment-pipeline/operations-runbook.md`; the next gate is production data/environment correction plus image-route validation.
 - Vercel project `recetas` is linked locally through `.vercel/project.json` and connected to `https://github.com/luisfleitas/RecetasDeLaFamilia`.
 - PR #16 from `codex/feature/deployment-pipeline` into `pre-main` was merged on 2026-05-01.
 - Follow-up branch for staging runtime fix: `codex/feature/fix-staging-postgres-adapter`.
@@ -78,21 +81,21 @@
 
 ## In Progress
 
-- Phase 2 Neon resource validation: baseline SQL has been applied to staging; production still needs validation before production promotion.
-- Phase 3 Blob resource validation: live staging Blob writes/reads/deletes passed on protected Vercel staging deployments.
-- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, PR #18, staging schema baseline, staging seed data, staging redeploy, homepage/API/health verification, and image upload lifecycle verification are done.
-- Phase 6/7 docs: operational checklist and rollback runbook are ready for production preflight and promotion.
+- Phase 2 Neon resource validation: staging baseline SQL is applied; production deployment is live but production data isolation needs correction because production currently exposes staging/smoke-test data.
+- Phase 3 Blob resource validation: live staging Blob writes/reads/deletes passed on protected Vercel staging deployments; production Blob config is healthy, but production image reads return `404` for current image metadata.
+- Phase 5 Vercel setup: project import, GitHub connection, custom-domain attachment, environment variables, PR #16, PR #17, PR #18, staging schema baseline, staging seed data, staging redeploy, homepage/API/health verification, image upload lifecycle verification, PR #28 merge, and production deployment are done.
+- Phase 6/7 docs: operational checklist and rollback runbook are ready; use them for production data/environment correction and post-fix validation.
 
 ## Next Action
 
-Run production preflight for the clean production Neon database and production Blob configuration, then perform the manual GitHub-visible production approval/promotion gate.
+Correct the production data/environment so `recetasfamilia.app` uses the approved clean production Neon database and matching production Blob objects/prefix, then rerun production post-deploy validation including image file routes.
 
 ## Known Issues
 
 - Runtime now supports Postgres for deployed Neon environments; staging has a live Neon baseline and sample data.
 - `lib/prisma.ts` and `prisma/seed.mjs` now select Postgres vs SQLite by `DATABASE_PROVIDER`/`DATABASE_URL`; the Postgres path must use `PrismaPg` because Prisma 7 requires a driver adapter.
 - Existing SQLite migration files include SQLite-specific SQL and PRAGMA statements, so Neon should use a fresh Postgres baseline migration rather than replaying the current SQLite migration history unchanged.
-- Live Vercel Blob operations passed in staging; production Blob still needs validation after production promotion.
+- Live Vercel Blob operations passed in staging; production Blob configuration is healthy, but production image file reads currently return `404` for existing image metadata.
 - Preview environment isolation needs a concrete Neon and Blob strategy during implementation.
 - Production import/OCR requires OpenAI API keys and cost controls.
 - `npm run db:postgres:check` validates schema compatibility and generates `.tmp/postgres/baseline.sql`, but it does not connect to a real Neon database yet.
@@ -170,6 +173,16 @@ Run production preflight for the clean production Neon database and production B
 - `npx --yes vercel@latest project protection` reported `ssoProtection.deploymentType` as `all_except_custom_domains`.
 - `curl -i -s https://staging.recetasfamilia.app/api/health` still returned Vercel Authentication `401`, so staging custom-domain smokes should use authenticated Vercel CLI access.
 - `curl -i -s https://recetasfamilia.app/api/health` returned `503` on the current production deployment with database degraded and Blob not applicable; production has not yet been promoted to the staging-ready build.
+- Production preflight on 2026-05-05 confirmed the current production deployment `dpl_Ar6AGb6ZCxjqM2Xc23rwFWgcg9To` is still running older SQLite-path code from commit `7fa6729`: `/api/health` returns degraded database status and `/api/recipes` returns `Cannot open database because the directory does not exist`.
+- Release PR #28 opened from `pre-main` to `main`: `https://github.com/luisfleitas/RecetasDeLaFamilia/pull/28`.
+- PR #28 initially reported `DIRTY`; `pre-main` was reconciled with `origin/main` using `git merge -s ours origin/main -m "chore: reconcile main history into pre-main"`, preserving the `pre-main` tree while making `main` an ancestor.
+- PR #28 checks passed after reconciliation: Vercel, Vercel Preview Comments, `CI / auth-smoke`, and `CI / quality-gate`.
+- PR #28 was squash-merged on 2026-05-05 at merge commit `409b34bd8edfdb9d570fdd61c4d080206d9bcf37`.
+- Vercel deployed production from `main` as `dpl_5QTAVj1NniVZuRVP4ebTqvBjS5Lu` / `https://recetas-ryqiy2tuu-luisfleitas-1188s-projects.vercel.app`; `https://recetasfamilia.app` is aliased to that deployment.
+- Production post-deploy health passed on 2026-05-05: `/api/health` returned `status: "healthy"` with healthy app, database, and Blob checks.
+- Production homepage and recipe API smoke passed: `/` rendered the home app shell with public recipes, `/api/recipes?includePrimaryImage=true&includeImages=true` returned public recipes and image metadata, `/login`, `/register`, and `/recipes/1` returned `200`, and `POST /api/auth/login` succeeded for seeded `alice`.
+- Production image file smoke failed: `/api/recipe-images/1/file?variant=thumb`, `/api/recipe-images/10/file?variant=thumb`, `/api/recipe-images/25/file?variant=thumb`, and `/api/recipe-images/25/file?variant=full` returned `404`.
+- Production data isolation concern: production API output includes staging/smoke-test recipes (`Staging Blob Upload Smoke`, `Phase1 Curl Recipe Updated`), which contradicts the approved clean-production-database decision and explains why production Blob prefix reads do not match the visible image metadata.
 - `npm run test:phase4` passed: 4 tests.
 - `npm run lint` passed with existing warnings only.
 - `npx --yes vercel@latest deploy --yes` authenticated Vercel CLI, linked project `recetas`, connected the GitHub repository, and produced ready deployment `dpl_sBUGUvXx94Ltrzekmwd3opKBz3xi`.

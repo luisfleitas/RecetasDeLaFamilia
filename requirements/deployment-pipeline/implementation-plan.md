@@ -2,11 +2,11 @@
 
 ## Status
 
-Phase 1 completed on `codex/feature/deployment-pipeline`; Phase 4 local health endpoint and smoke coverage are complete. The Vercel project is linked, the GitHub repository is connected, the production/staging custom domains are attached, and Vercel environment variables now exist. The runtime has been updated to generate/use a Postgres Prisma Client for deployed Neon environments while preserving local SQLite. Staging database, health, homepage, recipe API, and image upload/read/delete lifecycle validation now pass on the `pre-main` staging deployment after the image file route cache fix in `bd5c6f8`.
+Phase 1 completed on `codex/feature/deployment-pipeline`; Phase 4 local health endpoint and smoke coverage are complete. The Vercel project is linked, the GitHub repository is connected, the production/staging custom domains are attached, and Vercel environment variables now exist. The runtime has been updated to generate/use a Postgres Prisma Client for deployed Neon environments while preserving local SQLite. Staging database, health, homepage, recipe API, and image upload/read/delete lifecycle validation now pass on the `pre-main` staging deployment after the image file route cache fix in `bd5c6f8`. Production promotion through PR #28 is complete, but production data/environment isolation needs correction because the live production domain is exposing staging/smoke-test recipe data and image file routes return `404` for visible image metadata.
 
 ## Current Phase
 
-Phase 5: Vercel Project, Environments, And Domains. Staging validation is complete for the API/health/image-upload lifecycle; production clean-database validation and manual production promotion remain.
+Phase 5: Vercel Project, Environments, And Domains. Staging validation is complete for the API/health/image-upload lifecycle, and release PR #28 has been merged from `pre-main` to `main`. Production deployment is live and health/home/API/login checks pass, but image file route validation is blocked by production data/environment mismatch.
 
 ## Phase 1 Tasks
 
@@ -38,7 +38,7 @@ Phase 5: Vercel Project, Environments, And Domains. Staging validation is comple
 - [x] Preserve local storage as the default local development provider.
 - [x] Preserve backend-agnostic storage keys and app file-serving routes.
 - [x] Add environment-driven Blob access and prefix configuration for staging/preview isolation.
-- [ ] Configure production Blob storage once the Vercel project exists.
+- [x] Configure production Blob storage once the Vercel project exists.
 - [x] Configure staging Blob storage once the Vercel project exists.
 - [x] Validate Blob writes/reads/deletes against a real staging Blob store once credentials exist.
 - [ ] Finalize automated preview Blob cleanup after PR close.
@@ -126,8 +126,8 @@ Phase 5: Vercel Project, Environments, And Domains. Staging validation is comple
 - [x] Document GitHub-visible manual production approval.
 - [x] Document Vercel build/runtime log review.
 - [x] Document production rollback runbook.
-- [ ] Perform manual production approval.
-- [ ] Promote/merge to `main`.
+- [x] Perform manual production approval.
+- [x] Promote/merge to `main`.
 - [ ] Validate production deployment.
 
 ## Required Checks
@@ -152,7 +152,7 @@ Keep production promotion manual after `pre-main` staging validation.
 
 ## Next Action
 
-Run production preflight for the clean production Neon database and production Blob configuration, then perform the manual GitHub-visible production approval/promotion gate.
+Correct the production data/environment so `recetasfamilia.app` uses the approved clean production Neon database and matching production Blob objects/prefix, then rerun production post-deploy validation including image file routes.
 
 ## Phase 5 Progress
 
@@ -189,6 +189,15 @@ Run production preflight for the clean production Neon database and production B
 - The later tracker-only deployment `dpl_5ivXtiyqZXUBaVNjPaMjpy2qNmmh` / `https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` also reached Ready with alias `https://staging.recetasfamilia.app`.
 - Final post-tracker staging checks on `https://recetas-b8i4hkf47-luisfleitas-1188s-projects.vercel.app` passed for `/api/health` and the full image upload/read/delete smoke, including deleted image file `404`.
 - `curl -i -s https://recetasfamilia.app/api/health` still returns `503` on the current production deployment with database degraded and Blob not applicable; production has not yet been promoted to the staging-ready build.
+- Production preflight on 2026-05-05 confirmed current production deployment `dpl_Ar6AGb6ZCxjqM2Xc23rwFWgcg9To` is still running older SQLite-path code from commit `7fa6729`: `/api/health` returns degraded database status and `/api/recipes` returns `Cannot open database because the directory does not exist`.
+- Release PR #28 opened from `pre-main` to `main`: https://github.com/luisfleitas/RecetasDeLaFamilia/pull/28.
+- PR #28 initially reported `DIRTY`; `pre-main` was reconciled with `origin/main` using `git merge -s ours origin/main -m "chore: reconcile main history into pre-main"`, preserving the `pre-main` tree while making `main` an ancestor.
+- PR #28 checks passed after reconciliation: Vercel, Vercel Preview Comments, `CI / auth-smoke`, and `CI / quality-gate`.
+- PR #28 was squash-merged on 2026-05-05 at merge commit `409b34bd8edfdb9d570fdd61c4d080206d9bcf37`.
+- Vercel deployed production from `main` as `dpl_5QTAVj1NniVZuRVP4ebTqvBjS5Lu` / `https://recetas-ryqiy2tuu-luisfleitas-1188s-projects.vercel.app`, with `https://recetasfamilia.app` assigned as an alias.
+- Production post-deploy checks passed for `/api/health`, `/`, `/api/recipes?includePrimaryImage=true&includeImages=true`, `/login`, `/register`, `/recipes/1`, and seeded `alice` login.
+- Production image file routes returned `404` for visible image metadata, including image ids `1`, `10`, and `25`.
+- Production API output includes staging/smoke-test recipes (`Staging Blob Upload Smoke`, `Phase1 Curl Recipe Updated`), contradicting the clean production database decision and pointing to production data/environment isolation as the next blocker.
 
 ## Phase 6/7 Progress
 
