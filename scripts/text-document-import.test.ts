@@ -177,6 +177,49 @@ Cocinar en budare caliente.
   assert.match(parsed.stepsMarkdown, /1\. Mezclar todos los ingredientes\./);
 });
 
+test("imports handwritten spanish recipe with unheaded quantity ingredient lines", () => {
+  const input = `
+Ensalada de Navidad
+1 caja de agua
+1 cucharadita royal
+2 cucharadas de cacao
+1 cucharada de cafe instantaneo
+1 taza de harina de trigo
+5 huevos
+1/2 taza de azucar
+Relleno
+6 cucharadas de mantequilla sin sal
+3 cucharadas de leche liquida
+3 cucharadas de cacao en polvo
+3 1/4 cucharadas de nevazucar
+Preparacion
+Se baten las claras a punto de suspiro.
+Se le agrega el azucar.
+Se hornea por 20 a 30 minutos.
+`;
+
+  const parsed = importRecipeFromTextDocument(input);
+
+  assert.equal(parsed.title, "Ensalada de Navidad");
+  assert.equal(parsed.ingredients.length, 11);
+  assert.deepEqual(
+    parsed.ingredients.slice(0, 4).map((ingredient) => ({
+      qty: ingredient.qty,
+      unit: ingredient.unit.toLowerCase(),
+      name: ingredient.name.toLowerCase(),
+    })),
+    [
+      { qty: 1, unit: "unit", name: "caja de agua" },
+      { qty: 1, unit: "cucharadita", name: "royal" },
+      { qty: 2, unit: "cucharada", name: "cacao" },
+      { qty: 1, unit: "cucharada", name: "cafe instantaneo" },
+    ],
+  );
+  assert.equal(parsed.ingredients[6]?.qty, 0.5);
+  assert.equal(parsed.ingredients[10]?.qty, 3.25);
+  assert.match(parsed.stepsMarkdown, /1\. Se baten las claras/);
+});
+
 test("infers ingredients when they are only referenced inside steps", () => {
   const input = `
 Panqueques Caseros

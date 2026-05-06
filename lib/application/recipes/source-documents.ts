@@ -11,6 +11,7 @@ export type RecipeSourceDocumentMetadata = {
   inputMode: "document" | "handwritten";
   publiclyVisible: boolean;
   sourceImageVisibility: "private" | "public" | null;
+  isPrimary?: boolean;
 };
 
 type StageImportSourceDocumentInput = {
@@ -539,6 +540,7 @@ export async function promoteImportSessionSourceDocuments(input: {
     inputMode: importSessionMetadata?.inputMode ?? "document",
     publiclyVisible: importSessionMetadata?.handwritten?.sourceImageVisibility === "public",
     sourceImageVisibility: importSessionMetadata?.handwritten?.sourceImageVisibility ?? null,
+    isPrimary: false,
   };
 
   const docs = await prismaDb.recipeSourceDocument.findMany({
@@ -587,6 +589,67 @@ export async function promoteImportSessionSourceDocuments(input: {
   }
 }
 
+export async function markRecipeSourceDocumentPrimary(input: {
+  userId: number;
+  recipeId: number;
+  sourceDocumentId: number | null;
+}) {
+  const prisma = await getPrisma();
+  const prismaDb = prisma as unknown as {
+    recipeSourceDocument: {
+      findMany: (args: {
+        where: { recipeId: number; uploadedByUserId: number; sourceType: "image" };
+        select: {
+          id: true;
+          metadataJson: true;
+        };
+      }) => Promise<Array<{ id: number; metadataJson: string | null }>>;
+      update: (args: {
+        where: { id: number };
+        data: { metadataJson: string };
+      }) => Promise<unknown>;
+    };
+  };
+
+  const sourceDocuments = await prismaDb.recipeSourceDocument.findMany({
+    where: {
+      recipeId: input.recipeId,
+      uploadedByUserId: input.userId,
+      sourceType: "image",
+    },
+    select: {
+      id: true,
+      metadataJson: true,
+    },
+  });
+
+  if (
+    input.sourceDocumentId != null &&
+    !sourceDocuments.some((sourceDocument) => sourceDocument.id === input.sourceDocumentId)
+  ) {
+    throw new Error("primary source document does not belong to this recipe");
+  }
+
+  for (const sourceDocument of sourceDocuments) {
+    const metadata = parseRecipeSourceDocumentMetadata(sourceDocument.metadataJson) ?? {
+      inputMode: "handwritten",
+      publiclyVisible: false,
+      sourceImageVisibility: "private",
+      isPrimary: false,
+    };
+
+    await prismaDb.recipeSourceDocument.update({
+      where: { id: sourceDocument.id },
+      data: {
+        metadataJson: JSON.stringify({
+          ...metadata,
+          isPrimary: input.sourceDocumentId === sourceDocument.id,
+        } satisfies RecipeSourceDocumentMetadata),
+      },
+    });
+  }
+}
+
 export function parseRecipeSourceDocumentMetadata(value: string | null): RecipeSourceDocumentMetadata | null {
   if (!value) {
     return null;
@@ -602,6 +665,7 @@ export function parseRecipeSourceDocumentMetadata(value: string | null): RecipeS
       inputMode: parsed.inputMode === "handwritten" ? "handwritten" : "document",
       publiclyVisible: parsed.publiclyVisible === true,
       sourceImageVisibility: parsed.sourceImageVisibility === "public" ? "public" : parsed.sourceImageVisibility === "private" ? "private" : null,
+      isPrimary: parsed.isPrimary === true,
     };
   } catch {
     return null;
