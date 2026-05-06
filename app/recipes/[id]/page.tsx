@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
 import RecipeWorkspaceFrame from "@/app/_components/recipe-workspace-frame";
@@ -13,136 +12,89 @@ import {
   buildRecipeMediaGroups,
   type RecipeMediaReference,
 } from "@/lib/application/recipes/recipe-media-groups";
-import type { RecipeLanguage } from "@/lib/domain/recipe-language";
+import { listVisibleRecipeSourceImages } from "@/lib/application/recipes/display-source-images";
+import { listVisibleRecipeSourceDocuments } from "@/lib/application/recipes/visible-source-documents";
 import { formatDate } from "@/lib/i18n/format";
 import { getRecipeLanguageLabel } from "@/lib/i18n/recipe-language";
 import { getRequestMessages } from "@/lib/i18n/server";
-
-type Ingredient = {
-  id: number;
-  name: string;
-  qty: number;
-  unit: string;
-  notes: string | null;
-  position: number;
-};
-
-type RecipeImage = {
-  id: number;
-  isPrimary: boolean;
-  position: number;
-  fullUrl: string;
-  thumbnailUrl: string;
-};
-
-type Recipe = {
-  id: number;
-  title: string;
-  description: string | null;
-  stepsMarkdown: string;
-  language: RecipeLanguage;
-  visibility: "public" | "private" | "family";
-  families: Array<{ id: number; name: string }>;
-  createdByUserId: number;
-  createdAt: string;
-  ingredients: Ingredient[];
-  images?: RecipeImage[];
-  primaryImage?: { id: number; fullUrl: string; thumbnailUrl: string } | null;
-};
-
-type RecipeResponse = {
-  recipe?: Recipe;
-  error?: string;
-};
-
-type RecipeSourceDocument = {
-  id: number;
-  originalFilename: string;
-  sourceType: string;
-  fileUrl: string;
-};
-
-type RecipeSourceDocumentsResponse = {
-  sourceDocuments?: RecipeSourceDocument[];
-  error?: string;
-};
+import { buildRecipeUseCases } from "@/lib/recipes/factory";
 
 type Params = {
   params: Promise<{ id: string }>;
 };
 
-function getBaseUrl(requestHeaders: Headers) {
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host?.includes("localhost") || host?.startsWith("127.0.0.1") ? "http" : "https");
-
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
+const recipeUseCases = buildRecipeUseCases();
 
 function formatQuantity(qty: number) {
   return qty.toString();
 }
 
-async function fetchRecipe(id: string) {
-  const requestHeaders = await headers();
-  const baseUrl = getBaseUrl(requestHeaders);
-  const cookie = requestHeaders.get("cookie") ?? "";
+function parseRecipeId(value: string): number | null {
+  const recipeId = Number(value);
+  return Number.isInteger(recipeId) && recipeId > 0 ? recipeId : null;
+}
 
-  const response = await fetch(
-    `${baseUrl}/api/recipes/${id}?includePrimaryImage=true&includeImages=true`,
-    {
-      cache: "no-store",
-      headers: cookie ? { cookie } : undefined,
-    },
-  );
+function toRecipeImageResponseRef(
+  image: {
+    id: number;
+    fullUrl: string;
+    thumbnailUrl: string;
+    isPrimary?: boolean;
+    position?: number;
+  },
+  index: number,
+) {
+  return {
+    id: image.id,
+    fullUrl: image.fullUrl,
+    thumbnailUrl: image.thumbnailUrl,
+    isPrimary: image.isPrimary ?? false,
+    position: image.position ?? index + 1,
+  };
+}
 
-  if (response.status === 404) {
+async function fetchRecipe(id: string, viewerUserId: number | null) {
+  const recipeId = parseRecipeId(id);
+  if (!recipeId) {
     notFound();
   }
 
-  if (!response.ok) {
-    throw new Error("Failed to load recipe");
+  const recipe = await recipeUseCases.getRecipeById(recipeId, viewerUserId, {
+    includePrimaryImage: true,
+    includeImages: true,
+  });
+  if (!recipe) {
+    notFound();
   }
 
-  const data = (await response.json()) as RecipeResponse;
+  const visibleSourceImagesByRecipeId = await listVisibleRecipeSourceImages([recipe], viewerUserId);
+  const visibleSourceImages = visibleSourceImagesByRecipeId.get(recipe.id) ?? [];
 
-  if (!data.recipe) {
-    throw new Error(data.error ?? "Recipe missing in response");
-  }
-
-  return data.recipe;
+  return {
+    ...recipe,
+    images: [...(recipe.images ?? []), ...visibleSourceImages].map(toRecipeImageResponseRef),
+  };
 }
 
-async function fetchRecipeSourceDocuments(id: string) {
-  const requestHeaders = await headers();
-  const baseUrl = getBaseUrl(requestHeaders);
-  const cookie = requestHeaders.get("cookie") ?? "";
-
-  const response = await fetch(`${baseUrl}/api/recipes/${id}/source-documents`, {
-    cache: "no-store",
-    headers: cookie ? { cookie } : undefined,
-  });
-
-  if (!response.ok) {
+async function fetchRecipeSourceDocuments(id: string, viewerUserId: number | null) {
+  const recipeId = parseRecipeId(id);
+  if (!recipeId) {
     return [];
   }
 
-  const data = (await response.json()) as RecipeSourceDocumentsResponse;
-  return data.sourceDocuments ?? [];
+  return listVisibleRecipeSourceDocuments({ recipeId, viewerUserId });
 }
 
 export default async function RecipeDetailPage({ params }: Params) {
   const { id } = await params;
-  const [{ locale, messages }, recipe, sourceDocuments, authUser] = await Promise.all([
+  const [{ locale, messages }, authUser] = await Promise.all([
     getRequestMessages(),
-    fetchRecipe(id),
-    fetchRecipeSourceDocuments(id),
     getOptionalAuthPageUser(),
+  ]);
+  const viewerUserId = authUser?.user_id ?? null;
+  const [recipe, sourceDocuments] = await Promise.all([
+    fetchRecipe(id, viewerUserId),
+    fetchRecipeSourceDocuments(id, viewerUserId),
   ]);
   const canManageRecipe = authUser?.user_id === recipe.createdByUserId;
   const recipeImages = (recipe.images ?? []).filter((image) => image.id > 0);

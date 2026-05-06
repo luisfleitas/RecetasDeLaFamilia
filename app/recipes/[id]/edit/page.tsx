@@ -1,132 +1,50 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import RecipeWorkspaceFrame from "@/app/_components/recipe-workspace-frame";
 import EditRecipeForm from "@/app/recipes/[id]/edit/edit-recipe-form";
 import { requireAuthPage } from "@/lib/auth/require-auth-page";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
-import type { RecipeLanguage } from "@/lib/domain/recipe-language";
+import { listVisibleRecipeSourceDocuments } from "@/lib/application/recipes/visible-source-documents";
 import { getRequestMessages } from "@/lib/i18n/server";
-
-type Ingredient = {
-  id: number;
-  name: string;
-  qty: number;
-  unit: string;
-  notes: string | null;
-  position: number;
-};
-
-type RecipeImage = {
-  id: number;
-  isPrimary: boolean;
-  position: number;
-  fullUrl: string;
-  thumbnailUrl: string;
-};
-
-type RecipeSourceDocument = {
-  id: number;
-  originalFilename: string;
-  fileUrl: string;
-  publiclyVisible?: boolean;
-  isPrimary?: boolean;
-};
-
-type Recipe = {
-  id: number;
-  title: string;
-  description: string | null;
-  stepsMarkdown: string;
-  language: RecipeLanguage;
-  visibility: "public" | "private" | "family";
-  families: Array<{ id: number; name: string }>;
-  ingredients: Ingredient[];
-  images?: RecipeImage[];
-  primaryImage?: { id: number } | null;
-  sourceDocuments?: Array<{
-    id: number;
-    originalFilename: string;
-    thumbnailUrl: string;
-    fullUrl: string;
-    publiclyVisible: boolean;
-    isPrimary: boolean;
-  }>;
-};
-
-type RecipeResponse = {
-  recipe?: Recipe;
-  error?: string;
-};
-
-type RecipeSourceDocumentsResponse = {
-  sourceDocuments?: RecipeSourceDocument[];
-  error?: string;
-};
+import { buildRecipeUseCases } from "@/lib/recipes/factory";
 
 type Params = {
   params: Promise<{ id: string }>;
 };
 
-function getBaseUrl(requestHeaders: Headers) {
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host?.includes("localhost") || host?.startsWith("127.0.0.1") ? "http" : "https");
+const recipeUseCases = buildRecipeUseCases();
 
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+function parseRecipeId(value: string): number | null {
+  const recipeId = Number(value);
+  return Number.isInteger(recipeId) && recipeId > 0 ? recipeId : null;
 }
 
-async function fetchRecipe(id: string) {
-  const requestHeaders = await headers();
-  const baseUrl = getBaseUrl(requestHeaders);
-  const cookie = requestHeaders.get("cookie") ?? "";
-
-  const response = await fetch(
-    `${baseUrl}/api/recipes/${id}?includeImages=true&includePrimaryImage=true`,
-    {
-      cache: "no-store",
-      headers: cookie ? { cookie } : undefined,
-    },
-  );
-
-  if (response.status === 404) {
+async function fetchRecipe(id: string, viewerUserId: number) {
+  const recipeId = parseRecipeId(id);
+  if (!recipeId) {
     notFound();
   }
 
-  if (!response.ok) {
-    throw new Error("Failed to load recipe");
-  }
-
-  const data = (await response.json()) as RecipeResponse;
-
-  if (!data.recipe) {
-    throw new Error(data.error ?? "Recipe missing in response");
-  }
-
-  return data.recipe;
-}
-
-async function fetchRecipeSourceDocuments(id: string) {
-  const requestHeaders = await headers();
-  const baseUrl = getBaseUrl(requestHeaders);
-  const cookie = requestHeaders.get("cookie") ?? "";
-
-  const response = await fetch(`${baseUrl}/api/recipes/${id}/source-documents`, {
-    cache: "no-store",
-    headers: cookie ? { cookie } : undefined,
+  const recipe = await recipeUseCases.getRecipeById(recipeId, viewerUserId, {
+    includeImages: true,
+    includePrimaryImage: true,
   });
 
-  if (!response.ok) {
+  if (!recipe) {
+    notFound();
+  }
+
+  return recipe;
+}
+
+async function fetchRecipeSourceDocuments(id: string, viewerUserId: number) {
+  const recipeId = parseRecipeId(id);
+  if (!recipeId) {
     return [];
   }
 
-  const data = (await response.json()) as RecipeSourceDocumentsResponse;
-  return (data.sourceDocuments ?? []).map((sourceDocument) => ({
+  const sourceDocuments = await listVisibleRecipeSourceDocuments({ recipeId, viewerUserId });
+  return sourceDocuments.map((sourceDocument) => ({
     id: sourceDocument.id,
     originalFilename: sourceDocument.originalFilename,
     thumbnailUrl: sourceDocument.fileUrl,
@@ -142,8 +60,8 @@ export default async function EditRecipePage({ params }: Params) {
   const { id } = await params;
   const [{ locale, messages }, recipe, sourceDocuments] = await Promise.all([
     getRequestMessages(),
-    fetchRecipe(id),
-    fetchRecipeSourceDocuments(id),
+    fetchRecipe(id, authUser.user_id),
+    fetchRecipeSourceDocuments(id, authUser.user_id),
   ]);
 
   return (
