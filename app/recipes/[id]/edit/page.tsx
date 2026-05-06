@@ -70,7 +70,9 @@ type Params = {
 
 function getBaseUrl(requestHeaders: Headers) {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host?.includes("localhost") || host?.startsWith("127.0.0.1") ? "http" : "https");
 
   if (host) {
     return `${protocol}://${host}`;
