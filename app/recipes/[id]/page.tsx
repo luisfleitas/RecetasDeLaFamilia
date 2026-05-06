@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
+import RecipeWorkspaceFrame from "@/app/_components/recipe-workspace-frame";
 import DeleteRecipeButton from "@/app/recipes/[id]/_components/delete-recipe-button";
 import FormattedRecipeContent from "@/app/recipes/_components/formatted-recipe-content";
 import RecipeMediaCarousel from "@/app/recipes/_components/recipe-media-carousel";
@@ -175,8 +176,8 @@ export default async function RecipeDetailPage({ params }: Params) {
   });
   const mediaCarouselItems = buildRecipeMediaCarouselItems(mediaGroups.groups);
 
-  return (
-    <main id="recipe-detail-main" className="app-shell max-w-5xl space-y-6">
+  const detailContent = (
+    <section id="recipe-detail-main" className="max-w-5xl space-y-6">
       <section id="recipe-detail-header-section" className="surface-panel space-y-5 p-6 sm:p-8">
         <div id="recipe-detail-header-row" className="page-header-bar">
           <div id="recipe-detail-header-copy" className="page-header-copy">
@@ -188,7 +189,7 @@ export default async function RecipeDetailPage({ params }: Params) {
           </div>
 
           <div id="recipe-detail-actions" className="flex flex-wrap items-center justify-end gap-2">
-            <LocaleSwitcher locale={locale} />
+            {!authUser ? <LocaleSwitcher locale={locale} /> : null}
             <Link id="recipe-detail-back-link" href="/" className={buttonClassName("secondary")}>
               {messages.common.backToRecipes}
             </Link>
@@ -303,6 +304,26 @@ export default async function RecipeDetailPage({ params }: Params) {
           className="formatted-recipe-content space-y-2 text-[var(--color-text)]"
         />
       </section>
+    </section>
+  );
+
+  if (authUser) {
+    return (
+      <RecipeWorkspaceFrame
+        authUser={authUser}
+        contentId="recipe-detail-workspace-content"
+        idPrefix="recipe-detail"
+        locale={locale}
+        messages={messages}
+      >
+        {detailContent}
+      </RecipeWorkspaceFrame>
+    );
+  }
+
+  return (
+    <main id="recipe-detail-guest-main" className="app-shell">
+      {detailContent}
     </main>
   );
 }

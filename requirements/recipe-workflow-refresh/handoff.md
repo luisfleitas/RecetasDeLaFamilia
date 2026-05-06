@@ -2,7 +2,7 @@
 
 ## Current State
 
-Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, and draft PR #26 is open back into `pre-main`. Slice 10 promotion readiness is locally verified with final automated checks plus desktop/mobile browser smoke on `http://127.0.0.1:3100`. Latest GitHub CI is green on run `25380572131` after fixing phase0 fixture drift and isolating the source-document primary marker dependency in recipe use-case unit tests. Vercel preview deployment is still failing immediately for deployment `dpl_9SN8vtpukbsj3GRBdwQDUmAwhoR3`, and `vercel inspect --logs` currently returns only `status Error` without build log details. Description and steps editor requirements have been removed from this phase and deferred to a separate future phase.
+Design direction and implementation plan are approved for the unified Add Recipe workflow. The feature branch is `codex/feature/recipe-workflow-refresh`, and draft PR #26 is open back into `pre-main`. Slice 10 promotion readiness is locally verified with final automated checks plus desktop/mobile browser smoke on `http://127.0.0.1:3100`. A local branding regression follow-up now wraps `/recipes/add`, `/recipes/new`, `/recipes/import`, authenticated `/recipes/{id}`, and `/recipes/{id}/edit` in the refreshed top bar plus left navigation workspace frame on `http://localhost:3000`. Latest GitHub CI is green on run `25380572131` after fixing phase0 fixture drift and isolating the source-document primary marker dependency in recipe use-case unit tests. Vercel preview deployment is still failing immediately for deployment `dpl_9SN8vtpukbsj3GRBdwQDUmAwhoR3`, and `vercel inspect --logs` currently returns only `status Error` without build log details. Description and steps editor requirements have been removed from this phase and deferred to a separate future phase.
 
 ## Completed
 
@@ -68,6 +68,9 @@ Design direction and implementation plan are approved for the unified Add Recipe
 - Opened draft PR #26 (`https://github.com/luisfleitas/RecetasDeLaFamilia/pull/26`) from `codex/feature/recipe-workflow-refresh` into `pre-main`.
 - Fixed the PR quality-gate phase0 TypeScript failure by updating older test fixtures for `IngredientUnitSuggestionSource`, visible source-image refs, repository `clearPrimaryImage`, and import-session source refs.
 - Fixed the PR quality-gate phase1 unit-test failure by adding an injectable source-document primary marker dependency to `makeRecipeUseCases` and using a no-op marker in phase1/phase2 unit tests.
+- Added shared `RecipeWorkspaceFrame` app chrome and wrapped `/recipes/add`, `/recipes/new`, `/recipes/import`, authenticated `/recipes/{id}`, and `/recipes/{id}/edit` so recipe workflow pages no longer fall back to the old standalone shell.
+- Added `scripts/recipe-workspace-frame-smoke.mjs` to assert the refreshed top bar and left navigation render on the key authenticated recipe routes.
+- Added `.vercel/**` to ESLint global ignores because the local config overrides Next's default ignores and generated Vercel build output was blocking `npm run lint`.
 
 ## In Progress
 
@@ -81,7 +84,7 @@ Investigate the Vercel preview deployment failure for `dpl_9SN8vtpukbsj3GRBdwQDU
 
 - `.superpowers/` contains temporary visual companion files and should remain untracked.
 - The current implementation has separate `/recipes/new` and `/recipes/import` routes; the revised plan keeps them as compatibility routes while `/recipes/add` is introduced.
-- The landing page uses the approved top bar, left hand menu app frame, compact featured carousel, and image-click media modal behavior on the signed-in desktop and mobile smoke paths.
+- The landing page and key authenticated recipe workflow pages use the approved top bar, left hand menu app frame, compact featured carousel where applicable, and image-click media modal behavior on the signed-in smoke paths.
 - Current public source image visibility is handled for the unified Add Recipe import path.
 - Source image primary selection is stored on `RecipeSourceDocument.metadataJson` through typed `source-document:<id>` primary media refs. Slice 9 aligned edit payloads with that typed primary-media path.
 - Description and steps editor UX is no longer part of this phase's acceptance criteria. Keep the existing `description` and `stepsMarkdown` storage shape compatible and handle editor decisions in a later phase.
@@ -174,6 +177,12 @@ Investigate the Vercel preview deployment failure for `dpl_9SN8vtpukbsj3GRBdwQDU
 - `npm run test:phase2` passed after adding the source-document primary marker dependency boundary.
 - Latest PR GitHub run `25380572131` passed `quality-gate` and `auth-smoke`.
 - `npx vercel inspect dpl_9SN8vtpukbsj3GRBdwQDUmAwhoR3 --logs --scope luisfleitas-1188s-projects` returned `status Error` without build log details.
+- `node scripts/recipe-workspace-frame-smoke.mjs` first failed on `/recipes/add` because the shared workspace frame was missing, then passed after adding the shared frame.
+- In-app browser check on `http://localhost:3000/recipes/42/edit` confirmed the edit page now renders the refreshed Recetas top bar, Alice account action, left rail, and warm app frame around the edit form.
+- Scoped lint over touched source files passed with existing `<img>` warnings on `app/recipes/[id]/page.tsx`.
+- `npm run lint` passed after ignoring generated `.vercel/**` output, with existing warnings only.
+- `npm run build` passed after the shared workspace frame update and still lists `/recipes/add`, `/recipes/new`, `/recipes/import`, `/recipes/[id]`, and `/recipes/[id]/edit`.
+- `git diff --check` passed after the shared workspace frame update.
 
 ## Manual Testing Status
 
@@ -189,6 +198,7 @@ Investigate the Vercel preview deployment failure for `dpl_9SN8vtpukbsj3GRBdwQDU
 - Slice 8A Playwright smoke on `http://127.0.0.1:3105/` passed at 390px: no horizontal overflow, featured image opened the modal, Escape closed it, recipe-card image opened the modal, and close worked.
 - Slice 9 authenticated local curl smoke on `http://127.0.0.1:3106/recipes/42/edit` confirmed the shared edit form, grouped media section, and Save Changes button render for seeded `alice`.
 - Slice 10 Playwright smoke on `http://127.0.0.1:3100` passed at 1440px and 390px with seeded `alice`. It confirmed landing app chrome, featured image modal, recipe-card image modal, title/copy detail links, modal next/previous/close/Escape/arrow-key controls, `/recipes/add` manual path, pasted import error recovery, pasted import success hydration, `/recipes/new`, `/recipes/import`, `/recipes/42`, and `/recipes/42/edit`, with no horizontal overflow.
+- Local in-app browser smoke on `http://localhost:3000/recipes/42/edit` confirmed the edit surface now uses the refreshed workspace frame instead of the old standalone page shell.
 
 ## Decisions Already Approved
 

@@ -4,9 +4,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import LocaleSwitcher from "@/app/_components/locale-switcher";
 import { RecipeDetailsForm, type RecipeDetailsFamilyOption } from "@/app/recipes/_components/recipe-details-form";
-import { useLocale, useMessages } from "@/app/_components/locale-provider";
+import { useMessages } from "@/app/_components/locale-provider";
 import { RECIPE_IMAGE_MAX_UPLOAD_BYTES } from "@/lib/application/recipes/image-upload-constraints";
 import {
   buildCreateRecipeDetailsPayload,
@@ -44,7 +43,6 @@ const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const locale = useLocale();
   const messages = useMessages();
   const importSessionId = searchParams.get("importSession");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -341,12 +339,11 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
   }
 
   return (
-    <main id="new-recipe-main" className="app-shell max-w-5xl">
+    <section id="new-recipe-main" className="max-w-5xl">
       <div id="new-recipe-panel" className="surface-panel space-y-6 p-6 sm:p-8">
         <div id="new-recipe-header" className="flex items-center justify-between gap-3">
           <h1 id="new-recipe-title" className="text-2xl font-semibold">{messages.recipe.newTitle}</h1>
           <div id="new-recipe-header-links" className="flex flex-wrap items-center justify-end gap-3">
-            <LocaleSwitcher locale={locale} />
             {isRecipeImportEnabled ? (
               <Link id="new-recipe-import-link" href="/recipes/import" className="text-link text-sm">
                 {messages.recipe.importLink}
@@ -390,6 +387,6 @@ export default function NewRecipeForm({ isRecipeImportEnabled }: NewRecipeFormPr
           visibility={visibility}
         />
       </div>
-    </main>
+    </section>
   );
 }

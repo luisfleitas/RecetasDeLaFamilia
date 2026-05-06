@@ -4,8 +4,7 @@ import Link from "next/link";
 import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
-import LocaleSwitcher from "@/app/_components/locale-switcher";
-import { useLocale, useMessages } from "@/app/_components/locale-provider";
+import { useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 import RecipeLanguageControl from "@/app/recipes/_components/recipe-language-control";
 import {
@@ -135,7 +134,6 @@ export default function ImportRecipeForm({
   onImportSucceeded,
 }: ImportRecipeFormProps) {
   const router = useRouter();
-  const locale = useLocale();
   const messages = useMessages();
   const [sourceTab, setSourceTab] = useState<ImportSourceTab>(layoutVariant === "embedded" ? "paste" : "document");
   const inputMode: RecipeImportInputMode = sourceTab === "handwritten" ? "handwritten" : "document";
@@ -582,10 +580,10 @@ export default function ImportRecipeForm({
   }
 
   const isEmbedded = layoutVariant === "embedded";
-  const Root = isEmbedded ? "section" : "main";
+  const Root = "section";
   const modeTabBaseId = isEmbedded ? "add-recipe-import" : "recipe-import-mode";
   const rootId = isEmbedded ? "add-recipe-import-source-screen" : "recipe-import-main";
-  const rootClassName = isEmbedded ? "surface-panel grid gap-5 p-5" : "app-shell max-w-6xl";
+  const rootClassName = isEmbedded ? "surface-panel grid gap-5 p-5" : "max-w-6xl";
   const panelClassName = isEmbedded ? "grid gap-5" : "surface-panel space-y-6 p-6 sm:p-8";
 
   return (
@@ -614,7 +612,6 @@ export default function ImportRecipeForm({
               </p>
             </div>
             <div id="recipe-import-header-actions" className="flex flex-wrap items-center justify-end gap-3">
-              <LocaleSwitcher locale={locale} />
               <Link id="recipe-import-back-link" href="/" className="text-link text-sm">
                 {messages.common.backToRecipes}
               </Link>

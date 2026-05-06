@@ -43,7 +43,7 @@ export default function AddRecipeWorkflow(props: AddRecipeImportConfig) {
   }
 
   return (
-    <main id="add-recipe-workflow" className="app-shell">
+    <section id="add-recipe-workflow" className="max-w-5xl">
       <div className="grid gap-5">
         <header id="add-recipe-header" className="page-header-bar">
           <div id="add-recipe-header-copy" className="page-header-copy">
@@ -85,6 +85,6 @@ export default function AddRecipeWorkflow(props: AddRecipeImportConfig) {
           <AddRecipeDetailsScreen importSessionId={state.importSessionId} path={state.path} />
         ) : null}
       </div>
-    </main>
+    </section>
   );
 }
