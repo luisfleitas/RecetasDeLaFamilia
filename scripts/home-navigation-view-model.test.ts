@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildFeaturedRecipeSlides,
+  buildHomeRecipeMediaCarouselItems,
   buildRecipeVisibilityTabGroups,
   buildHomeNavigationViewModel,
+  getHomeRecipeDisplayMediaRefs,
   getRecipeGroupDisplayLabel,
 } from "../lib/application/home-navigation/view-model";
 
@@ -77,36 +79,76 @@ test("limits sidebar families and owned recipes to six and prepares approved rou
     { id: 2, title: "Family Sancocho", canEdit: true, href: "/recipes/2", editHref: "/recipes/2/edit" },
     { id: 1, title: "Public Arepas", canEdit: true, href: "/recipes/1", editHref: "/recipes/1/edit" },
   ]);
-  assert.equal(model.recipeCreateHref, "/recipes/new");
+  assert.equal(model.recipeCreateHref, "/recipes/add");
   assert.equal(model.recipesMoreHref, "#home-recipe-groups");
 });
 
 test("builds featured slides from most recent visible recipes", () => {
   const slides = buildFeaturedRecipeSlides(recipes, 3);
 
-  assert.deepEqual(slides, [
-    {
-      id: 4,
-      title: "Other User Recipe",
-      description: null,
-      href: "/recipes/4",
-      imageUrl: null,
-    },
-    {
-      id: 3,
-      title: "Private Sofrito",
-      description: "Base for everything.",
-      href: "/recipes/3",
-      imageUrl: null,
-    },
+  assert.deepEqual(
+    slides.map((slide) => ({
+      id: slide.id,
+      title: slide.title,
+      description: slide.description,
+      href: slide.href,
+      imageUrl: slide.imageUrl,
+      mediaItemIds: slide.mediaItems.map((item) => item.id),
+    })),
+    [
+      {
+        id: 2,
+        title: "Family Sancocho",
+        description: null,
+        href: "/recipes/2",
+        imageUrl: "/sancocho.jpg",
+        mediaItemIds: ["recipe-image-22"],
+      },
+      {
+        id: 1,
+        title: "Public Arepas",
+        description: "Crisp and warm.",
+        href: "/recipes/1",
+        imageUrl: "/public-arepas.jpg",
+        mediaItemIds: ["recipe-image-11"],
+      },
+    ],
+  );
+});
+
+test("omits featured slides when visible recipes have no real media", () => {
+  assert.deepEqual(buildFeaturedRecipeSlides([recipes[2]!, recipes[3]!]), []);
+});
+
+test("builds featured slides from visible imported source pages", () => {
+  const slides = buildFeaturedRecipeSlides([
     {
       id: 2,
       title: "Family Sancocho",
       description: null,
-      href: "/recipes/2",
-      imageUrl: "/sancocho.jpg",
+      createdByUserId: 7,
+      createdAt: "2026-01-03T00:00:00.000Z",
+      visibility: "family",
+      families: [{ id: 20, name: "Hernandez" }],
+      images: [{ id: -42, thumbnailUrl: "/source-page.jpg", fullUrl: "/source-page.jpg" }],
+      primaryImage: null,
     },
   ]);
+
+  assert.deepEqual(
+    slides.map((slide) => ({
+      id: slide.id,
+      imageUrl: slide.imageUrl,
+      mediaItemIds: slide.mediaItems.map((item) => item.id),
+    })),
+    [
+      {
+        id: 2,
+        imageUrl: "/source-page.jpg",
+        mediaItemIds: ["source-document-42"],
+      },
+    ],
+  );
 });
 
 test("returns approved display labels for recipe groups", () => {
@@ -137,4 +179,73 @@ test("builds recipe visibility groups outside the page layout", () => {
       { id: "private", label: "Just for me", type: "private", recipeIds: [3] },
     ],
   );
+});
+
+test("builds home card carousel items from recipe images and visible imported source pages", () => {
+  const items = buildHomeRecipeMediaCarouselItems({
+    title: "Media Recipe",
+    images: [
+      { id: 14, thumbnailUrl: "/recipe-photo-thumb.jpg", fullUrl: "/recipe-photo-full.jpg" },
+      { id: -41, thumbnailUrl: "/source-page.jpg", fullUrl: "/source-page.jpg" },
+    ],
+  });
+
+  assert.deepEqual(items, [
+    {
+      id: "recipe-image-14",
+      type: "recipe-image",
+      label: "Media Recipe image 1",
+      thumbnailUrl: "/recipe-photo-thumb.jpg",
+      fullUrl: "/recipe-photo-full.jpg",
+      accessibleLabel: "Open recipe image Media Recipe image 1",
+      isPrimary: false,
+    },
+    {
+      id: "source-document-41",
+      type: "source-document",
+      label: "Media Recipe imported source page 1",
+      thumbnailUrl: "/source-page.jpg",
+      fullUrl: "/source-page.jpg",
+      accessibleLabel: "Open imported source page Media Recipe imported source page 1",
+      isPrimary: false,
+    },
+  ]);
+});
+
+test("builds home card carousel items from primary image fallback", () => {
+  const items = buildHomeRecipeMediaCarouselItems({
+    title: "Primary Recipe",
+    primaryImage: { id: 19, thumbnailUrl: "/primary-thumb.jpg", fullUrl: "/primary-full.jpg" },
+    images: [],
+  });
+
+  assert.deepEqual(items, [
+    {
+      id: "recipe-image-19",
+      type: "recipe-image",
+      label: "Primary Recipe image 1",
+      thumbnailUrl: "/primary-thumb.jpg",
+      fullUrl: "/primary-full.jpg",
+      accessibleLabel: "Open recipe image Primary Recipe image 1",
+      isPrimary: true,
+    },
+  ]);
+});
+
+test("selects display media refs from images before primary image fallback", () => {
+  assert.deepEqual(getHomeRecipeDisplayMediaRefs({
+    title: "Recipe with image list",
+    images: [{ id: 31, thumbnailUrl: "/list-thumb.jpg", fullUrl: "/list-full.jpg" }],
+    primaryImage: { id: 32, thumbnailUrl: "/primary-thumb.jpg", fullUrl: "/primary-full.jpg" },
+  }), [
+    { id: 31, thumbnailUrl: "/list-thumb.jpg", fullUrl: "/list-full.jpg" },
+  ]);
+
+  assert.deepEqual(getHomeRecipeDisplayMediaRefs({
+    title: "Recipe with primary only",
+    images: [],
+    primaryImage: { id: 32, thumbnailUrl: "/primary-thumb.jpg", fullUrl: "/primary-full.jpg" },
+  }), [
+    { id: 32, thumbnailUrl: "/primary-thumb.jpg", fullUrl: "/primary-full.jpg" },
+  ]);
 });

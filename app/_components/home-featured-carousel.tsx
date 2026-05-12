@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import RecipeMediaCarousel from "@/app/recipes/_components/recipe-media-carousel";
 import type { FeaturedRecipeSlide } from "@/lib/application/home-navigation/view-model";
 
 type HomeFeaturedCarouselProps = {
@@ -41,25 +42,22 @@ export default function HomeFeaturedCarousel({ slides, labels }: HomeFeaturedCar
   return (
     <section id="home-featured-carousel" className="home-featured-band">
       <div id="home-featured-carousel-media" className="home-featured-media">
-        {active.imageUrl ? (
-          <Image
-            id={`home-featured-carousel-image-${active.id}`}
-            src={active.imageUrl}
-            alt={active.title}
-            width={960}
-            height={540}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        ) : (
-          <div
-            id={`home-featured-carousel-placeholder-${active.id}`}
-            className="absolute inset-0 grid place-items-center bg-[linear-gradient(135deg,var(--brand-cream-100),var(--brand-orange-300))] p-5 text-center"
-          >
-            <p id={`home-featured-carousel-placeholder-title-${active.id}`} className="break-words font-serif text-2xl font-semibold text-[var(--brand-brown-900)]">
-              {active.title}
-            </p>
-          </div>
-        )}
+        <RecipeMediaCarousel
+          items={active.mediaItems}
+          triggerId={`home-featured-carousel-image-${active.id}`}
+          triggerLabel={`Open media for ${active.title}`}
+          triggerClassName="home-featured-media-button"
+          triggerChildren={
+            <Image
+              id={`home-featured-carousel-image-content-${active.id}`}
+              src={active.imageUrl}
+              alt={active.title}
+              width={960}
+              height={540}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          }
+        />
       </div>
       <div id="home-featured-carousel-copy" className="home-featured-copy">
         <p id="home-featured-carousel-label" className="text-xs font-black uppercase text-[var(--brand-orange-700)]">

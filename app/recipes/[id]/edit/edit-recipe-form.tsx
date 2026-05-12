@@ -1,62 +1,20 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RecipeDetailsForm, type RecipeDetailsFamilyOption } from "@/app/recipes/_components/recipe-details-form";
 import { useMessages } from "@/app/_components/locale-provider";
-import { buttonClassName } from "@/app/_components/ui/button-styles";
-import RecipeLanguageControl from "@/app/recipes/_components/recipe-language-control";
-import { IngredientEditor } from "@/app/recipes/_components/ingredient-editor";
 import { RECIPE_IMAGE_MAX_UPLOAD_BYTES } from "@/lib/application/recipes/image-upload-constraints";
+import {
+  buildEditRecipeDetailsPayload,
+  hydrateEditRecipeDetailsDraftFromRecipe,
+  type EditRecipeDetailsRecipe,
+  type RecipeDetailsImageDraft,
+  type RecipeDetailsIngredientDraft,
+  type RecipeDetailsVisibility,
+} from "@/lib/application/recipes/recipe-details-draft";
+import { serializeRecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
 import type { RecipeLanguage } from "@/lib/domain/recipe-language";
-
-type Ingredient = {
-  id: number;
-  name: string;
-  qty: number;
-  unit: string;
-  notes: string | null;
-  position: number;
-};
-
-type RecipeImage = {
-  id: number;
-  isPrimary: boolean;
-  position: number;
-  fullUrl: string;
-  thumbnailUrl: string;
-};
-
-type Recipe = {
-  id: number;
-  title: string;
-  description: string | null;
-  stepsMarkdown: string;
-  language: RecipeLanguage;
-  visibility: "public" | "private" | "family";
-  families: Array<{ id: number; name: string }>;
-  ingredients: Ingredient[];
-  images?: RecipeImage[];
-  primaryImage?: { id: number } | null;
-};
-
-type IngredientDraft = {
-  rowId: number;
-  name: string;
-  qty: string;
-  unit: string;
-  notes: string;
-};
-
-type NewImageDraft = {
-  id: number;
-  file: File;
-  previewUrl: string;
-};
-
-type ExistingImageDraft = {
-  id: number;
-  thumbnailUrl: string;
-};
 
 type UpdateRecipeResponse = {
   recipe?: { id: number };
@@ -68,53 +26,34 @@ type UploadRecipeImageResponse = {
   error?: string;
 };
 
-type FamilyOption = {
-  id: number;
-  name: string;
-};
-
 const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = RECIPE_IMAGE_MAX_UPLOAD_BYTES;
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-function toIngredientDrafts(ingredients: Ingredient[]): IngredientDraft[] {
-  if (ingredients.length === 0) {
-    return [{ rowId: 1, name: "", qty: "", unit: "", notes: "" }];
-  }
-
-  return ingredients.map((ingredient, index) => ({
-    rowId: index + 1,
-    name: ingredient.name,
-    qty: ingredient.qty.toString(),
-    unit: ingredient.unit,
-    notes: ingredient.notes ?? "",
-  }));
-}
-
-function toExistingImageDrafts(recipe: Recipe): ExistingImageDraft[] {
-  const images = recipe.images ?? [];
-  return images.map((image) => ({
-    id: image.id,
-    thumbnailUrl: image.thumbnailUrl,
-  }));
-}
-
-export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
+export default function EditRecipeForm({ recipe }: { recipe: EditRecipeDetailsRecipe }) {
   const router = useRouter();
   const messages = useMessages();
-  const [title, setTitle] = useState(recipe.title);
-  const [description, setDescription] = useState(recipe.description ?? "");
-  const [stepsMarkdown, setStepsMarkdown] = useState(recipe.stepsMarkdown);
-  const [recipeLanguage, setRecipeLanguage] = useState<RecipeLanguage>(recipe.language);
-  const [ingredients, setIngredients] = useState<IngredientDraft[]>(toIngredientDrafts(recipe.ingredients));
-  const [existingImages, setExistingImages] = useState<ExistingImageDraft[]>(toExistingImageDrafts(recipe));
-  const [newImages, setNewImages] = useState<NewImageDraft[]>([]);
-  const [nextImageId, setNextImageId] = useState(1);
-  const [primaryExistingImageId, setPrimaryExistingImageId] = useState<number | null>(recipe.primaryImage?.id ?? null);
+  const editDraft = useMemo(() => hydrateEditRecipeDetailsDraftFromRecipe(recipe), [recipe]);
+  const [title, setTitle] = useState(editDraft.title);
+  const [description, setDescription] = useState(editDraft.description);
+  const [stepsMarkdown, setStepsMarkdown] = useState(editDraft.stepsMarkdown);
+  const [recipeLanguage, setRecipeLanguage] = useState<RecipeLanguage>(editDraft.language);
+  const [ingredients, setIngredients] = useState<RecipeDetailsIngredientDraft[]>(editDraft.ingredients);
+  const [existingImages, setExistingImages] = useState(editDraft.existingImages);
+  const [newImages, setNewImages] = useState<RecipeDetailsImageDraft[]>([]);
+  const [nextImageId, setNextImageId] = useState(
+    Math.max(0, ...editDraft.existingImages.map((image) => image.id)) + 1,
+  );
+  const [primaryExistingImageId, setPrimaryExistingImageId] = useState<number | null>(
+    editDraft.primaryExistingImageId,
+  );
   const [primaryNewImageId, setPrimaryNewImageId] = useState<number | null>(null);
-  const [visibility, setVisibility] = useState<"public" | "private" | "family">(recipe.visibility);
-  const [familyOptions, setFamilyOptions] = useState<FamilyOption[]>([]);
-  const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>(recipe.families.map((family) => family.id));
+  const [primarySourceDocumentId, setPrimarySourceDocumentId] = useState<number | null>(
+    editDraft.primarySourceDocumentId,
+  );
+  const [visibility, setVisibility] = useState<RecipeDetailsVisibility>(editDraft.visibility);
+  const [familyOptions, setFamilyOptions] = useState<RecipeDetailsFamilyOption[]>([]);
+  const [selectedFamilyIds, setSelectedFamilyIds] = useState<number[]>(editDraft.selectedFamilyIds);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [removingImageIds, setRemovingImageIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -142,10 +81,10 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       }
     }
 
-    loadFamilies();
+    void loadFamilies();
   }, []);
 
-  function updateIngredient(rowId: number, field: keyof Omit<IngredientDraft, "rowId">, value: string) {
+  function updateIngredient(rowId: number, field: keyof Omit<RecipeDetailsIngredientDraft, "rowId">, value: string) {
     setIngredients((current) =>
       current.map((ingredient) => (ingredient.rowId === rowId ? { ...ingredient, [field]: value } : ingredient)),
     );
@@ -240,7 +179,7 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
 
     setError(null);
 
-    const drafted = selected.map((file, index): NewImageDraft => ({
+    const drafted = selected.map((file, index): RecipeDetailsImageDraft => ({
       id: nextImageId + index,
       file,
       previewUrl: URL.createObjectURL(file),
@@ -249,11 +188,29 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     setNextImageId((current) => current + drafted.length);
     setNewImages((current) => {
       const combined = [...current, ...drafted];
-      if (primaryExistingImageId == null && primaryNewImageId == null && combined.length > 0) {
-        setPrimaryNewImageId(combined[0].id);
+      if (primaryExistingImageId == null && primaryNewImageId == null && primarySourceDocumentId == null) {
+        setPrimaryNewImageId(combined[0]?.id ?? null);
       }
       return combined;
     });
+  }
+
+  function setExistingImagePrimary(imageId: number) {
+    setPrimaryExistingImageId(imageId);
+    setPrimaryNewImageId(null);
+    setPrimarySourceDocumentId(null);
+  }
+
+  function setNewImagePrimary(imageId: number) {
+    setPrimaryNewImageId(imageId);
+    setPrimaryExistingImageId(null);
+    setPrimarySourceDocumentId(null);
+  }
+
+  function setSourceDocumentPrimary(sourceDocumentId: number) {
+    setPrimarySourceDocumentId(sourceDocumentId);
+    setPrimaryExistingImageId(null);
+    setPrimaryNewImageId(null);
   }
 
   function toggleSelectedFamily(familyId: number) {
@@ -262,27 +219,27 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
     );
   }
 
+  function getRecipeDetailsValidationMessage(code: string) {
+    switch (code) {
+      case "REQUIRED_TITLE":
+        return messages.recipe.errors.requiredTitle;
+      case "REQUIRED_STEPS":
+        return messages.recipe.errors.requiredSteps;
+      case "MISSING_INGREDIENT":
+        return messages.recipe.errors.missingIngredient;
+      case "FAMILY_SELECTION_REQUIRED":
+        return messages.recipe.errors.familySelectionRequired;
+      case "PRIMARY_IMAGE_NOT_FOUND":
+        return messages.recipe.errors.updateRecipeFailed;
+      case "INVALID_INGREDIENT":
+      default:
+        return messages.recipe.errors.invalidIngredient;
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-
-    const trimmedTitle = title.trim();
-    const trimmedSteps = stepsMarkdown.trim();
-
-    if (trimmedTitle.length === 0) {
-      setError(messages.recipe.errors.requiredTitle);
-      return;
-    }
-
-    if (trimmedSteps.length === 0) {
-      setError(messages.recipe.errors.requiredSteps);
-      return;
-    }
-
-    if (ingredients.length === 0) {
-      setError(messages.recipe.errors.missingIngredient);
-      return;
-    }
 
     if (totalImageCount() > MAX_IMAGES) {
       setError(messages.recipe.errors.maxImages);
@@ -294,49 +251,43 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
       return;
     }
 
-    if (visibility === "family" && selectedFamilyIds.length === 0) {
-      setError(messages.recipe.errors.familySelectionRequired);
-      return;
-    }
+    const draftResult = buildEditRecipeDetailsPayload({
+      ...editDraft,
+      title,
+      description,
+      stepsMarkdown,
+      language: recipeLanguage,
+      ingredients,
+      existingImages,
+      newImages,
+      primaryExistingImageId,
+      primaryNewImageId,
+      primarySourceDocumentId,
+      visibility,
+      selectedFamilyIds,
+    });
 
-    const payloadIngredients = ingredients.map((ingredient, index) => ({
-      name: ingredient.name.trim(),
-      qty: Number(ingredient.qty),
-      unit: ingredient.unit.trim(),
-      notes: ingredient.notes.trim(),
-      position: index + 1,
-    }));
-
-    const hasInvalidIngredient = payloadIngredients.some(
-      (ingredient) =>
-        ingredient.name.length === 0 ||
-        ingredient.unit.length === 0 ||
-        !Number.isFinite(ingredient.qty) ||
-        ingredient.qty <= 0 ||
-        ingredient.position < 1,
-    );
-
-    if (hasInvalidIngredient) {
-      setError(messages.recipe.errors.invalidIngredient);
+    if (!draftResult.ok) {
+      setError(getRecipeDetailsValidationMessage(draftResult.errors[0]?.code ?? "INVALID_INGREDIENT"));
       return;
     }
 
     const formData = new FormData();
-    formData.append("title", trimmedTitle);
-    formData.append("description", description.trim());
-    formData.append("stepsMarkdown", trimmedSteps);
-    formData.append("language", recipeLanguage);
-    formData.append("visibility", visibility);
-    formData.append("ingredients", JSON.stringify(payloadIngredients));
+    formData.append("title", draftResult.payload.title);
+    formData.append("description", draftResult.payload.description);
+    formData.append("stepsMarkdown", draftResult.payload.stepsMarkdown);
+    formData.append("language", draftResult.payload.language);
+    formData.append("visibility", draftResult.payload.visibility);
+    formData.append("ingredients", JSON.stringify(draftResult.payload.ingredients));
 
-    if (visibility === "family") {
-      for (const familyId of selectedFamilyIds) {
+    if (draftResult.payload.visibility === "family") {
+      for (const familyId of draftResult.payload.familyIds) {
         formData.append("familyIds", String(familyId));
       }
     }
 
-    if (primaryExistingImageId != null) {
-      formData.append("primaryImageId", String(primaryExistingImageId));
+    if (draftResult.payload.primaryMediaReference) {
+      formData.append("primaryMediaReference", serializeRecipeMediaReference(draftResult.payload.primaryMediaReference));
     }
 
     setIsSubmitting(true);
@@ -353,10 +304,10 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
         return;
       }
 
-      for (const image of newImages) {
+      for (const image of draftResult.imageUploads) {
         const imageFormData = new FormData();
         imageFormData.append("image", image.file);
-        if (primaryNewImageId === image.id) {
+        if (image.makePrimary) {
           imageFormData.append("makePrimary", "true");
         }
 
@@ -382,280 +333,42 @@ export default function EditRecipeForm({ recipe }: { recipe: Recipe }) {
   }
 
   return (
-    <form id="edit-recipe-form" onSubmit={handleSubmit} className="space-y-4">
-      <div id="edit-recipe-basic-info-section" className="surface-card recipe-form-section p-4">
-        <div id="edit-recipe-basic-info-header" className="recipe-form-section-header">
-          <div id="edit-recipe-basic-info-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-basic-info-title" className="recipe-form-section-title">{messages.recipe.basicInfoTitle}</p>
-            <p id="edit-recipe-basic-info-description" className="recipe-form-section-description">
-              {messages.recipe.editBasicInfoDescription}
-            </p>
-          </div>
-        </div>
-
-        <div id="edit-recipe-title-field">
-          <label id="edit-recipe-title-label" htmlFor="title" className="mb-1 block text-sm font-medium">
-            {messages.recipe.titleLabel}
-          </label>
-          <input
-            id="title"
-            name="title"
-            required
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            className="input-base"
-          />
-        </div>
-
-        <div id="edit-recipe-description-field">
-          <label id="edit-recipe-description-label" htmlFor="description" className="mb-1 block text-sm font-medium">
-            {messages.recipe.descriptionLabel}
-          </label>
-          <textarea
-            id="description"
-            name="description"
-            rows={2}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            className="input-base"
-          />
-        </div>
-
-        <RecipeLanguageControl
-          baseId="edit-recipe-language"
-          value={recipeLanguage}
-          onChange={setRecipeLanguage}
-        />
-      </div>
-
-      <div id="edit-recipe-sharing-section" className="surface-card recipe-form-section p-4">
-        <div id="edit-recipe-sharing-header" className="recipe-form-section-header">
-          <div id="edit-recipe-sharing-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-sharing-title" className="recipe-form-section-title">{messages.recipe.sharingTitle}</p>
-            <p id="edit-recipe-sharing-description" className="recipe-form-section-description">
-              {messages.recipe.sharingEditDescription}
-            </p>
-          </div>
-        </div>
-
-        <div id="edit-recipe-sharing-visibility-group" className="flex flex-wrap gap-4">
-          <label id="edit-recipe-sharing-public-label" className="text-sm">
-            <input
-              id="edit-recipe-sharing-public-input"
-              type="radio"
-              name="editRecipeVisibility"
-              checked={visibility === "public"}
-              onChange={() => setVisibility("public")}
-              className="mr-2"
-            />
-            {messages.recipe.visibilityPublic}
-          </label>
-          <label id="edit-recipe-sharing-private-label" className="text-sm">
-            <input
-              id="edit-recipe-sharing-private-input"
-              type="radio"
-              name="editRecipeVisibility"
-              checked={visibility === "private"}
-              onChange={() => setVisibility("private")}
-              className="mr-2"
-            />
-            {messages.recipe.visibilityPrivate}
-          </label>
-          <label id="edit-recipe-sharing-family-label" className="text-sm">
-            <input
-              id="edit-recipe-sharing-family-input"
-              type="radio"
-              name="editRecipeVisibility"
-              checked={visibility === "family"}
-              onChange={() => setVisibility("family")}
-              className="mr-2"
-            />
-            {messages.recipe.visibilityFamily}
-          </label>
-        </div>
-
-        {visibility === "family" ? (
-          <div id="edit-recipe-sharing-families-section" className="space-y-2">
-            <p id="edit-recipe-sharing-families-title" className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
-              {messages.recipe.selectFamilies}
-            </p>
-            {familyOptions.length > 0 ? (
-              <ul id="edit-recipe-sharing-families-list" className="space-y-2">
-                {familyOptions.map((family) => (
-                  <li id={`edit-recipe-sharing-family-item-${family.id}`} key={family.id}>
-                    <label id={`edit-recipe-sharing-family-label-${family.id}`} className="text-sm">
-                      <input
-                        id={`edit-recipe-sharing-family-input-${family.id}`}
-                        type="checkbox"
-                        checked={selectedFamilyIds.includes(family.id)}
-                        onChange={() => toggleSelectedFamily(family.id)}
-                        className="mr-2"
-                      />
-                      {family.name}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p id="edit-recipe-sharing-families-empty" className="text-sm text-[var(--color-text-muted)]">
-                {messages.recipe.noFamilies}
-              </p>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      <IngredientEditor
-        addButtonId="edit-recipe-add-ingredient"
-        baseId="edit-recipe-ingredients"
-        ingredients={ingredients}
-        onAdd={addIngredientRow}
-        onRemove={removeIngredientRow}
-        onUpdate={updateIngredient}
-        title={messages.recipe.ingredientsTitle}
-      />
-
-      <div id="edit-recipe-images-section" className="surface-card recipe-form-section space-y-3 p-4">
-        <div id="edit-recipe-images-header" className="recipe-form-section-header">
-          <div id="edit-recipe-images-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-images-title" className="recipe-form-section-title">{messages.recipe.imagesTitle}</p>
-            <p id="edit-recipe-images-description" className="recipe-form-section-description">
-              {messages.recipe.imagesEditDescription}
-            </p>
-          </div>
-          <span id="edit-recipe-images-count" className="text-xs text-[var(--color-text-muted)]">{totalImageCount()}/{MAX_IMAGES}</span>
-        </div>
-
-        {existingImages.length > 0 ? (
-          <ul id="edit-recipe-existing-images-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {existingImages.map((image) => (
-              <li id={`edit-recipe-existing-image-item-${image.id}`} key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-                <img
-                  id={`edit-recipe-existing-image-${image.id}`}
-                  src={image.thumbnailUrl}
-                  alt={messages.recipe.galleryImageAlt}
-                  className="h-36 w-full rounded-[var(--radius-sm)] object-cover"
-                />
-                <div id={`edit-recipe-existing-image-actions-${image.id}`} className="mt-2 flex items-center gap-2">
-                  <label id={`edit-recipe-existing-image-primary-label-${image.id}`} className="text-xs">
-                    <input
-                      id={`edit-recipe-existing-image-primary-${image.id}`}
-                      type="radio"
-                      name="primaryImage"
-                      checked={primaryExistingImageId === image.id}
-                      onChange={() => {
-                        setPrimaryExistingImageId(image.id);
-                        setPrimaryNewImageId(null);
-                      }}
-                      className="mr-1"
-                    />
-                    {messages.recipe.primaryImage}
-                  </label>
-                  <button
-                    id={`edit-recipe-existing-image-remove-${image.id}`}
-                    type="button"
-                    onClick={() => removeExistingImage(image.id)}
-                    disabled={isSubmitting || removingImageIds.includes(image.id)}
-                    className={buttonClassName("secondary")}
-                  >
-                    {removingImageIds.includes(image.id) ? messages.recipe.removing : messages.recipe.remove}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p id="edit-recipe-no-existing-images" className="text-sm text-[var(--color-text-muted)]">{messages.recipe.noSavedImages}</p>
-        )}
-
-        <input
-          id="edit-recipe-new-images-input"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          onChange={(event) => handleImageSelection(event.target.files)}
-          className="input-base"
-        />
-
-        {newImages.length > 0 ? (
-          <div id="edit-recipe-new-selected-files-box" className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
-            <p id="edit-recipe-new-selected-files-title" className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">{messages.recipe.selectedFiles}</p>
-            <div id="edit-recipe-new-selected-files-list" className="space-y-1">
-              {newImages.map((image) => (
-                <p id={`edit-recipe-new-selected-file-${image.id}`} key={image.id} className="truncate text-xs text-[var(--color-text-muted)]">
-                  {image.file.name}
-                </p>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {newImages.length > 0 ? (
-          <ul id="edit-recipe-new-image-preview-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {newImages.map((image) => (
-              <li id={`edit-recipe-new-image-preview-item-${image.id}`} key={image.id} className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
-                <img id={`edit-recipe-new-image-preview-${image.id}`} src={image.previewUrl} alt={image.file.name} className="h-36 w-full rounded-[var(--radius-sm)] object-cover" />
-                <p id={`edit-recipe-new-image-name-${image.id}`} className="mt-2 truncate text-xs text-[var(--color-text-muted)]">{image.file.name}</p>
-                <div id={`edit-recipe-new-image-actions-${image.id}`} className="mt-2 flex items-center gap-2">
-                  <label id={`edit-recipe-new-image-primary-label-${image.id}`} className="text-xs">
-                    <input
-                      id={`edit-recipe-new-image-primary-${image.id}`}
-                      type="radio"
-                      name="primaryImage"
-                      checked={primaryNewImageId === image.id}
-                      onChange={() => {
-                        setPrimaryNewImageId(image.id);
-                        setPrimaryExistingImageId(null);
-                      }}
-                      className="mr-1"
-                    />
-                    {messages.recipe.primaryImage}
-                  </label>
-                  <button
-                    id={`edit-recipe-new-image-remove-${image.id}`}
-                    type="button"
-                    onClick={() => removeNewImage(image.id)}
-                    className={buttonClassName("secondary")}
-                  >
-                    {messages.recipe.remove}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-
-      <div id="edit-recipe-steps-section" className="surface-card recipe-form-section p-4">
-        <div id="edit-recipe-steps-header" className="recipe-form-section-header">
-          <div id="edit-recipe-steps-copy" className="recipe-form-section-copy">
-            <p id="edit-recipe-steps-title" className="recipe-form-section-title">{messages.recipe.stepsTitle}</p>
-            <p id="edit-recipe-steps-description" className="recipe-form-section-description">
-              {messages.recipe.stepsEditDescription}
-            </p>
-          </div>
-        </div>
-        <div id="edit-recipe-steps-field">
-          <label id="edit-recipe-steps-label" htmlFor="stepsMarkdown" className="mb-1 block text-sm font-medium">
-            {messages.recipe.stepsLabel}
-          </label>
-          <textarea
-            id="stepsMarkdown"
-            name="stepsMarkdown"
-            rows={6}
-            required
-            value={stepsMarkdown}
-            onChange={(event) => setStepsMarkdown(event.target.value)}
-            className="input-base"
-          />
-        </div>
-      </div>
-
-      {error ? <p id="edit-recipe-error" className="text-sm text-[var(--color-danger)]">{error}</p> : null}
-
-      <button id="edit-recipe-submit" type="submit" disabled={isSubmitting || isRemovingImage} className={buttonClassName("primary")}>
-        {isSubmitting ? messages.recipe.savingSubmit : messages.recipe.saveSubmit}
-      </button>
-    </form>
+    <RecipeDetailsForm
+      baseId="edit-recipe"
+      description={description}
+      error={error}
+      existingImages={existingImages}
+      familyOptions={familyOptions}
+      ingredients={ingredients}
+      isSubmitting={isSubmitting || isRemovingImage}
+      mode="edit"
+      newImages={newImages}
+      onAddIngredient={addIngredientRow}
+      onImageSelection={handleImageSelection}
+      onRemoveExistingImage={removeExistingImage}
+      onRemoveImage={removeNewImage}
+      onRemoveIngredient={removeIngredientRow}
+      onSetDescription={setDescription}
+      onSetPrimaryExistingImageId={setExistingImagePrimary}
+      onSetPrimaryNewImageId={setNewImagePrimary}
+      onSetPrimarySourceDocumentId={setSourceDocumentPrimary}
+      onSetRecipeLanguage={setRecipeLanguage}
+      onSetStepsMarkdown={setStepsMarkdown}
+      onSetTitle={setTitle}
+      onSetVisibility={setVisibility}
+      onSubmit={handleSubmit}
+      onToggleSelectedFamily={toggleSelectedFamily}
+      onUpdateIngredient={updateIngredient}
+      primaryExistingImageId={primaryExistingImageId}
+      primaryNewImageId={primaryNewImageId}
+      primarySourceDocumentId={primarySourceDocumentId}
+      recipeLanguage={recipeLanguage}
+      removingExistingImageIds={removingImageIds}
+      selectedFamilyIds={selectedFamilyIds}
+      sourceDocuments={editDraft.sourceDocuments}
+      stepsMarkdown={stepsMarkdown}
+      title={title}
+      visibility={visibility}
+    />
   );
 }

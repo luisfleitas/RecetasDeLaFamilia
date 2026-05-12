@@ -9,9 +9,11 @@ export type RecipeWithViewerAccess = {
 
 export type VisibleRecipeSourceImageRef = {
   id: number;
+  sourceDocumentId: number;
   fullUrl: string;
   thumbnailUrl: string;
-  isPrimary: false;
+  isPrimary: boolean;
+  mediaReference: "source-document";
 };
 
 function canViewerAccessPrivateSourceImages(
@@ -95,9 +97,11 @@ export async function listVisibleRecipeSourceImages(
     const visibleImages = byRecipeId.get(sourceDocument.recipeId) ?? [];
     visibleImages.push({
       id: sourceDocument.id * -1,
+      sourceDocumentId: sourceDocument.id,
       fullUrl: `/api/recipes/${sourceDocument.recipeId}/source-documents/${sourceDocument.id}/file`,
       thumbnailUrl: `/api/recipes/${sourceDocument.recipeId}/source-documents/${sourceDocument.id}/file`,
-      isPrimary: false,
+      isPrimary: metadata.isPrimary === true,
+      mediaReference: "source-document",
     });
     byRecipeId.set(sourceDocument.recipeId, visibleImages);
   }

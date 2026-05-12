@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { markRecipeSourceDocumentPrimary as markRecipeSourceDocumentPrimaryDefault } from "@/lib/application/recipes/source-documents";
+import type { RecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
 import type { CreateRecipeInput, Recipe, RecipeListItem } from "@/lib/domain/recipe";
 import type {
   GetRecipeByIdOptions,
@@ -24,6 +26,7 @@ type CreateRecipeWithImagesInput = {
   recipe: CreateRecipeInput;
   images: UploadedRecipeImage[];
   primaryImageIndex?: number | null;
+  primaryMediaReference?: RecipeMediaReference | null;
 };
 
 type UpdateRecipeWithImagesInput = {
@@ -31,6 +34,7 @@ type UpdateRecipeWithImagesInput = {
   newImages: UploadedRecipeImage[];
   primaryImageId?: number | null;
   primaryImageIndex?: number | null;
+  primaryMediaReference?: RecipeMediaReference | null;
 };
 
 type AddRecipeImageInput = {
@@ -53,6 +57,11 @@ export type RecipeUseCases = {
     id: number,
     input: UpdateRecipeWithImagesInput,
   ) => Promise<{ recipe: Recipe | null; forbidden: boolean }>;
+  setPrimaryMediaReference: (
+    userId: number,
+    id: number,
+    primaryMediaReference: RecipeMediaReference | null,
+  ) => Promise<{ recipe: Recipe | null; forbidden: boolean }>;
   addRecipeImage: (
     userId: number,
     id: number,
@@ -69,6 +78,7 @@ export type RecipeUseCases = {
 
 type RecipeUseCaseDeps = {
   storageProvider?: ImageStorageProvider;
+  markRecipeSourceDocumentPrimary?: typeof markRecipeSourceDocumentPrimaryDefault;
 };
 
 export function makeRecipeUseCases(
@@ -76,11 +86,14 @@ export function makeRecipeUseCases(
   deps?: RecipeUseCaseDeps,
 ): RecipeUseCases {
   const storageProvider = deps?.storageProvider ?? buildImageStorageProvider();
+  const markRecipeSourceDocumentPrimary =
+    deps?.markRecipeSourceDocumentPrimary ?? markRecipeSourceDocumentPrimaryDefault;
 
   async function persistNewImages(
     recipeId: number,
     newImages: UploadedRecipeImage[],
     primaryImageIndex?: number | null,
+    options: { defaultFirstImagePrimary?: boolean } = {},
   ): Promise<{ createdImageIds: number[]; primaryImageId: number | null; storageKeys: string[] }> {
     if (newImages.length === 0) {
       return { createdImageIds: [], primaryImageId: null, storageKeys: [] };
@@ -101,6 +114,7 @@ export function makeRecipeUseCases(
     }
 
     const existingPrimary = await recipeRepository.getPrimaryImageByRecipeId(recipeId);
+    const defaultFirstImagePrimary = options.defaultFirstImagePrimary ?? true;
     const createdImageIds: number[] = [];
     const storageKeys: string[] = [];
 
@@ -117,7 +131,7 @@ export function makeRecipeUseCases(
         const shouldSetPrimary =
           primaryImageIndex != null
             ? primaryImageIndex === index
-            : existingCount === 0 && index === 0 && !existingPrimary;
+            : defaultFirstImagePrimary && existingCount === 0 && index === 0 && !existingPrimary;
 
         await storageProvider.putObject({
           key: fullKey,
@@ -192,13 +206,20 @@ export function makeRecipeUseCases(
         throw new Error("A recipe supports up to 8 images.");
       }
 
+      const primaryMediaReference = input.primaryMediaReference ?? null;
+      const sourceDocumentPrimary =
+        primaryMediaReference?.type === "source-document" ? primaryMediaReference.id : null;
       const recipe = await recipeRepository.create(input.recipe, userId);
       let createdStorageKeys: string[] = [];
 
       try {
-        const { storageKeys } = await persistNewImages(recipe.id, input.images, input.primaryImageIndex);
+        const { storageKeys } = await persistNewImages(
+          recipe.id,
+          input.images,
+          input.primaryImageIndex,
+          { defaultFirstImagePrimary: sourceDocumentPrimary == null },
+        );
         createdStorageKeys = storageKeys;
-
         const withImages = await recipeRepository.getById(recipe.id, {
           viewerUserId: userId,
           includePrimaryImage: true,
@@ -246,6 +267,42 @@ export function makeRecipeUseCases(
       return { recipe, forbidden: false };
     },
 
+    async setPrimaryMediaReference(userId: number, id: number, primaryMediaReference: RecipeMediaReference | null) {
+      const ownerId = await recipeRepository.getOwnerById(id);
+
+      if (!ownerId) {
+        return { recipe: null, forbidden: false };
+      }
+
+      if (ownerId !== userId) {
+        return { recipe: null, forbidden: true };
+      }
+
+      if (primaryMediaReference?.type === "source-document") {
+        await recipeRepository.clearPrimaryImage(id);
+        await markRecipeSourceDocumentPrimary({
+          userId,
+          recipeId: id,
+          sourceDocumentId: primaryMediaReference.id,
+        });
+      } else if (primaryMediaReference?.type === "recipe-image") {
+        const switched = await recipeRepository.setPrimaryImage(id, primaryMediaReference.id);
+        if (!switched) {
+          throw new Error("primary media recipe image does not belong to this recipe");
+        }
+        await markRecipeSourceDocumentPrimary({ userId, recipeId: id, sourceDocumentId: null });
+      } else {
+        await markRecipeSourceDocumentPrimary({ userId, recipeId: id, sourceDocumentId: null });
+      }
+
+      const recipe = await recipeRepository.getById(id, {
+        viewerUserId: userId,
+        includePrimaryImage: true,
+        includeImages: true,
+      });
+      return { recipe, forbidden: false };
+    },
+
     async updateRecipeWithImages(userId: number, id: number, input: UpdateRecipeWithImagesInput) {
       const ownerId = await recipeRepository.getOwnerById(id);
 
@@ -263,6 +320,12 @@ export function makeRecipeUseCases(
           throw new Error("primaryImageId does not belong to this recipe");
         }
       }
+      if (input.primaryMediaReference?.type === "recipe-image") {
+        const requestedPrimary = await recipeRepository.getImageById(input.primaryMediaReference.id);
+        if (!requestedPrimary || requestedPrimary.recipeId !== id) {
+          throw new Error("primary media recipe image does not belong to this recipe");
+        }
+      }
 
       const updatedRecipe = await recipeRepository.update(id, input.recipe);
       if (!updatedRecipe) {
@@ -273,14 +336,30 @@ export function makeRecipeUseCases(
         id,
         input.newImages,
         input.primaryImageIndex,
+        { defaultFirstImagePrimary: input.primaryMediaReference?.type !== "source-document" },
       );
-      if (input.primaryImageId != null) {
+      if (input.primaryMediaReference?.type === "source-document") {
+        await recipeRepository.clearPrimaryImage(id);
+        await markRecipeSourceDocumentPrimary({
+          userId,
+          recipeId: id,
+          sourceDocumentId: input.primaryMediaReference.id,
+        });
+      } else if (input.primaryMediaReference?.type === "recipe-image") {
+        const switched = await recipeRepository.setPrimaryImage(id, input.primaryMediaReference.id);
+        if (!switched) {
+          throw new Error("primary media recipe image does not belong to this recipe");
+        }
+        await markRecipeSourceDocumentPrimary({ userId, recipeId: id, sourceDocumentId: null });
+      } else if (input.primaryImageId != null) {
         const switched = await recipeRepository.setPrimaryImage(id, input.primaryImageId);
         if (!switched) {
           throw new Error("primaryImageId does not belong to this recipe");
         }
+        await markRecipeSourceDocumentPrimary({ userId, recipeId: id, sourceDocumentId: null });
       } else if (createdPrimaryImageId != null) {
         await recipeRepository.setPrimaryImage(id, createdPrimaryImageId);
+        await markRecipeSourceDocumentPrimary({ userId, recipeId: id, sourceDocumentId: null });
       }
 
       const recipe = await recipeRepository.getById(id, {
