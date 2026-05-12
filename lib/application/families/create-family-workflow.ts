@@ -98,7 +98,10 @@ export function createInitialCreateFamilyDraft(): CreateFamilyDraft {
 
 export function updateDetails(
   draft: CreateFamilyDraft,
-  details: Partial<CreateFamilyDraftDetails>,
+  details: {
+    description?: string | null;
+    name?: string | null;
+  },
 ): CreateFamilyDraft {
   return {
     ...draft,

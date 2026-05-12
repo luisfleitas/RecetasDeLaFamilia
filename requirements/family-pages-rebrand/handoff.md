@@ -144,11 +144,12 @@ Visual companion:
 
 ## In Progress
 
-- Draft PR publication from `codex/feature/family-pages-rebrand` to `pre-main`.
+- Draft PR #33 from `codex/feature/family-pages-rebrand` to `pre-main`: `https://github.com/luisfleitas/RecetasDeLaFamilia/pull/33`.
+- Release gate monitoring for GitHub CI and Vercel preview.
 
 ## Next Action
 
-Open the draft PR into `pre-main`, monitor CI/Vercel, then move the PR to ready or address review/check feedback.
+Monitor the rerun for PR #33 after the TypeScript contract follow-up commit. If GitHub `quality-gate` passes but Vercel remains failed with `Builds . [0ms]`, treat the remaining blocker as Vercel preview provisioning rather than app code and resolve the hosted deployment issue before marking the PR ready.
 
 ## Known Issues
 
@@ -162,6 +163,8 @@ Open the draft PR into `pre-main`, monitor CI/Vercel, then move the PR to ready 
 - The old sage color scheme on `/account/families` was caused by the page rendering outside `RecipeWorkspaceFrame`; this is fixed and visually verified in the local browser.
 - The local `.env.local` contains hosted Postgres variables; local SQLite QA needs explicit env overrides so Prisma client generation and runtime adapter selection match.
 - Installing local `playwright` reported npm audit findings; no dependency-audit remediation was included in this feature release.
+- Draft PR #33 initially failed `quality-gate` on TypeScript contract mismatches for generated invite messages and nullable Create Family detail updates. The contracts were widened and `npm run test:phase0` passed locally after the fix.
+- Vercel preview for PR #33 failed with `Builds . [0ms]`, which matches the known preview provisioning failure pattern and can block release even when local/CI app checks pass.
 
 ## Verification Already Run
 

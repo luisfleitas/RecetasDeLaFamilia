@@ -2,8 +2,9 @@
 
 ## Status
 
-- Status: Complete for draft PR to `pre-main`.
+- Status: Local QA complete; draft PR is open to `pre-main`; hosted release gate is still blocked.
 - Branch: `codex/feature/family-pages-rebrand`
+- Draft PR: `https://github.com/luisfleitas/RecetasDeLaFamilia/pull/33`
 - QA date: 2026-05-12
 - Local QA URL: `http://127.0.0.1:3100`
 - Local QA env note: dev server and build used SQLite overrides because `.env.local` contains hosted Postgres variables while local QA uses the SQLite Prisma schema.
@@ -28,6 +29,10 @@
 - [x] Whitespace:
   - Command: `git diff --check`
   - Result: Passed.
+- [x] PR quality-gate failure follow-up:
+  - Initial PR result: Failed in `npm run test:phase0` because TypeScript contracts were narrower than the actual nullable form values and invite-result messages.
+  - Fix verification: `npm run test:phase0` passed locally after widening the contracts.
+  - Focused follow-up: `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/create-family-ui-contract.test.ts scripts/create-family-workflow.test.ts` passed, 11 tests.
 
 ## Browser Coverage
 
@@ -66,8 +71,10 @@
 - [x] The new Playwright smoke could not run because `playwright` was not installed locally. Added it as a dev dependency so existing and new smoke scripts can import `playwright`.
 - [x] The local dev server initially selected the hosted Postgres adapter from `.env.local` while the generated local Prisma client used SQLite. Restarted local QA with explicit SQLite overrides.
 - [x] The non-admin member View route rendered the Invites step disabled, preventing read-only invite review. Added `buildMemberViewFamilyStepViewModels` and regression coverage so Details and Invites are both reachable.
+- [x] The first draft PR `quality-gate` run failed TypeScript checks on `CreateFamilyGeneratedInviteResult.message` and nullable `updateDetails` input. Widened the contracts and verified `npm run test:phase0` locally.
 
 ## Residual Notes
 
 - Existing unrelated untracked recipe-workflow evidence remains under `output/playwright/recipe-workflow-refresh/` and was intentionally left untouched.
 - `npm install --save-dev playwright` reported audit findings after installation; dependency audit remediation is outside this family-pages release scope.
+- Vercel preview for PR #33 failed before build work with `Builds . [0ms]`, matching the known preview provisioning failure pattern. This remains a hosted release blocker until Vercel/provisioning is corrected or a new preview succeeds.

@@ -30,6 +30,7 @@ export type CreateFamilyGeneratedInviteResult = {
   inviteId: string;
   inviteType: "direct" | "link";
   inviteUrl?: string;
+  message?: string;
   ok: boolean;
 };
 

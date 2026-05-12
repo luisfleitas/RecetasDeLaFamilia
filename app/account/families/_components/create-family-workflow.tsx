@@ -45,6 +45,7 @@ type CreateFamilySubmitResponse = {
       inviteId: string;
       inviteType: "direct" | "link";
       inviteUrl?: string;
+      message?: string;
       ok: boolean;
     }[];
     status: "success" | "warning";
