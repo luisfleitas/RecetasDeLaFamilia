@@ -1,4 +1,5 @@
 import { FamilyRole } from "@prisma/client";
+import { isValidFamilyImageStorageKey } from "@/lib/application/families/family-image-constraints";
 
 export const FAMILY_NAME_MAX_LENGTH = 80;
 export const FAMILY_DESCRIPTION_MAX_LENGTH = 280;
@@ -8,7 +9,24 @@ export type CreateFamilyInput = {
   name: string;
   description: string | null;
   pictureStorageKey: string | null;
+  stagedInvites: CreateFamilyStagedInviteInput[];
 };
+
+export type CreateFamilyStagedLinkInviteInput = {
+  id: string;
+  kind: "link";
+  usageType: CreateFamilyInviteInput["usageType"];
+};
+
+export type CreateFamilyStagedUsernameInviteInput = {
+  id: string;
+  kind: "username";
+  username: string;
+};
+
+export type CreateFamilyStagedInviteInput =
+  | CreateFamilyStagedLinkInviteInput
+  | CreateFamilyStagedUsernameInviteInput;
 
 export type UpdateFamilyInput = {
   name?: string;
@@ -18,6 +36,10 @@ export type UpdateFamilyInput = {
 
 export type CreateFamilyInviteInput = {
   usageType: "single_use" | "multi_use";
+};
+
+export type CreateUsernameDirectInviteInput = {
+  username: string;
 };
 
 function normalizeString(value: unknown): string {
@@ -68,7 +90,62 @@ function validatePictureStorageKey(raw: unknown): string | null {
     throw new Error(`Family picture key must be ${FAMILY_PICTURE_KEY_MAX_LENGTH} characters or fewer`);
   }
 
+  if (pictureStorageKey && !isValidFamilyImageStorageKey(pictureStorageKey)) {
+    throw new Error("Family picture key must come from a family image upload");
+  }
+
   return pictureStorageKey;
+}
+
+function validateStagedInviteId(raw: unknown): string {
+  const id = normalizeString(raw);
+
+  if (id.length === 0) {
+    throw new Error("Staged invite id is required");
+  }
+
+  if (id.length > 80) {
+    throw new Error("Staged invite id must be 80 characters or fewer");
+  }
+
+  return id;
+}
+
+function parseStagedInvites(raw: unknown): CreateFamilyStagedInviteInput[] {
+  if (raw === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(raw)) {
+    throw new Error("Staged invites must be an array");
+  }
+
+  return raw.map((item) => {
+    if (!item || typeof item !== "object") {
+      throw new Error("Invalid staged invite payload");
+    }
+
+    const input = item as Record<string, unknown>;
+    const id = validateStagedInviteId(input.id);
+
+    if (input.kind === "link") {
+      return {
+        id,
+        kind: "link",
+        usageType: parseCreateFamilyInviteInput(input).usageType,
+      };
+    }
+
+    if (input.kind === "username") {
+      return {
+        id,
+        kind: "username",
+        username: normalizeDirectInviteUsername(input.username),
+      };
+    }
+
+    throw new Error("Staged invite kind must be link or username");
+  });
 }
 
 export function parseCreateFamilyInput(body: unknown): CreateFamilyInput {
@@ -82,6 +159,7 @@ export function parseCreateFamilyInput(body: unknown): CreateFamilyInput {
     name: validateName(input.name),
     description: validateDescription(input.description),
     pictureStorageKey: validatePictureStorageKey(input.pictureStorageKey),
+    stagedInvites: parseStagedInvites(input.stagedInvites),
   };
 }
 
@@ -145,4 +223,37 @@ export function parseCreateFamilyInviteInput(body: unknown): CreateFamilyInviteI
   }
 
   return { usageType };
+}
+
+export function normalizeDirectInviteUsername(raw: unknown): string {
+  if (typeof raw !== "string") {
+    throw new Error("Username is required");
+  }
+
+  const username = raw.trim().replace(/^@+/, "").toLowerCase();
+
+  if (username.length === 0) {
+    throw new Error("Username is required");
+  }
+
+  if (username.length > 40) {
+    throw new Error("Username must be 40 characters or fewer");
+  }
+
+  if (!/^[a-z0-9._-]+$/.test(username)) {
+    throw new Error("Username can only include letters, numbers, dots, underscores, and hyphens");
+  }
+
+  return username;
+}
+
+export function parseCreateUsernameDirectInviteInput(body: unknown): CreateUsernameDirectInviteInput {
+  if (!body || typeof body !== "object") {
+    throw new Error("Invalid direct invite payload");
+  }
+
+  const input = body as Record<string, unknown>;
+  return {
+    username: normalizeDirectInviteUsername(input.username),
+  };
 }

@@ -58,6 +58,7 @@ model User {
   familyMemberships FamilyMembership[]
   createdFamilyInvites FamilyInvite[] @relation("FamilyInviteCreator")
   consumedFamilyInvites FamilyInvite[] @relation("FamilyInviteConsumer")
+  targetedFamilyInvites FamilyInvite[] @relation("FamilyInviteTarget")
   familyInviteDecisions FamilyInviteDecision[]
   initiatedFamilyDeletionRequests FamilyDeletionRequest[] @relation("FamilyDeletionInitiator")
   familyDeletionVotes FamilyDeletionVote[]
@@ -148,6 +149,11 @@ enum FamilyInviteDecisionStatus {
   accepted
 }
 
+enum FamilyInviteType {
+  link
+  direct
+}
+
 enum FamilyDeletionRequestStatus {
   active
   approved
@@ -231,18 +237,23 @@ model FamilyInvite {
   consumedAt       DateTime? @map("consumed_at")
   consumedByUserId Int?     @map("consumed_by_user_id")
   maxUses          Int      @default(1) @map("max_uses")
+  inviteType       FamilyInviteType @default(link) @map("invite_type")
+  targetUserId     Int?     @map("target_user_id")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   family           Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
   createdByUser    User     @relation("FamilyInviteCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   consumedByUser   User?    @relation("FamilyInviteConsumer", fields: [consumedByUserId], references: [id], onDelete: SetNull)
+  targetUser       User?    @relation("FamilyInviteTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
   decisions        FamilyInviteDecision[]
   metricEvents     MetricEvent[]
   auditEvents      FamilyAuditEvent[]
 
   @@index([familyId])
   @@index([familyId, expiresAt])
+  @@index([familyId, inviteType, targetUserId])
+  @@index([targetUserId])
 }
 
 model FamilyInviteDecision {

@@ -1,4 +1,5 @@
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { DirectInviteError, assertCanUseTargetedInvite } from "@/lib/application/families/direct-invites";
 import {
   buildFamilyPictureUrl,
   getInviteState,
@@ -60,6 +61,12 @@ export async function GET(request: Request, { params }: Params) {
       },
       include: {
         family: true,
+        targetUser: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
       },
     });
 
@@ -77,6 +84,29 @@ export async function GET(request: Request, { params }: Params) {
         NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
         requestId,
       );
+    }
+
+    try {
+      assertCanUseTargetedInvite(invite, authUser.userId);
+    } catch (error) {
+      if (error instanceof DirectInviteError) {
+        if (isPhase3Enabled()) {
+          await recordMetric(prisma, {
+            metricName: "invite_opened",
+            requestId,
+            actorUserId: authUser.userId,
+            familyId: invite.familyId,
+            inviteId: invite.id,
+            statusCode: 403,
+            metadata: { reason: error.code },
+          });
+        }
+        return withRequestId(
+          NextResponse.json({ error: error.message, code: error.code }, { status: 403 }),
+          requestId,
+        );
+      }
+      throw error;
     }
 
     const membership = await prisma.familyMembership.findUnique({
@@ -128,6 +158,9 @@ export async function GET(request: Request, { params }: Params) {
         revokedAt: invite.revokedAt,
         consumedAt: invite.consumedAt,
         maxUses: invite.maxUses,
+        inviteType: invite.inviteType,
+        targetUserId: invite.targetUserId,
+        targetUsername: invite.targetUser?.username ?? null,
         usageType: getInviteUsageType(invite.maxUses),
         family: {
           id: invite.family.id,

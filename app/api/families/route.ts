@@ -1,10 +1,10 @@
+import { submitCreateFamily } from "@/lib/application/families/create-family-submission";
 import { parseCreateFamilyInput } from "@/lib/application/families/validation";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { buildFamilyPictureUrl } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
 import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
-import { FamilyRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -85,25 +85,11 @@ export async function POST(request: Request) {
 
   try {
     const prisma = await getPrisma();
-    const family = await prisma.$transaction(async (tx) => {
-      const createdFamily = await tx.family.create({
-        data: {
-          name: input.name,
-          description: input.description,
-          pictureStorageKey: input.pictureStorageKey,
-          createdByUserId: authUser.userId,
-        },
-      });
-
-      await tx.familyMembership.create({
-        data: {
-          familyId: createdFamily.id,
-          userId: authUser.userId,
-          role: FamilyRole.admin,
-        },
-      });
-
-      return createdFamily;
+    const result = await submitCreateFamily({
+      prisma,
+      actorUserId: authUser.userId,
+      input,
+      origin: new URL(request.url).origin,
     });
 
     if (isPhase3Enabled()) {
@@ -111,7 +97,7 @@ export async function POST(request: Request) {
         metricName: "family_created",
         requestId,
         actorUserId: authUser.userId,
-        familyId: family.id,
+        familyId: result.family.id,
         statusCode: 201,
       });
     }
@@ -120,15 +106,16 @@ export async function POST(request: Request) {
       NextResponse.json(
       {
         family: {
-          id: family.id,
-          name: family.name,
-          description: family.description,
-          pictureStorageKey: family.pictureStorageKey,
-          pictureUrl: buildFamilyPictureUrl(family.pictureStorageKey),
-          createdAt: family.createdAt,
-          updatedAt: family.updatedAt,
-          role: FamilyRole.admin,
+          id: result.family.id,
+          name: result.family.name,
+          description: result.family.description,
+          pictureStorageKey: result.family.pictureStorageKey,
+          pictureUrl: buildFamilyPictureUrl(result.family.pictureStorageKey),
+          createdAt: result.family.createdAt,
+          updatedAt: result.family.updatedAt,
+          role: result.family.role,
         },
+        completion: result.completion,
       },
       { status: 201 },
     ),

@@ -1,4 +1,5 @@
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { DirectInviteError, assertCanUseTargetedInvite } from "@/lib/application/families/direct-invites";
 import { hashFamilyInviteToken } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
 import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
@@ -46,6 +47,18 @@ export async function POST(request: Request, { params }: Params) {
         NextResponse.json({ error: "Invalid invite token", code: "INVITE_INVALID" }, { status: 400 }),
         requestId,
       );
+    }
+
+    try {
+      assertCanUseTargetedInvite(invite, authUser.userId);
+    } catch (error) {
+      if (error instanceof DirectInviteError) {
+        return withRequestId(
+          NextResponse.json({ error: error.message, code: error.code }, { status: 403 }),
+          requestId,
+        );
+      }
+      throw error;
     }
 
     const decision = await prisma.familyInviteDecision.findUnique({
