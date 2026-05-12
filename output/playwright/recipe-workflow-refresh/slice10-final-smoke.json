@@ -1,0 +1,23 @@
+{
+  "baseUrl": "http://127.0.0.1:3100",
+  "results": [
+    {
+      "label": "1440",
+      "landing": true,
+      "addRecipe": true,
+      "compatibilityRoutes": true,
+      "recipeDetail": true,
+      "editFlow": true,
+      "overflow": false
+    },
+    {
+      "label": "390",
+      "landing": true,
+      "addRecipe": true,
+      "compatibilityRoutes": true,
+      "recipeDetail": true,
+      "editFlow": true,
+      "overflow": false
+    }
+  ]
+}
