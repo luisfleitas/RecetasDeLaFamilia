@@ -145,11 +145,11 @@ Visual companion:
 ## In Progress
 
 - Draft PR #33 from `codex/feature/family-pages-rebrand` to `pre-main`: `https://github.com/luisfleitas/RecetasDeLaFamilia/pull/33`.
-- Release gate monitoring for GitHub CI and Vercel preview.
+- Release gate is blocked on Vercel preview provisioning after GitHub CI passed.
 
 ## Next Action
 
-Monitor the rerun for PR #33 after the TypeScript contract follow-up commit. If GitHub `quality-gate` passes but Vercel remains failed with `Builds . [0ms]`, treat the remaining blocker as Vercel preview provisioning rather than app code and resolve the hosted deployment issue before marking the PR ready.
+Resolve the Vercel preview failure for PR #33, then rerun or redeploy the preview and mark the draft PR ready once Vercel is green.
 
 ## Known Issues
 
@@ -163,8 +163,8 @@ Monitor the rerun for PR #33 after the TypeScript contract follow-up commit. If 
 - The old sage color scheme on `/account/families` was caused by the page rendering outside `RecipeWorkspaceFrame`; this is fixed and visually verified in the local browser.
 - The local `.env.local` contains hosted Postgres variables; local SQLite QA needs explicit env overrides so Prisma client generation and runtime adapter selection match.
 - Installing local `playwright` reported npm audit findings; no dependency-audit remediation was included in this feature release.
-- Draft PR #33 initially failed `quality-gate` on TypeScript contract mismatches for generated invite messages and nullable Create Family detail updates. The contracts were widened and `npm run test:phase0` passed locally after the fix.
-- Vercel preview for PR #33 failed with `Builds . [0ms]`, which matches the known preview provisioning failure pattern and can block release even when local/CI app checks pass.
+- Draft PR #33 initially failed `quality-gate` on TypeScript contract mismatches for generated invite messages and nullable Create Family detail updates. The contracts were widened, `npm run test:phase0` passed locally, and both GitHub `quality-gate`/`auth-smoke` passed after commit `e918c44`.
+- Vercel preview for PR #33 failed with `Builds . [0ms]` on `dpl_89t8TgjFME7tVkPf3VsZ2imaFgDF`, which matches the known preview provisioning failure pattern and can block release even when local/CI app checks pass.
 
 ## Verification Already Run
 

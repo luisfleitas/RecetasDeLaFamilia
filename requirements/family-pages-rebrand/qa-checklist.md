@@ -2,7 +2,7 @@
 
 ## Status
 
-- Status: Local QA complete; draft PR is open to `pre-main`; hosted release gate is still blocked.
+- Status: Local QA complete; GitHub CI passed on PR #33; hosted release gate is blocked by Vercel preview failure.
 - Branch: `codex/feature/family-pages-rebrand`
 - Draft PR: `https://github.com/luisfleitas/RecetasDeLaFamilia/pull/33`
 - QA date: 2026-05-12
@@ -33,6 +33,7 @@
   - Initial PR result: Failed in `npm run test:phase0` because TypeScript contracts were narrower than the actual nullable form values and invite-result messages.
   - Fix verification: `npm run test:phase0` passed locally after widening the contracts.
   - Focused follow-up: `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/create-family-ui-contract.test.ts scripts/create-family-workflow.test.ts` passed, 11 tests.
+  - PR rerun result: GitHub `quality-gate` and `auth-smoke` passed on PR #33 after commit `e918c44`.
 
 ## Browser Coverage
 
@@ -77,4 +78,4 @@
 
 - Existing unrelated untracked recipe-workflow evidence remains under `output/playwright/recipe-workflow-refresh/` and was intentionally left untouched.
 - `npm install --save-dev playwright` reported audit findings after installation; dependency audit remediation is outside this family-pages release scope.
-- Vercel preview for PR #33 failed before build work with `Builds . [0ms]`, matching the known preview provisioning failure pattern. This remains a hosted release blocker until Vercel/provisioning is corrected or a new preview succeeds.
+- Vercel preview for PR #33 failed before build work with `Builds . [0ms]`, matching the known preview provisioning failure pattern. Latest inspected failed deployment: `dpl_89t8TgjFME7tVkPf3VsZ2imaFgDF`. This remains a hosted release blocker until Vercel/provisioning is corrected or a new preview succeeds.
