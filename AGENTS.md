@@ -58,6 +58,8 @@
 ### Planning And Implementation Rules
 - Inspect the actual codebase before making assumptions.
 - Reuse existing components, utilities, and styling patterns where possible.
+- Reuse one shared Rich Text editor component for all Rich Text boxes in the app. Do not create separate rich-text implementations per form or page unless a documented feature decision explicitly approves an exception.
+- Keep the shared Rich Text editor replaceable behind an application-owned adapter boundary. Forms and pages should depend on stable Recetas props/value contracts, not directly on a third-party editor API, so the underlying editor package can be swapped later with minimal page/form changes.
 - Create all design documents inside the relevant `requirements/<feature>/` folder. Do not place feature design docs in ad hoc locations outside that feature's requirements directory.
 - Add stable `id` attributes to newly created or modified UI elements when appropriate.
 - Add or update concise code comments in modified code files when the change introduces non-obvious behavior, important constraints, or workflow decisions that future maintainers should understand.

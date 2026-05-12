@@ -588,6 +588,14 @@ export class PrismaRecipeRepository implements RecipeRepository {
     return prisma.recipeImage.count({ where: { recipeId } });
   }
 
+  async clearPrimaryImage(recipeId: number): Promise<void> {
+    const prisma = await getPrisma();
+    await prisma.recipeImage.updateMany({
+      where: { recipeId },
+      data: { isPrimary: false },
+    });
+  }
+
   async setPrimaryImage(recipeId: number, imageId: number): Promise<boolean> {
     const prisma = await getPrisma();
     const target = await prisma.recipeImage.findFirst({

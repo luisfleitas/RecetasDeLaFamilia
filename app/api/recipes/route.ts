@@ -1,5 +1,7 @@
 // API handlers for listing and creating recipes.
 import { listVisibleRecipeSourceImages } from "@/lib/application/recipes/display-source-images";
+import { parseRecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
+import type { RecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
 import { parseCreateRecipeInput } from "@/lib/application/recipes/validation";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
 import { promoteImportSessionSourceDocuments } from "@/lib/application/recipes/source-documents";
@@ -205,6 +207,8 @@ function toErrorStatus(error: unknown): number {
     message.includes("4MB") ||
     message.includes("supports up to 8 images") ||
     message.includes("primaryImageIndex") ||
+    message.includes("primary source document") ||
+    message.includes("primary media") ||
     message.includes("visibility") ||
     message.includes("familyIds") ||
     message.includes("required") ||
@@ -254,12 +258,14 @@ export async function POST(request: Request) {
     let recipeInput;
     let images: UploadedRecipeImage[] = [];
     let primaryImageIndex: number | null = null;
+    let primaryMediaReference: RecipeMediaReference | null = null;
     let importSessionId: string | null = null;
     try {
       const formData = await request.formData();
       recipeInput = parseRecipePayloadFromFormData(formData);
       images = await parseUploadedImagesFromFormData(formData, "images");
       primaryImageIndex = parseOptionalInt(formData.get("primaryImageIndex"));
+      primaryMediaReference = parseRecipeMediaReference(formData.get("primaryMediaReference"));
       importSessionId = parseOptionalString(formData.get("importSessionId"));
       await validateImportSessionForCreate(authUser.userId, importSessionId);
     } catch (error) {
@@ -273,6 +279,7 @@ export async function POST(request: Request) {
         recipe: recipeInput,
         images,
         primaryImageIndex,
+        primaryMediaReference,
       });
       createdRecipeId = recipe.id;
       if (importSessionId) {
@@ -281,6 +288,9 @@ export async function POST(request: Request) {
           importSessionId,
           recipeId: recipe.id,
         });
+      }
+      if (primaryMediaReference?.type === "source-document") {
+        await recipeUseCases.setPrimaryMediaReference(authUser.userId, recipe.id, primaryMediaReference);
       }
       await markImportSessionConfirmed(authUser.userId, importSessionId);
 

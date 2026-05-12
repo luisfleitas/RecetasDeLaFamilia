@@ -1,5 +1,7 @@
 // API handler for fetching and updating a single recipe by id.
 import { listVisibleRecipeSourceImages } from "@/lib/application/recipes/display-source-images";
+import { parseRecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
+import type { RecipeMediaReference } from "@/lib/application/recipes/recipe-media-groups";
 import { parseCreateRecipeInput, parseRecipeId } from "@/lib/application/recipes/validation";
 import { sanitizeRecipeFamilyLinksForUpdate } from "@/lib/application/recipes/family-link-sanitization";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
@@ -112,6 +114,8 @@ function toErrorStatus(error: unknown): number {
     message.includes("4MB") ||
     message.includes("supports up to 8 images") ||
     message.includes("primaryImage") ||
+    message.includes("primary source document") ||
+    message.includes("primary media") ||
     message.includes("visibility") ||
     message.includes("familyIds") ||
     message.includes("required") ||
@@ -211,6 +215,7 @@ export async function PUT(request: Request, { params }: Params) {
     let newImages: UploadedRecipeImage[] = [];
     let primaryImageId: number | null = null;
     let primaryImageIndex: number | null = null;
+    let primaryMediaReference: RecipeMediaReference | null = null;
 
     try {
       const formData = await request.formData();
@@ -219,6 +224,7 @@ export async function PUT(request: Request, { params }: Params) {
       newImages = await parseUploadedImagesFromFormData(formData, "newImages");
       primaryImageId = parseOptionalInt(formData.get("primaryImageId"));
       primaryImageIndex = parseOptionalInt(formData.get("primaryImageIndex"));
+      primaryMediaReference = parseRecipeMediaReference(formData.get("primaryMediaReference"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid multipart payload";
       return NextResponse.json({ error: message }, { status: 400 });
@@ -230,6 +236,7 @@ export async function PUT(request: Request, { params }: Params) {
         newImages,
         primaryImageId,
         primaryImageIndex,
+        primaryMediaReference,
       });
 
       if (result.forbidden) {

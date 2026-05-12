@@ -1,3 +1,5 @@
+import type { RecipeMediaCarouselItem } from "@/lib/application/recipes/recipe-media-groups";
+
 type RecipeImageRef = {
   id: number;
   thumbnailUrl: string;
@@ -43,7 +45,8 @@ export type FeaturedRecipeSlide = {
   title: string;
   description: string | null;
   href: string;
-  imageUrl: string | null;
+  imageUrl: string;
+  mediaItems: RecipeMediaCarouselItem[];
 };
 
 export type HomeNavigationViewModel = {
@@ -66,6 +69,12 @@ export type HomeRecipeVisibilityTabGroup<TRecipe extends HomeNavigationRecipe = 
   label: string;
   type: "public" | "family" | "private";
   recipes: TRecipe[];
+};
+
+export type HomeRecipeMediaInput = {
+  title: string;
+  images?: RecipeImageRef[];
+  primaryImage?: RecipeImageRef | null;
 };
 
 export function buildHomeNavigationViewModel(input: {
@@ -94,7 +103,7 @@ export function buildHomeNavigationViewModel(input: {
     })),
     recipes: ownedRecipes,
     familyCreateHref: "/account/families",
-    recipeCreateHref: "/recipes/new",
+    recipeCreateHref: "/recipes/add",
     familiesMoreHref: "/account/families",
     recipesMoreHref: "#home-recipe-groups",
   };
@@ -103,17 +112,66 @@ export function buildHomeNavigationViewModel(input: {
 export function buildFeaturedRecipeSlides(recipes: HomeNavigationRecipe[], limit = 6): FeaturedRecipeSlide[] {
   return [...recipes]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .slice(0, limit)
-    .map((recipe) => {
-      const firstImage = recipe.images?.[0] ?? recipe.primaryImage ?? null;
+    .flatMap((recipe) => {
+      const mediaItems = buildHomeRecipeMediaCarouselItems(recipe);
+      const firstMediaItem = mediaItems[0];
+      if (!firstMediaItem) {
+        return [];
+      }
+
       return {
         id: recipe.id,
         title: recipe.title,
         description: recipe.description ?? null,
         href: `/recipes/${recipe.id}`,
-        imageUrl: firstImage?.thumbnailUrl ?? null,
+        imageUrl: firstMediaItem.thumbnailUrl,
+        mediaItems,
       };
-    });
+    })
+    .slice(0, limit);
+}
+
+export function buildHomeRecipeMediaCarouselItems(recipe: HomeRecipeMediaInput): RecipeMediaCarouselItem[] {
+  let recipeImageCount = 0;
+  let sourcePageCount = 0;
+  const imageRefs = getHomeRecipeDisplayMediaRefs(recipe);
+
+  return imageRefs.map((image) => {
+    if (image.id < 0) {
+      sourcePageCount += 1;
+      const sourceDocumentId = Math.abs(image.id);
+      const label = `${recipe.title} imported source page ${sourcePageCount}`;
+      return {
+        id: `source-document-${sourceDocumentId}`,
+        type: "source-document",
+        label,
+        thumbnailUrl: image.thumbnailUrl,
+        fullUrl: image.fullUrl,
+        accessibleLabel: `Open imported source page ${label}`,
+        isPrimary: false,
+      };
+    }
+
+    recipeImageCount += 1;
+    const label = `${recipe.title} image ${recipeImageCount}`;
+    return {
+      id: `recipe-image-${image.id}`,
+      type: "recipe-image",
+      label,
+      thumbnailUrl: image.thumbnailUrl,
+      fullUrl: image.fullUrl,
+      accessibleLabel: `Open recipe image ${label}`,
+      isPrimary: image.id === recipe.primaryImage?.id || imageRefs.length === 1,
+    };
+  });
+}
+
+export function getHomeRecipeDisplayMediaRefs(recipe: HomeRecipeMediaInput): RecipeImageRef[] {
+  if (recipe.images && recipe.images.length > 0) {
+    return recipe.images;
+  }
+
+  return recipe.primaryImage ? [recipe.primaryImage] : [];
 }
 
 export function getRecipeGroupDisplayLabel(group: RecipeGroupForDisplay) {

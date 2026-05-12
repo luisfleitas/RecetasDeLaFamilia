@@ -60,7 +60,7 @@ export default function HomeLeftNavigation({
       {isOpen ? (
         <div
           id="home-left-navigation-drawer"
-          className="fixed inset-x-4 top-24 z-20 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-[var(--brand-line-warm)] bg-[var(--brand-cream-100)] p-4 shadow-[var(--brand-shadow-panel)] sm:left-5 sm:right-auto sm:w-72 lg:absolute lg:left-14 lg:right-auto lg:top-0 lg:max-h-none lg:w-64 lg:overflow-visible"
+          className="fixed inset-x-4 top-24 z-40 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-[var(--brand-line-warm)] bg-[var(--brand-cream-100)] p-4 shadow-[var(--brand-shadow-panel)] sm:left-5 sm:right-auto sm:w-72 lg:absolute lg:left-14 lg:right-auto lg:top-0 lg:max-h-none lg:w-64 lg:overflow-visible"
         >
           <section id="home-left-navigation-families-section" className="space-y-3">
             <div id="home-left-navigation-families-header" className="flex items-center justify-between gap-2">

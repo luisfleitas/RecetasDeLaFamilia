@@ -1,6 +1,8 @@
 "use client";
 
 import { useMessages } from "@/app/_components/locale-provider";
+import { IngredientUnitCombobox } from "@/app/recipes/_components/ingredient-unit-combobox";
+import { buildIngredientUnitSuggestions } from "@/lib/application/recipes/ingredient-unit-suggestions";
 
 type IngredientDraft = {
   rowId: number;
@@ -100,12 +102,16 @@ export function IngredientEditor({
                 <label id={`${baseId}-unit-label-${ingredient.rowId}`} htmlFor={`${baseId}-unit-input-${ingredient.rowId}`} className="mb-1 block text-sm font-medium">
                   {messages.recipe.unitLabel}
                 </label>
-                <input
+                <IngredientUnitCombobox
                   id={`${baseId}-unit-input-${ingredient.rowId}`}
+                  listId={`${baseId}-unit-suggestions-${ingredient.rowId}`}
                   required
                   value={ingredient.unit}
-                  onChange={(event) => onUpdate(ingredient.rowId, "unit", event.target.value)}
-                  className="input-base"
+                  suggestions={buildIngredientUnitSuggestions({
+                    ingredients,
+                    typedValue: ingredient.unit,
+                  })}
+                  onChange={(value) => onUpdate(ingredient.rowId, "unit", value)}
                 />
               </div>
 
