@@ -70,6 +70,10 @@ test("provider URL helper ignores incompatible DATABASE_URL values", () => {
     getProviderDatabaseUrl("postgresql", sqliteCiEnv),
     /^postgresql:\/\//,
   );
+  assert.equal(
+    getProviderDatabaseUrl("postgresql", postgresEnv),
+    "postgresql://recetas:recetas@localhost:5432/recetas",
+  );
   assert.equal(getProviderDatabaseUrl("sqlite", postgresEnv), "file:./dev.db");
 });
 
@@ -79,6 +83,21 @@ test("provider helpers use the Neon integration database URL on branch previews"
     DATABASE_URL: "",
     DATABASE_PROVIDER: "",
     recetas_DATABASE_URL: "postgresql://recetas:recetas@localhost:5432/branch_preview",
+  };
+
+  assert.equal(getDatabaseProvider(branchPreviewEnv), "postgresql");
+  assert.equal(
+    getProviderDatabaseUrl("postgresql", branchPreviewEnv),
+    "postgresql://recetas:recetas@localhost:5432/branch_preview",
+  );
+});
+
+test("provider helpers prefer branch preview Postgres URLs over committed sqlite fallback", () => {
+  const branchPreviewEnv = {
+    ...process.env,
+    DATABASE_URL: "file:./dev.db",
+    DATABASE_PROVIDER: "",
+    recetas_POSTGRES_PRISMA_URL: "postgresql://recetas:recetas@localhost:5432/branch_preview",
   };
 
   assert.equal(getDatabaseProvider(branchPreviewEnv), "postgresql");

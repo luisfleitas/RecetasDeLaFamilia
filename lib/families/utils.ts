@@ -11,6 +11,10 @@ export function buildFamilyPictureUrl(pictureStorageKey: string | null): string 
     return null;
   }
 
+  if (pictureStorageKey.startsWith("http://") || pictureStorageKey.startsWith("https://")) {
+    return pictureStorageKey;
+  }
+
   return `/uploads/${pictureStorageKey}`;
 }
 

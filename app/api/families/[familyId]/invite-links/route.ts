@@ -57,6 +57,7 @@ export async function GET(request: Request, { params }: Params) {
     const invites = await prisma.familyInvite.findMany({
       where: {
         familyId,
+        inviteType: "link",
       },
       orderBy: {
         createdAt: "desc",
@@ -74,6 +75,7 @@ export async function GET(request: Request, { params }: Params) {
         consumedAt: invite.consumedAt,
         consumedByUserId: invite.consumedByUserId,
         maxUses: invite.maxUses,
+        inviteType: invite.inviteType,
         usageType: getInviteUsageType(invite.maxUses),
         state: getInviteState(invite),
       })),
@@ -164,6 +166,7 @@ export async function POST(request: Request, { params }: Params) {
         createdByUserId: authUser.userId,
         expiresAt,
         maxUses,
+        inviteType: "link",
       },
     });
 
@@ -189,6 +192,7 @@ export async function POST(request: Request, { params }: Params) {
           createdAt: invite.createdAt,
           expiresAt: invite.expiresAt,
           maxUses: invite.maxUses,
+          inviteType: invite.inviteType,
           usageType: getInviteUsageType(invite.maxUses),
           state: getInviteState(invite),
           inviteUrl: `${origin}/invite/family/${token}`,

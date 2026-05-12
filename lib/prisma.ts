@@ -27,12 +27,23 @@ function getDatabaseUrl() {
   return "";
 }
 
+function getPostgresDatabaseUrl() {
+  for (const key of vercelPostgresUrlKeys) {
+    const value = process.env[key];
+    if (value && /^postgres(?:ql)?:\/\//i.test(value)) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
 function getDatabaseProvider() {
   if (process.env.DATABASE_PROVIDER === "postgres" || process.env.DATABASE_PROVIDER === "postgresql") {
     return "postgresql";
   }
 
-  if (/^postgres(?:ql)?:\/\//i.test(getDatabaseUrl())) {
+  if (getPostgresDatabaseUrl()) {
     return "postgresql";
   }
 
@@ -48,7 +59,7 @@ export async function getPrisma(): Promise<PrismaClient> {
     process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["error"];
 
   if (getDatabaseProvider() === "postgresql") {
-    const connectionString = getDatabaseUrl();
+    const connectionString = getPostgresDatabaseUrl();
 
     if (!connectionString) {
       throw new Error("DATABASE_URL is required when DATABASE_PROVIDER is postgres.");

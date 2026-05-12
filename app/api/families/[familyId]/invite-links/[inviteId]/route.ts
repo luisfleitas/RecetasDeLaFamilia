@@ -1,6 +1,6 @@
 import { parsePositiveInt } from "@/lib/application/families/validation";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
-import { getInviteState, getInviteUsageType, isFamilyAdmin } from "@/lib/families/utils";
+import { isFamilyAdmin } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
 import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
@@ -49,6 +49,7 @@ export async function DELETE(request: Request, { params }: Params) {
       where: {
         id: inviteId,
         familyId,
+        inviteType: "link",
       },
     });
 
@@ -59,16 +60,9 @@ export async function DELETE(request: Request, { params }: Params) {
       );
     }
 
-    const nextInvite = invite.revokedAt
-      ? invite
-      : await prisma.familyInvite.update({
-          where: { id: invite.id },
-          data: { revokedAt: new Date() },
-        });
-
-    if (isPhase3Enabled() && !invite.revokedAt) {
+    if (isPhase3Enabled()) {
       await recordMetric(prisma, {
-        metricName: "invite_revoked",
+        metricName: "invite_deleted",
         requestId,
         actorUserId: authUser.userId,
         familyId,
@@ -77,24 +71,16 @@ export async function DELETE(request: Request, { params }: Params) {
       });
     }
 
+    await prisma.familyInvite.delete({
+      where: { id: invite.id },
+    });
+
     return withRequestId(NextResponse.json({
-      invite: {
-        id: nextInvite.id,
-        familyId: nextInvite.familyId,
-        createdByUserId: nextInvite.createdByUserId,
-        createdAt: nextInvite.createdAt,
-        expiresAt: nextInvite.expiresAt,
-        revokedAt: nextInvite.revokedAt,
-        consumedAt: nextInvite.consumedAt,
-        consumedByUserId: nextInvite.consumedByUserId,
-        maxUses: nextInvite.maxUses,
-        usageType: getInviteUsageType(nextInvite.maxUses),
-        state: getInviteState(nextInvite),
-      },
-      idempotent: Boolean(invite.revokedAt),
+      deleted: true,
+      inviteId: invite.id,
     }), requestId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unexpected error while revoking invite";
+    const message = error instanceof Error ? error.message : "Unexpected error while deleting invite";
     return withRequestId(NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 }), requestId);
   }
 }

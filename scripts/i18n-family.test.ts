@@ -37,11 +37,16 @@ const requiredFamilyMessageKeys = [
   "copyUrl",
   "latestInviteUrlNote",
   "inviteLinksEmpty",
+  "directInvitesTitle",
+  "directInvitesEmpty",
+  "revokeDirectInvite",
+  "revokingDirectInvite",
+  "directInviteRevoked",
   "inviteCreatedLabel",
   "inviteUsageLabel",
   "inviteExpiresLabel",
-  "revokingInvite",
-  "revokeInvite",
+  "deletingInviteLink",
+  "deleteInviteLink",
   "deleteFamilyTitle",
   "deletionRequestPrefix",
   "deletionApprovalsSuffix",
@@ -84,7 +89,7 @@ const requiredFamilyMessageKeys = [
   "inviteDecisionAccepted",
   "singleUseInviteCreated",
   "multiUseInviteCreated",
-  "inviteLinkRevoked",
+  "inviteLinkDeleted",
   "missingInviteUrl",
   "inviteUrlCopied",
   "errors",
@@ -107,6 +112,23 @@ const requiredFamilyErrorKeys = [
   "declineInvite",
   "undoDeclineInvite",
 ] as const;
+
+function collectObjectPaths(value: unknown, prefix = ""): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return prefix ? [prefix] : [];
+  }
+
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
+    collectObjectPaths(child, prefix ? `${prefix}.${key}` : key),
+  );
+}
+
+test("family workflow nested message keys stay in parity between english and spanish", () => {
+  const englishPaths = collectObjectPaths(messages.en.family).sort();
+  const spanishPaths = collectObjectPaths(messages.es.family).sort();
+
+  assert.deepEqual(spanishPaths, englishPaths);
+});
 
 test("family invite flow has localized error coverage for english and spanish", () => {
   for (const locale of ["en", "es"] as const) {
