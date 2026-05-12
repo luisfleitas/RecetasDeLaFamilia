@@ -164,7 +164,7 @@ Resolve the Vercel preview failure for PR #33, then rerun or redeploy the previe
 - The local `.env.local` contains hosted Postgres variables; local SQLite QA needs explicit env overrides so Prisma client generation and runtime adapter selection match.
 - Installing local `playwright` reported npm audit findings; no dependency-audit remediation was included in this feature release.
 - Draft PR #33 initially failed `quality-gate` on TypeScript contract mismatches for generated invite messages and nullable Create Family detail updates. The contracts were widened, `npm run test:phase0` passed locally, and both GitHub `quality-gate`/`auth-smoke` passed after commit `e918c44`.
-- Vercel preview for PR #33 failed with `Builds . [0ms]` on `dpl_89t8TgjFME7tVkPf3VsZ2imaFgDF`, which matches the known preview provisioning failure pattern and can block release even when local/CI app checks pass.
+- Vercel preview for PR #33 fails with `Builds . [0ms]`, which matches the known preview provisioning failure pattern and can block release even when local/CI app checks pass. Check the current PR status for the latest failed deployment id before troubleshooting.
 
 ## Verification Already Run
 

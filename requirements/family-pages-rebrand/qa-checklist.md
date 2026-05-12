@@ -78,4 +78,4 @@
 
 - Existing unrelated untracked recipe-workflow evidence remains under `output/playwright/recipe-workflow-refresh/` and was intentionally left untouched.
 - `npm install --save-dev playwright` reported audit findings after installation; dependency audit remediation is outside this family-pages release scope.
-- Vercel preview for PR #33 failed before build work with `Builds . [0ms]`, matching the known preview provisioning failure pattern. Latest inspected failed deployment: `dpl_89t8TgjFME7tVkPf3VsZ2imaFgDF`. This remains a hosted release blocker until Vercel/provisioning is corrected or a new preview succeeds.
+- Vercel preview for PR #33 fails before build work with `Builds . [0ms]`, matching the known preview provisioning failure pattern. This remains a hosted release blocker until Vercel/provisioning is corrected or a new preview succeeds.
