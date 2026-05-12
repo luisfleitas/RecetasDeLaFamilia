@@ -25,9 +25,9 @@ import {
 } from "@/lib/application/families/edit-family-workflow";
 import type { FamilyEditPageFamily } from "@/lib/application/families/page-loaders";
 import {
+  buildMemberViewFamilyStepViewModels,
   buildFamilyWorkflowStepViewModels,
   getAdminEditFamilySteps,
-  getMemberViewFamilySteps,
   resolveNextFamilyStep,
   type AdminEditFamilyStep,
   type MemberViewFamilyStep,
@@ -562,25 +562,16 @@ export default function EditFamilyWorkflow({
       })),
     [editMessages],
   );
-  const memberSteps = useMemo(
-    () =>
-      getMemberViewFamilySteps().map((step) => ({
-        ...step,
-        label: getMemberStepLabel(step.id, editMessages),
-      })),
-    [editMessages],
-  );
   const activeAdminIndex = adminSteps.findIndex((step) => step.id === adminStep);
   const adminStepViewModels = buildFamilyWorkflowStepViewModels({
     steps: adminSteps,
     activeStep: adminStep,
     completedSteps: adminSteps.slice(0, Math.max(activeAdminIndex, 0)).map((step) => step.id),
   });
-  const memberStepViewModels = buildFamilyWorkflowStepViewModels({
-    steps: memberSteps,
-    activeStep: memberStep,
-    completedSteps: memberStep === "invites" ? ["details"] : [],
-  });
+  const memberStepViewModels = buildMemberViewFamilyStepViewModels(memberStep).map((step) => ({
+    ...step,
+    label: getMemberStepLabel(step.id, editMessages),
+  }));
 
   useEffect(() => {
     const firstGeneratedLink = generatedInviteLinks[0];

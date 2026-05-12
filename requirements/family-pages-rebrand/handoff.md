@@ -2,7 +2,7 @@
 
 ## Current State
 
-Business analysis, the research pack, branded wireframes, design approval, final task-by-task plan approval, Slice 1 implementation, Slice 2 implementation, Slice 3 implementation, Slice 4 implementation, Slice 5 implementation, Slice 6 implementation, and Slice 7 implementation are complete for a rebrand and workflow split of the Recetas family pages. Slice 1 updated left navigation family routes, added the page-access helper contract, added the edit page loader, added the Create/Edit route shells, and changed unauthenticated `/account/families` access to redirect to the landing page. Slice 2 added shared workflow state/view-model helpers and reusable presentation primitives for the upcoming family workflows. Slice 3 added the family image upload contract with staged Create uploads, admin-only Edit replace/remove routes, square/avatar resizing, and validation for family-generated image keys. Slice 4 added the username direct invite persistence/API contract with targeted invite URLs, wrong-user protection, duplicate/already-member handling, revoke support, pending invite list metadata, and explicit link-vs-direct invite typing. Slice 5 added the Create Family wizard, final-create API sequencing, generated invite URL success display, recoverable warning actions, and English/Spanish message keys for the Create Family labels/help/errors/success/warning copy. Slice 6 added the Edit/View Family wizard, admin profile/image/invite workflow, member read-only Details/Invites mode, English/Spanish Edit/View copy, and focused workflow tests. Slice 7 rebuilt Manage Families around `ManageFamiliesWorkspace` for the approved top-level Families/Pending invites/Selected family tabs, desktop two-zone layout, mobile list-first layout, selected-family Overview/Members/Invites/Safety steps, desktop/mobile focus-on-select behavior, pending invite accept/decline/undo actions, link invite generation/delete, username direct-invite listing/revoke, member operations, leave-family, and deletion request actions. `/account/families` is now wrapped in `RecipeWorkspaceFrame`, so Manage Families uses the warm Recetas workspace palette instead of the old sage theme. Follow-up invite-link visibility work now focuses and scrolls the generated URL input immediately after invite creation in Create, Edit, and the new Manage workspace.
+Business analysis, the research pack, branded wireframes, design approval, final task-by-task plan approval, Slice 1 implementation, Slice 2 implementation, Slice 3 implementation, Slice 4 implementation, Slice 5 implementation, Slice 6 implementation, Slice 7 implementation, and Slice 8 QA/release polish are complete for a rebrand and workflow split of the Recetas family pages. Slice 1 updated left navigation family routes, added the page-access helper contract, added the edit page loader, added the Create/Edit route shells, and changed unauthenticated `/account/families` access to redirect to the landing page. Slice 2 added shared workflow state/view-model helpers and reusable presentation primitives for the upcoming family workflows. Slice 3 added the family image upload contract with staged Create uploads, admin-only Edit replace/remove routes, square/avatar resizing, and validation for family-generated image keys. Slice 4 added the username direct invite persistence/API contract with targeted invite URLs, wrong-user protection, duplicate/already-member handling, revoke support, pending invite list metadata, and explicit link-vs-direct invite typing. Slice 5 added the Create Family wizard, final-create API sequencing, generated invite URL success display, recoverable warning actions, and English/Spanish message keys for the Create Family labels/help/errors/success/warning copy. Slice 6 added the Edit/View Family wizard, admin profile/image/invite workflow, member read-only Details/Invites mode, English/Spanish Edit/View copy, and focused workflow tests. Slice 7 rebuilt Manage Families around `ManageFamiliesWorkspace` for the approved top-level Families/Pending invites/Selected family tabs, desktop two-zone layout, mobile list-first layout, selected-family Overview/Members/Invites/Safety steps, desktop/mobile focus-on-select behavior, pending invite accept/decline/undo actions, link invite generation/delete, username direct-invite listing/revoke, member operations, leave-family, and deletion request actions. Slice 8 added localized message parity coverage, a reusable Playwright smoke/evidence bundle, recipe visibility regression coverage, and final QA documentation. `/account/families` is now wrapped in `RecipeWorkspaceFrame`, so Manage Families uses the warm Recetas workspace palette instead of the old sage theme. Follow-up invite-link visibility work now focuses and scrolls the generated URL input immediately after invite creation in Create, Edit, and the new Manage workspace.
 
 Feature branch:
 
@@ -144,22 +144,24 @@ Visual companion:
 
 ## In Progress
 
-- Slice 8: I18n, regression, QA evidence, and release polish.
+- Draft PR publication from `codex/feature/family-pages-rebrand` to `pre-main`.
 
 ## Next Action
 
-Start Slice 8 from `requirements/family-pages-rebrand/implementation-plan.md`: create `requirements/family-pages-rebrand/qa-checklist.md`, add the Playwright smoke/evidence bundle for Create/Edit/View/Manage desktop and 390px flows, finish stable-id/accessibility/i18n review, run recipe visibility regression, and update this handoff with final QA status.
+Open the draft PR into `pre-main`, monitor CI/Vercel, then move the PR to ready or address review/check feedback.
 
 ## Known Issues
 
-- The current family UI is concentrated in one large client component: `app/account/families/families-dashboard.tsx`.
-- Family image upload has API/use-case coverage and Create/Edit UI exposure; Manage/Slice 8 still needs final browser and QA evidence coverage.
-- Username direct invites have API/use-case coverage and Create/Edit/Manage UI exposure; Slice 8 still needs final browser evidence coverage.
+- `families-dashboard.tsx` still owns the Manage Families data/action container, while `ManageFamiliesWorkspace` owns the organizing UI.
+- Family image upload has API/use-case coverage plus Create/Edit browser exposure; the final Slice 8 smoke covers the family workflow surfaces and recipe visibility regression.
+- Username direct invites have API/use-case coverage plus Create/Edit/Manage UI exposure; final Slice 8 smoke covers direct invite list exposure through Manage Families.
 - The research pack calls out the need to split current dashboard responsibilities instead of extending the all-in-one component directly.
 - The active working tree includes untracked prior recipe-workflow Playwright evidence under `output/playwright/recipe-workflow-refresh/`; those files are unrelated to this feature and should be left alone unless the user asks otherwise.
 - Existing invite URLs are intentionally not retrievable after creation because only token hashes are stored, so Create/Edit/Manage surfaces must show copyable URLs immediately after generating them.
 - Deleted invite links are removed from the admin list and their old invite URLs resolve through the existing invalid-invite token contract.
 - The old sage color scheme on `/account/families` was caused by the page rendering outside `RecipeWorkspaceFrame`; this is fixed and visually verified in the local browser.
+- The local `.env.local` contains hosted Postgres variables; local SQLite QA needs explicit env overrides so Prisma client generation and runtime adapter selection match.
+- Installing local `playwright` reported npm audit findings; no dependency-audit remediation was included in this feature release.
 
 ## Verification Already Run
 
@@ -276,10 +278,21 @@ Start Slice 8 from `requirements/family-pages-rebrand/implementation-plan.md`: c
   - Manage Families palette follow-up verification:
     - Browser check at `http://localhost:3100/account/families` after seeded local sign-in passed: the route renders inside the warm `RecipeWorkspaceFrame` shell instead of the old sage dashboard shell.
     - `git diff --check` passed.
+  - Slice 8 QA/release verification:
+    - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/i18n-family.test.ts` passed after adding nested English/Spanish family message parity coverage.
+    - Playwright smoke initially exposed that local `playwright` was not installed; added `playwright` as a dev dependency and installed Chromium for local QA.
+    - Playwright smoke initially exposed a real member View bug: the non-admin Invites step was rendered disabled. Added `buildMemberViewFamilyStepViewModels` and regression coverage so read-only Details and Invites are both reachable.
+    - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/family-workflow-state.test.ts scripts/edit-family-workflow.test.ts` passed with 13 tests after the member View fix.
+    - `node output/playwright/family-pages-rebrand/family-pages-smoke.mjs` passed at 1440px and 390px, creating evidence under `output/playwright/family-pages-rebrand/` and verifying Create, admin Edit, member View, Manage Families, left navigation routes, recipe Add/Edit family visibility controls, duplicate IDs, and horizontal overflow.
+    - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/home-navigation-view-model.test.ts scripts/family-page-access.test.ts scripts/family-workflow-state.test.ts scripts/family-image-upload.test.ts scripts/family-direct-invite.test.ts scripts/create-family-workflow.test.ts scripts/edit-family-workflow.test.ts scripts/manage-families-workspace.test.ts scripts/i18n-family.test.ts` passed with 56 tests.
+    - `npm run test:phase3` passed with 7 tests.
+    - `npm run lint` passed with 12 existing warnings.
+    - `env DATABASE_URL=file:./dev.db recetas_DATABASE_URL= recetas_POSTGRES_URL= recetas_POSTGRES_PRISMA_URL= POSTGRES_URL= POSTGRES_PRISMA_URL= npm run build` passed outside sandbox; the first sandboxed attempt failed because Turbopack could not spawn its CSS worker process.
+    - `git diff --check` passed.
 
 ## Manual Testing Status
 
-- Slice 5 Create Family and Slice 6 Edit/View Family have browser checks at desktop and 390px. Invite-link visibility was rechecked in Create, Edit, and Manage after the focus/scroll fix. Slice 7 Manage workspace has desktop and 390px browser checks for selected-family navigation, invite-link controls, username direct-invite list exposure, and duplicate-ID prevention; route/use-case tests cover pending invite accept/decline/undo and direct-invite revoke/listing. Full feature smoke across Create/Edit/View/Manage, mutation-heavy browser checks, recipe visibility regression, and evidence capture still belong to Slice 8.
+- Slice 8 full feature smoke passed at 1440px and 390px. Evidence is recorded in `requirements/family-pages-rebrand/qa-checklist.md` and `output/playwright/family-pages-rebrand/`. The smoke covered Create Family, admin Edit Family, member read-only View Family, Manage Families, left navigation family routes, recipe Add/Edit family visibility controls, duplicate ID checks, and horizontal overflow checks.
 
 ## Decisions Already Approved
 

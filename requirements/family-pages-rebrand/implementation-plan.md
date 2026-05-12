@@ -431,14 +431,14 @@ Files:
 
 Steps:
 
-- [ ] Add/extend i18n tests to assert every new family workflow key exists in English and Spanish.
-- [ ] Add a Playwright smoke covering Create Family desktop, Create Family 390px, Edit/View desktop, Edit/View 390px, Manage Families desktop, Manage Families 390px, left navigation create/edit/more links, and mobile drawer links.
-- [ ] Verify all new or modified controls have stable ids where they are user-facing workflow anchors.
-- [ ] Verify empty, loading, error, warning, and success states for each touched flow.
-- [ ] Run recipe visibility regression through existing family selection tests and a browser check on recipe Add/Edit family visibility controls.
-- [ ] Fill out `requirements/family-pages-rebrand/qa-checklist.md` with each automated command, browser check, manual result, known issue, and evidence path.
-- [ ] Update `requirements/family-pages-rebrand/handoff.md` with final state, verification run, manual testing status, and next action.
-- [ ] Review checkpoint: the feature is ready for a draft PR into `pre-main` only after the required verification bundle passes or any exceptions are documented in the handoff.
+- [x] Add/extend i18n tests to assert every new family workflow key exists in English and Spanish.
+- [x] Add a Playwright smoke covering Create Family desktop, Create Family 390px, Edit/View desktop, Edit/View 390px, Manage Families desktop, Manage Families 390px, left navigation create/edit/more links, and mobile drawer links.
+- [x] Verify all new or modified controls have stable ids where they are user-facing workflow anchors.
+- [x] Verify empty, loading, error, warning, and success states for each touched flow.
+- [x] Run recipe visibility regression through existing family selection tests and a browser check on recipe Add/Edit family visibility controls.
+- [x] Fill out `requirements/family-pages-rebrand/qa-checklist.md` with each automated command, browser check, manual result, known issue, and evidence path.
+- [x] Update `requirements/family-pages-rebrand/handoff.md` with final state, verification run, manual testing status, and next action.
+- [x] Review checkpoint: the feature is ready for a draft PR into `pre-main` only after the required verification bundle passes or any exceptions are documented in the handoff.
 
 Verification:
 
@@ -449,7 +449,7 @@ Verification:
 - Browser smoke from `output/playwright/family-pages-rebrand/family-pages-smoke.mjs`
 - `git diff --check`
 
-Stop here for user approval before code changes.
+Slice 8 is complete and ready for a draft PR into `pre-main`.
 
 ### 4. Implementation And QA
 
@@ -512,5 +512,5 @@ The final detailed implementation plan must refine this list with the exact new 
 - The approved requirements brief is the source of truth.
 - The feature branch remains `codex/feature/family-pages-rebrand`.
 - Option B, Family Command Workspace, is the approved visual direction.
-- Implementation planning still needs the final task-by-task plan approval before coding starts.
+- The final task-by-task plan is approved and implementation/QA are complete through Slice 8.
 - The implementation should improve the existing Recetas UI without introducing a disconnected redesign.

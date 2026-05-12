@@ -1,0 +1,25 @@
+{
+  "baseUrl": "http://127.0.0.1:3100",
+  "results": [
+    {
+      "createdFamilyId": 25,
+      "label": "1440",
+      "createFamily": true,
+      "editFamilyAdmin": true,
+      "manageFamilies": true,
+      "memberView": true,
+      "navigation": true,
+      "recipeVisibility": true
+    },
+    {
+      "createdFamilyId": 26,
+      "label": "390",
+      "createFamily": true,
+      "editFamilyAdmin": true,
+      "manageFamilies": true,
+      "memberView": true,
+      "navigation": true,
+      "recipeVisibility": true
+    }
+  ]
+}

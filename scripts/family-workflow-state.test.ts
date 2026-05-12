@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildMemberViewFamilyStepViewModels,
   getAdminEditFamilySteps,
   getCreateFamilySteps,
   getManageFamilySelectedSteps,
@@ -41,6 +42,24 @@ test("member view family workflow uses read-only details and invites steps", () 
     [
       ["details", "Details"],
       ["invites", "Invites"],
+    ],
+  );
+});
+
+test("member view details and invites tabs are both reachable", () => {
+  assert.deepEqual(
+    buildMemberViewFamilyStepViewModels("details").map((step) => [step.id, step.status, step.isClickable]),
+    [
+      ["details", "current", true],
+      ["invites", "future", true],
+    ],
+  );
+
+  assert.deepEqual(
+    buildMemberViewFamilyStepViewModels("invites").map((step) => [step.id, step.status, step.isClickable]),
+    [
+      ["details", "complete", true],
+      ["invites", "current", true],
     ],
   );
 });

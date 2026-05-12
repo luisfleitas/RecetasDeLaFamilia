@@ -89,6 +89,19 @@ export function buildFamilyWorkflowStepViewModels<TStep extends string>({
   });
 }
 
+export function buildMemberViewFamilyStepViewModels(activeStep: MemberViewFamilyStep) {
+  return getMemberViewFamilySteps().map((step) => ({
+    ...step,
+    status:
+      step.id === activeStep
+        ? "current"
+        : activeStep === "invites" && step.id === "details"
+          ? "complete"
+          : "future",
+    isClickable: true,
+  })) satisfies FamilyWorkflowStepViewModel<MemberViewFamilyStep>[];
+}
+
 export function resolveNextFamilyStep<TStep extends string>(
   steps: FamilyWorkflowStep<TStep>[],
   currentStep: TStep | string,
