@@ -19,12 +19,23 @@ export function getDatabaseUrl(env = process.env) {
   return "";
 }
 
+export function getPostgresDatabaseUrl(env = process.env) {
+  for (const key of vercelPostgresUrlKeys) {
+    const value = env[key];
+    if (value && postgresUrlPattern.test(value)) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
 export function getDatabaseProvider(env = process.env) {
   if (env.DATABASE_PROVIDER === "postgres" || env.DATABASE_PROVIDER === "postgresql") {
     return "postgresql";
   }
 
-  if (postgresUrlPattern.test(getDatabaseUrl(env))) {
+  if (getPostgresDatabaseUrl(env)) {
     return "postgresql";
   }
 
@@ -34,15 +45,13 @@ export function getDatabaseProvider(env = process.env) {
 export function getProviderDatabaseUrl(provider, env = process.env) {
   const databaseUrl = getDatabaseUrl(env);
 
-  if (provider === "postgresql" && postgresUrlPattern.test(databaseUrl)) {
-    return databaseUrl;
+  if (provider === "postgresql") {
+    return getPostgresDatabaseUrl(env) || "postgresql://recetas:recetas@localhost:5432/recetas";
   }
 
   if (provider === "sqlite" && databaseUrl && !postgresUrlPattern.test(databaseUrl)) {
     return databaseUrl;
   }
 
-  return provider === "postgresql"
-    ? "postgresql://recetas:recetas@localhost:5432/recetas"
-    : "file:./dev.db";
+  return "file:./dev.db";
 }
