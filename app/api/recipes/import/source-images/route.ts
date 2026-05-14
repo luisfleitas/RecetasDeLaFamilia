@@ -8,7 +8,7 @@ import {
   createStagedHandwrittenSourceDocument,
   listStagedHandwrittenSourceDocuments,
 } from "@/lib/application/recipes/source-documents";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { buildImageStorageProvider } from "@/lib/infrastructure/images/storage-factory";
 import { NextResponse } from "next/server";
 
@@ -26,11 +26,21 @@ function parseUploadBatchId(value: string | null): string | null {
 }
 
 export async function GET(request: Request) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { searchParams } = new URL(request.url);
   const uploadBatchId = parseUploadBatchId(searchParams.get("uploadBatchId"));
@@ -56,11 +66,21 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   let formData: FormData;
   try {

@@ -1,7 +1,7 @@
 import { AUTH_MESSAGE_CODES, AuthInvalidCredentialsError, AuthValidationError } from "@/lib/application/auth/errors";
 import { parseChangePasswordInput } from "@/lib/application/auth/validation";
 import { buildAuthUseCases } from "@/lib/auth/factory";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -9,11 +9,21 @@ export const runtime = "nodejs";
 const authUseCases = buildAuthUseCases();
 
 export async function POST(request: Request) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ errorCode: AUTH_MESSAGE_CODES.UNAUTHORIZED }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   let body: unknown;
 

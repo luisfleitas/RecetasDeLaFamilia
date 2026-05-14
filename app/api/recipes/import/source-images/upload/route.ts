@@ -6,7 +6,7 @@ import {
 } from "@/lib/application/recipes/handwritten-source-staging";
 import { getRecipeImportHandwrittenMaxImageBytes } from "@/lib/application/recipes/import-config";
 import { createStagedHandwrittenSourceDocument } from "@/lib/application/recipes/source-documents";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -58,10 +58,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const authUser = getAuthUserFromRequest(request);
-    if (body.type === "blob.generate-client-token" && !authUser) {
+    const authResult =
+      body.type === "blob.generate-client-token"
+        ? await getCompletedAuthUserFromRequest(request)
+        : null;
+    if (authResult?.status === "unauthenticated") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (authResult?.status === "profile_incomplete") {
+      return authResult.response;
+    }
+    const authUser = authResult?.authUser ?? null;
 
     const response = await handleUpload({
       body,

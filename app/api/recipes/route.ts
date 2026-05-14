@@ -3,7 +3,10 @@ import { listVisibleRecipeSourceImages } from "@/lib/application/recipes/display
 import { parseCreateRecipeInput } from "@/lib/application/recipes/validation";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
 import { promoteImportSessionSourceDocuments } from "@/lib/application/recipes/source-documents";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import {
+  getAuthUserFromRequest,
+  getCompletedAuthUserFromRequest,
+} from "@/lib/auth/request-auth";
 import { buildImageStorageProvider } from "@/lib/infrastructure/images/storage-factory";
 import { getPrisma } from "@/lib/prisma";
 import { buildRecipeUseCases } from "@/lib/recipes/factory";
@@ -215,7 +218,7 @@ function toErrorStatus(error: unknown): number {
 
 export async function GET(request: Request) {
   try {
-    const authUser = getAuthUserFromRequest(request);
+    const authUser = await getAuthUserFromRequest(request);
     const { searchParams } = new URL(request.url);
     const includePrimaryImage = parseBooleanParam(searchParams.get("includePrimaryImage"));
     const includeImages = parseBooleanParam(searchParams.get("includeImages"));
@@ -242,11 +245,21 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const contentType = request.headers.get("content-type") ?? "";
 

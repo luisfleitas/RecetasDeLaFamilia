@@ -47,7 +47,7 @@ import {
   type ImportSessionSourceDocumentRef,
   type ImportSourceType,
 } from "@/lib/application/recipes/source-documents";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { getRequestId, withRequestId } from "@/lib/phase3/observability";
 import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
@@ -441,10 +441,14 @@ export async function POST(request: Request) {
     return withRequestId(NextResponse.json({ error: "Not found" }, { status: 404 }), requestId);
   }
 
-  const authUser = getAuthUserFromRequest(request);
-  if (!authUser) {
+  const authResult = await getCompletedAuthUserFromRequest(request);
+  if (authResult.status === "unauthenticated") {
     return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), requestId);
   }
+  if (authResult.status === "profile_incomplete") {
+    return withRequestId(authResult.response, requestId);
+  }
+  const authUser = authResult.authUser;
 
   const startedAt = Date.now();
   const prisma = await getPrisma();

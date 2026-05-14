@@ -20,6 +20,12 @@ type IncomingChangePasswordInput = {
   new_password?: unknown;
 };
 
+type IncomingCompleteProfileInput = {
+  first_name?: unknown;
+  last_name?: unknown;
+  username?: unknown;
+};
+
 function requireString(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     const code = {
@@ -54,6 +60,12 @@ export type LoginInput = {
 export type ChangePasswordInput = {
   currentPassword: string;
   newPassword: string;
+};
+
+export type CompleteProfileInput = {
+  firstName: string;
+  lastName: string;
+  username: string;
 };
 
 export function parseRegisterInput(input: unknown): RegisterInput {
@@ -102,5 +114,15 @@ export function parseChangePasswordInput(input: unknown): ChangePasswordInput {
   return {
     currentPassword,
     newPassword,
+  };
+}
+
+export function parseCompleteProfileInput(input: unknown): CompleteProfileInput {
+  const body = input as IncomingCompleteProfileInput;
+
+  return {
+    firstName: requireString(body.first_name, "first_name"),
+    lastName: requireString(body.last_name, "last_name"),
+    username: requireString(body.username, "username").toLowerCase(),
   };
 }

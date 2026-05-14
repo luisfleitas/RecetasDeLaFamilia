@@ -71,8 +71,9 @@ Keep local `User.id` as the app identity for existing relationships:
 Add provider identity fields to `User`, for example:
 
 ```prisma
-authProvider       String? @map("auth_provider")
-authProviderUserId String? @unique @map("auth_provider_user_id")
+authProvider       String  @map("auth_provider")
+authProviderUserId String? @map("auth_provider_user_id")
+@@unique([authProvider, authProviderUserId])
 ```
 
 The implementation plan should choose between two password storage options:
@@ -81,6 +82,8 @@ The implementation plan should choose between two password storage options:
 - Lowest migration risk: keep `passwordHash` required and store a sentinel value for externally authenticated users.
 
 The design preference is the nullable field because it accurately models externally authenticated users. The implementation plan should confirm migration and test impact before selecting it.
+
+Approved implementation-plan review update on 2026-05-13: because Recetas is not live yet, use a straightforward current-data migration. Local users are explicitly classified with `authProvider = "local"` and `authProviderUserId = null`; Clerk users use `authProvider = "clerk"` plus the Clerk user id. Provider identity uniqueness is composite on `(authProvider, authProviderUserId)`.
 
 ## Stable Routes
 

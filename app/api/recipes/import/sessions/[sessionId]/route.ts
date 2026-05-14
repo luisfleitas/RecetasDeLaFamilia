@@ -10,7 +10,7 @@ import {
 import { getImportWarningsForDraft, type ImportWarning } from "@/lib/application/recipes/import-warnings";
 import type { ImportedRecipeDraft } from "@/lib/application/recipes/text-document-import";
 import { normalizeRecipeLanguage, type RecipeLanguage } from "@/lib/domain/recipe-language";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -175,10 +175,14 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const authUser = getAuthUserFromRequest(request);
-  if (!authUser) {
+  const authResult = await getCompletedAuthUserFromRequest(request);
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (authResult.status === "profile_incomplete") {
+    return authResult.response;
+  }
+  const authUser = authResult.authUser;
 
   const { sessionId } = await params;
   if (!sessionId || sessionId.trim().length === 0) {
@@ -274,10 +278,14 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const authUser = getAuthUserFromRequest(request);
-  if (!authUser) {
+  const authResult = await getCompletedAuthUserFromRequest(request);
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (authResult.status === "profile_incomplete") {
+    return authResult.response;
+  }
+  const authUser = authResult.authUser;
 
   const { sessionId } = await params;
   if (!sessionId || sessionId.trim().length === 0) {

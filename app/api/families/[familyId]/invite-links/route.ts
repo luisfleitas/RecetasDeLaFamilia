@@ -1,5 +1,5 @@
 import { parseCreateFamilyInviteInput, parsePositiveInt } from "@/lib/application/families/validation";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import {
   createFamilyInviteToken,
   getInviteExpiryDate,
@@ -24,14 +24,24 @@ type Params = {
 
 export async function GET(request: Request, { params }: Params) {
   const requestId = getRequestId(request);
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return withRequestId(
       NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
       requestId,
     );
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { familyId: familyIdParam } = await params;
   const familyId = parsePositiveInt(familyIdParam);
@@ -86,14 +96,24 @@ export async function GET(request: Request, { params }: Params) {
 
 export async function POST(request: Request, { params }: Params) {
   const requestId = getRequestId(request);
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return withRequestId(
       NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
       requestId,
     );
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { familyId: familyIdParam } = await params;
   const familyId = parsePositiveInt(familyIdParam);

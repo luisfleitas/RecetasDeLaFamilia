@@ -3,6 +3,7 @@ export const AUTH_MESSAGE_CODES = {
   INVALID_LOGIN_PAYLOAD: "invalid_login_payload",
   INVALID_REGISTRATION_PAYLOAD: "invalid_registration_payload",
   INVALID_CHANGE_PASSWORD_PAYLOAD: "invalid_change_password_payload",
+  INVALID_COMPLETE_PROFILE_PAYLOAD: "invalid_complete_profile_payload",
   REQUIRED_FIRST_NAME: "required_first_name",
   REQUIRED_LAST_NAME: "required_last_name",
   REQUIRED_EMAIL: "required_email",
@@ -22,6 +23,7 @@ export const AUTH_MESSAGE_CODES = {
   UNEXPECTED_LOGIN_ERROR: "unexpected_login_error",
   UNEXPECTED_REGISTER_ERROR: "unexpected_register_error",
   UNEXPECTED_CHANGE_PASSWORD_ERROR: "unexpected_change_password_error",
+  UNEXPECTED_COMPLETE_PROFILE_ERROR: "unexpected_complete_profile_error",
   UNEXPECTED_LOGOUT_ERROR: "unexpected_logout_error",
 } as const;
 

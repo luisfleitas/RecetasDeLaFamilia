@@ -1,4 +1,4 @@
-import { requireAuthPage } from "@/lib/auth/require-auth-page";
+import { requireCompletedAuthPage } from "@/lib/auth/require-auth-page";
 import ImportRecipeForm from "@/app/recipes/import/import-recipe-form";
 import {
   getRecipeImportHandwrittenBlobUploadPathPrefix,
@@ -11,7 +11,7 @@ import {
 import { notFound } from "next/navigation";
 
 export default async function ImportRecipePage() {
-  await requireAuthPage();
+  await requireCompletedAuthPage("/recipes/import");
   if (!isRecipeImportEnabled()) {
     notFound();
   }

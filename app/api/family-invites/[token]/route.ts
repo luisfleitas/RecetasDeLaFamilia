@@ -1,4 +1,4 @@
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import {
   buildFamilyPictureUrl,
   getInviteState,
@@ -20,14 +20,24 @@ type Params = {
 
 export async function GET(request: Request, { params }: Params) {
   const requestId = getRequestId(request);
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return withRequestId(
       NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
       requestId,
     );
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { token } = await params;
   if (!token || token.length < 10) {

@@ -1,4 +1,4 @@
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
 import { buildRecipeUseCases } from "@/lib/recipes/factory";
 import { NextResponse } from "next/server";
@@ -54,11 +54,21 @@ async function parseSingleImage(formData: FormData): Promise<UploadedRecipeImage
 }
 
 export async function POST(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { id: rawRecipeId } = await params;
   const recipeId = parsePositiveInt(rawRecipeId);

@@ -49,7 +49,10 @@ model User {
   lastName     String   @map("last_name")
   email        String   @unique
   username     String   @unique
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
+  authProvider String   @default("local") @map("auth_provider")
+  authProviderUserId String? @map("auth_provider_user_id")
+  profileCompletedAt DateTime? @map("profile_completed_at")
   createdAt    DateTime @default(now()) @map("created_at")
   recipes      Recipe[]
   importSessions ImportSession[]
@@ -64,6 +67,7 @@ model User {
   familyAuditEvents FamilyAuditEvent[] @relation("FamilyAuditActor")
   metricEvents MetricEvent[] @relation("MetricActor")
 
+  @@unique([authProvider, authProviderUserId])
   @@map("users")
 }
 

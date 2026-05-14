@@ -1,4 +1,4 @@
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { buildFamilyPictureUrl, getInviteState } from "@/lib/families/utils";
 import { getPrisma } from "@/lib/prisma";
 import { FamilyInviteDecisionStatus } from "@prisma/client";
@@ -7,11 +7,21 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { searchParams } = new URL(request.url);
   const statusParam = searchParams.get("status");

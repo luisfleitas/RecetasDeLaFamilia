@@ -1,59 +1,38 @@
-import { verifyAccessToken } from "@/lib/auth/jwt";
-import { ACCESS_TOKEN_COOKIE } from "@/lib/auth/session-cookie";
+import { buildAuthProvider } from "@/lib/auth/factory";
+import {
+  PROFILE_INCOMPLETE_CODE,
+  isProfileComplete,
+} from "@/lib/auth/profile-completion";
+import type { AppAuthUser } from "@/lib/auth/types";
+import { NextResponse } from "next/server";
 
-export type AuthUser = {
-  userId: number;
-  username: string;
-};
+export type CompletedAuthRequestResult =
+  | { status: "authenticated"; authUser: AppAuthUser }
+  | { status: "unauthenticated" }
+  | { status: "profile_incomplete"; response: NextResponse };
 
-function readBearerToken(request: Request): string | null {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader) {
-    return null;
-  }
-
-  const [scheme, token] = authHeader.split(" ");
-  if (scheme?.toLowerCase() !== "bearer" || !token) {
-    return null;
-  }
-
-  return token;
+export async function getAuthUserFromRequest(request: Request): Promise<AppAuthUser | null> {
+  return buildAuthProvider().getAuthUserFromRequest(request);
 }
 
-function readCookieValue(cookieHeader: string, key: string): string | null {
-  const parts = cookieHeader.split(";");
-  for (const part of parts) {
-    const [name, ...valueParts] = part.trim().split("=");
-    if (name === key) {
-      const rawValue = valueParts.join("=");
-      return rawValue ? decodeURIComponent(rawValue) : null;
-    }
-  }
-  return null;
-}
+export async function getCompletedAuthUserFromRequest(
+  request: Request,
+): Promise<CompletedAuthRequestResult> {
+  const authUser = await getAuthUserFromRequest(request);
 
-function readAccessTokenFromCookie(request: Request): string | null {
-  const cookieHeader = request.headers.get("cookie");
-  if (!cookieHeader) {
-    return null;
+  if (!authUser) {
+    return { status: "unauthenticated" };
   }
 
-  return readCookieValue(cookieHeader, ACCESS_TOKEN_COOKIE);
-}
-
-export function getAuthUserFromRequest(request: Request): AuthUser | null {
-  const token = readAccessTokenFromCookie(request) ?? readBearerToken(request);
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const payload = verifyAccessToken(token);
+  if (!isProfileComplete(authUser)) {
     return {
-      userId: payload.user_id,
-      username: payload.username,
+      status: "profile_incomplete",
+      response: NextResponse.json(
+        { error: "Profile incomplete", code: PROFILE_INCOMPLETE_CODE },
+        { status: 409 },
+      ),
     };
-  } catch {
-    return null;
   }
+
+  return { status: "authenticated", authUser };
 }

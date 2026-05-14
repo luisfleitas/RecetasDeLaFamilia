@@ -91,6 +91,7 @@ async function createRecipeWithSeededImages(createdByUserId, recipeSeed) {
 }
 
 async function main() {
+  const seededProfileCompletedAt = new Date();
   const [alicePasswordHash, bobPasswordHash] = await Promise.all([
     hashPassword("Password123!"),
     hashPassword("Password123!"),
@@ -118,6 +119,9 @@ async function main() {
       lastName: "Baker",
       email: "alice@example.com",
       passwordHash: alicePasswordHash,
+      authProvider: "local",
+      authProviderUserId: null,
+      profileCompletedAt: seededProfileCompletedAt,
     },
     create: {
       firstName: "Alice",
@@ -125,6 +129,9 @@ async function main() {
       email: "alice@example.com",
       username: "alice",
       passwordHash: alicePasswordHash,
+      authProvider: "local",
+      authProviderUserId: null,
+      profileCompletedAt: seededProfileCompletedAt,
     },
   });
 
@@ -135,6 +142,9 @@ async function main() {
       lastName: "Cook",
       email: "bob@example.com",
       passwordHash: bobPasswordHash,
+      authProvider: "local",
+      authProviderUserId: null,
+      profileCompletedAt: seededProfileCompletedAt,
     },
     create: {
       firstName: "Bob",
@@ -142,6 +152,9 @@ async function main() {
       email: "bob@example.com",
       username: "bob",
       passwordHash: bobPasswordHash,
+      authProvider: "local",
+      authProviderUserId: null,
+      profileCompletedAt: seededProfileCompletedAt,
     },
   });
 

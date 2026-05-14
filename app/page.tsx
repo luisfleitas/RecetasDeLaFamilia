@@ -22,14 +22,14 @@ export default async function HomePage() {
     getOptionalAuthPageUser(),
   ]);
   // Server-rendered pages read through application use cases so protected deployments do not self-fetch through Vercel Authentication.
-  const recipesResponse = await loadRecipeListForPage({ viewerUserId: authUser?.user_id ?? null });
+  const recipesResponse = await loadRecipeListForPage({ viewerUserId: authUser?.userId ?? null });
   const { recipes } = recipesResponse;
   const publicRecipes = recipes.filter((recipe) => recipe.visibility === "public");
   const visibleRecipes = authUser ? recipes : publicRecipes;
-  const familyMemberships = authUser ? await loadHomeNavigationFamiliesForPage(authUser.user_id) : [];
+  const familyMemberships = authUser ? await loadHomeNavigationFamiliesForPage(authUser.userId) : [];
   const homeNavigation = authUser
     ? buildHomeNavigationViewModel({
-        userId: authUser.user_id,
+        userId: authUser.userId,
         recipes: visibleRecipes,
         families: familyMemberships,
       })

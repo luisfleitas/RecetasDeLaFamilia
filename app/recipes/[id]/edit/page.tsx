@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
 import EditRecipeForm from "@/app/recipes/[id]/edit/edit-recipe-form";
-import { requireAuthPage } from "@/lib/auth/require-auth-page";
+import { requireCompletedAuthPage } from "@/lib/auth/require-auth-page";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
 import type { RecipeLanguage } from "@/lib/domain/recipe-language";
 import { getRequestMessages } from "@/lib/i18n/server";
@@ -89,9 +89,8 @@ async function fetchRecipe(id: string) {
 }
 
 export default async function EditRecipePage({ params }: Params) {
-  await requireAuthPage();
-
   const { id } = await params;
+  await requireCompletedAuthPage(`/recipes/${id}/edit`);
   const [{ locale, messages }, recipe] = await Promise.all([getRequestMessages(), fetchRecipe(id)]);
 
   return (

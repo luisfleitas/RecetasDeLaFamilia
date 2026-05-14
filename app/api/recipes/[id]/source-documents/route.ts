@@ -63,7 +63,7 @@ async function canAccessPrivateRecipeSources(recipeId: number, viewerUserId: num
 }
 
 export async function GET(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
   const { id } = await params;
   const recipeId = parseRecipeId(id);
 

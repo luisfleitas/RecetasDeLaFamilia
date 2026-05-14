@@ -1,5 +1,5 @@
 import { parseCreateFamilyInput } from "@/lib/application/families/validation";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { getCompletedAuthUserFromRequest } from "@/lib/auth/request-auth";
 import { buildFamilyPictureUrl } from "@/lib/families/utils";
 import { isPhase3Enabled } from "@/lib/phase3/config";
 import { getRequestId, recordMetric, withRequestId } from "@/lib/phase3/observability";
@@ -11,14 +11,24 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const requestId = getRequestId(request);
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return withRequestId(
       NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
       requestId,
     );
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   try {
     const prisma = await getPrisma();
@@ -53,14 +63,24 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const requestId = getRequestId(request);
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return withRequestId(
       NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 }),
       requestId,
     );
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   let body: unknown;
   try {

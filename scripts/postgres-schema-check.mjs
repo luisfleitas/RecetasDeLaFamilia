@@ -69,6 +69,10 @@ for (const expectedSnippet of [
   'CREATE TYPE "RecipeVisibility"',
   'CREATE TABLE "Recipe"',
   'CREATE TABLE "users"',
+  '"auth_provider"',
+  '"auth_provider_user_id"',
+  '"profile_completed_at"',
+  '"users_auth_provider_auth_provider_user_id_key"',
   'ALTER TABLE "Recipe" ADD CONSTRAINT',
 ]) {
   if (!baselineSql.includes(expectedSnippet)) {

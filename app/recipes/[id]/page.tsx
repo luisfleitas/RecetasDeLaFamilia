@@ -101,7 +101,7 @@ async function fetchRecipe(id: string) {
 export default async function RecipeDetailPage({ params }: Params) {
   const { id } = await params;
   const [{ locale, messages }, recipe, authUser] = await Promise.all([getRequestMessages(), fetchRecipe(id), getOptionalAuthPageUser()]);
-  const canManageRecipe = authUser?.user_id === recipe.createdByUserId;
+  const canManageRecipe = authUser?.userId === recipe.createdByUserId;
 
   return (
     <main id="recipe-detail-main" className="app-shell max-w-5xl space-y-6">

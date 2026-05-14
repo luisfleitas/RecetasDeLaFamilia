@@ -15,9 +15,11 @@
     "test:phase2": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase2-use-cases.test.ts scripts/recipe-family-link-sanitization.test.ts",
     "test:phase3": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase3-ops.test.ts scripts/family-deletion-workflow.test.ts",
     "test:phase4": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase4-health.test.ts scripts/page-recipe-list-loader.test.ts",
-    "import:cleanup": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs scripts/import-session-cleanup.ts"
+    "import:cleanup": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs scripts/import-session-cleanup.ts",
+    "test:auth": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/auth-provider-config.test.ts scripts/auth-use-cases.test.ts scripts/auth-boundary-imports.test.ts scripts/clerk-auth-routes.test.ts scripts/clerk-user-linker.test.ts scripts/local-auth-provider.test.ts scripts/profile-completion.test.ts scripts/user-repository-contract.test.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.3.3",
     "@prisma/adapter-better-sqlite3": "^7.4.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.4.0",
@@ -30,14 +32,14 @@
     "pnpm": "^10.30.0",
     "prisma": "^7.4.0",
     "react": "19.2.3",
-    "react-markdown": "^10.1.0",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "yarn": "^1.22.22"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
