@@ -21,7 +21,7 @@ function toContentDispositionFilename(filename: string) {
 }
 
 export async function GET(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
 
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -39,11 +39,19 @@ function getPostgresDatabaseUrl() {
 }
 
 function getDatabaseProvider() {
-  if (process.env.DATABASE_PROVIDER === "postgres" || process.env.DATABASE_PROVIDER === "postgresql") {
+  const postgresDatabaseUrl = getPostgresDatabaseUrl();
+  const canUseHostedPostgres =
+    process.env.VERCEL === "1" || process.env.VERCEL_ENV || process.env.DATABASE_PROVIDER === "postgresql";
+
+  if (
+    (process.env.DATABASE_PROVIDER === "postgres" || process.env.DATABASE_PROVIDER === "postgresql") &&
+    canUseHostedPostgres &&
+    postgresDatabaseUrl
+  ) {
     return "postgresql";
   }
 
-  if (getPostgresDatabaseUrl()) {
+  if (canUseHostedPostgres && postgresDatabaseUrl) {
     return "postgresql";
   }
 

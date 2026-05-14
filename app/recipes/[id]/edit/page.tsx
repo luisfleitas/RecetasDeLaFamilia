@@ -60,8 +60,8 @@ export default async function EditRecipePage({ params }: Params) {
   const { id } = await params;
   const [{ locale, messages }, recipe, sourceDocuments] = await Promise.all([
     getRequestMessages(),
-    fetchRecipe(id, authUser.user_id),
-    fetchRecipeSourceDocuments(id, authUser.user_id),
+    fetchRecipe(id, authUser.userId),
+    fetchRecipeSourceDocuments(id, authUser.userId),
   ]);
 
   return (

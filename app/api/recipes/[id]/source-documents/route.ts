@@ -21,7 +21,7 @@ function parseRecipeId(value: string): number | null {
 }
 
 export async function GET(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
   const { id } = await params;
   const recipeId = parseRecipeId(id);
 

@@ -29,7 +29,7 @@ function parsePendingInviteAction(body: unknown): PendingInviteAction {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
 
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });

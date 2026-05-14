@@ -21,7 +21,7 @@ type Params = {
 
 export async function GET(request: Request, { params }: Params) {
   const requestId = getRequestId(request);
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
 
   if (!authUser) {
     return withRequestId(

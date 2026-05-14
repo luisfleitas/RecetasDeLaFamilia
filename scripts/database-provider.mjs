@@ -31,11 +31,19 @@ export function getPostgresDatabaseUrl(env = process.env) {
 }
 
 export function getDatabaseProvider(env = process.env) {
-  if (env.DATABASE_PROVIDER === "postgres" || env.DATABASE_PROVIDER === "postgresql") {
+  const postgresDatabaseUrl = getPostgresDatabaseUrl(env);
+  const canUseHostedPostgres =
+    env.VERCEL === "1" || env.VERCEL_ENV || env.DATABASE_PROVIDER === "postgresql";
+
+  if (
+    (env.DATABASE_PROVIDER === "postgres" || env.DATABASE_PROVIDER === "postgresql") &&
+    canUseHostedPostgres &&
+    postgresDatabaseUrl
+  ) {
     return "postgresql";
   }
 
-  if (getPostgresDatabaseUrl(env)) {
+  if (canUseHostedPostgres && postgresDatabaseUrl) {
     return "postgresql";
   }
 

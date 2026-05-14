@@ -32,7 +32,7 @@ async function parseSingleFamilyImage(formData: FormData): Promise<UploadedFamil
 }
 
 export async function POST(request: Request) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
 
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

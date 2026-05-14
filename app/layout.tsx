@@ -1,6 +1,8 @@
 // Root layout with global fonts and metadata.
 import type { Metadata } from "next";
 import { LocaleProvider } from "@/app/_components/locale-provider";
+import { AuthClientProvider } from "@/lib/auth/clerk-client-provider";
+import { resolveAuthProviderName } from "@/lib/auth/provider-config";
 import { getRequestMessages } from "@/lib/i18n/server";
 import "./globals.css";
 
@@ -15,11 +17,14 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const { locale, messages } = await getRequestMessages();
+  const clerkEnabled = resolveAuthProviderName() === "clerk";
 
   return (
     <html id="root-html" lang={locale} data-theme="sage">
       <body id="root-body" className="antialiased">
-        <LocaleProvider locale={locale} messages={messages}>{children}</LocaleProvider>
+        <AuthClientProvider enabled={clerkEnabled}>
+          <LocaleProvider locale={locale} messages={messages}>{children}</LocaleProvider>
+        </AuthClientProvider>
       </body>
     </html>
   );

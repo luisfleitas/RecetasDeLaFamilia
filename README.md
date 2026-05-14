@@ -33,6 +33,25 @@ Seeded credentials for MVP testing:
 
 Set `JWT_SECRET` in `.env` before using auth endpoints.
 
+## Authentication provider configuration
+
+Recetas supports two auth providers:
+
+- `AUTH_PROVIDER=local` for local JWT/password auth. This is the default when `AUTH_PROVIDER` is unset.
+- `AUTH_PROVIDER=clerk` for hosted Clerk auth.
+
+Clerk-enabled hosted environments need these Vercel environment variable names:
+
+- `AUTH_PROVIDER=clerk`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
+- `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/`
+
+Use Clerk test keys for Preview/staging. Use Clerk live keys for Production only when Production Clerk auth is intentionally enabled. Do not commit Clerk secret values to repo files.
+
 ## Recipe import configuration
 
 Recipe import supports local-first OCR with optional OpenAI OCR fallback.

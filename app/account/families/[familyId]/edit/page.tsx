@@ -27,7 +27,7 @@ export default async function EditFamilyPage({ params }: EditFamilyPageProps) {
 
   const [{ locale, messages }, pageData] = await Promise.all([
     getRequestMessages(),
-    loadFamilyForEditPage({ familyId, authUserId: authUser.user_id }),
+    loadFamilyForEditPage({ familyId, authUserId: authUser.userId }),
   ]);
 
   if (pageData.access.kind === "not-found" || !pageData.family) {

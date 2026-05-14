@@ -42,7 +42,7 @@ async function parseFamilyId(params: Params["params"]) {
 }
 
 export async function PUT(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
 
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -84,7 +84,7 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 export async function DELETE(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
 
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

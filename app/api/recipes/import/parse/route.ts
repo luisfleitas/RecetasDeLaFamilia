@@ -441,7 +441,7 @@ export async function POST(request: Request) {
     return withRequestId(NextResponse.json({ error: "Not found" }, { status: 404 }), requestId);
   }
 
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
   if (!authUser) {
     return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), requestId);
   }

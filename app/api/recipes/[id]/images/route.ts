@@ -54,7 +54,7 @@ async function parseSingleImage(formData: FormData): Promise<UploadedRecipeImage
 }
 
 export async function POST(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
 
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -5,7 +5,10 @@ import type { RecipeMediaReference } from "@/lib/application/recipes/recipe-medi
 import { parseCreateRecipeInput, parseRecipeId } from "@/lib/application/recipes/validation";
 import { sanitizeRecipeFamilyLinksForUpdate } from "@/lib/application/recipes/family-link-sanitization";
 import type { UploadedRecipeImage } from "@/lib/application/recipes/use-cases";
-import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import {
+  getAuthUserFromRequest,
+  getCompletedAuthUserFromRequest,
+} from "@/lib/auth/request-auth";
 import { getPrisma } from "@/lib/prisma";
 import { buildRecipeUseCases } from "@/lib/recipes/factory";
 import { NextResponse } from "next/server";
@@ -151,7 +154,7 @@ async function sanitizeUpdateInputFamilyLinksForUser(userId: number, input: Retu
 }
 
 export async function GET(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authUser = await getAuthUserFromRequest(request);
   const { id } = await params;
   const recipeId = parseRecipeId(id);
 
@@ -196,11 +199,21 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 export async function PUT(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { id } = await params;
   const recipeId = parseRecipeId(id);
@@ -297,11 +310,21 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 export async function DELETE(request: Request, { params }: Params) {
-  const authUser = getAuthUserFromRequest(request);
+  const authResult = await getCompletedAuthUserFromRequest(request);
 
-  if (!authUser) {
+
+  if (authResult.status === "unauthenticated") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   }
+
+  if (authResult.status === "profile_incomplete") {
+
+    return authResult.response;
+
+  }
+
+  const authUser = authResult.authUser;
 
   const { id } = await params;
   const recipeId = parseRecipeId(id);

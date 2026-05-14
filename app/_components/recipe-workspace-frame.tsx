@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import LocaleSwitcher from "@/app/_components/locale-switcher";
 import HomeAccountMenu from "@/app/_components/home-account-menu";
 import HomeLeftNavigation from "@/app/_components/home-left-navigation";
-import type { AccessTokenPayload } from "@/lib/auth/jwt";
+import type { AppAuthUser } from "@/lib/auth/types";
 import {
   buildHomeNavigationViewModel,
 } from "@/lib/application/home-navigation/view-model";
@@ -12,7 +12,7 @@ import type { Locale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 
 type RecipeWorkspaceFrameProps = {
-  authUser: AccessTokenPayload;
+  authUser: AppAuthUser;
   children: ReactNode;
   contentClassName?: string;
   contentId: string;
@@ -31,11 +31,11 @@ export default async function RecipeWorkspaceFrame({
   messages,
 }: RecipeWorkspaceFrameProps) {
   const [recipesResponse, familyMemberships] = await Promise.all([
-    loadRecipeListForPage({ viewerUserId: authUser.user_id }),
-    loadHomeNavigationFamiliesForPage(authUser.user_id),
+    loadRecipeListForPage({ viewerUserId: authUser.userId }),
+    loadHomeNavigationFamiliesForPage(authUser.userId),
   ]);
   const homeNavigation = buildHomeNavigationViewModel({
-    userId: authUser.user_id,
+    userId: authUser.userId,
     recipes: recipesResponse.recipes,
     families: familyMemberships,
   });

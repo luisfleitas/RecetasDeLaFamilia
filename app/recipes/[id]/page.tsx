@@ -91,12 +91,12 @@ export default async function RecipeDetailPage({ params }: Params) {
     getRequestMessages(),
     getOptionalAuthPageUser(),
   ]);
-  const viewerUserId = authUser?.user_id ?? null;
+  const viewerUserId = authUser?.userId ?? null;
   const [recipe, sourceDocuments] = await Promise.all([
     fetchRecipe(id, viewerUserId),
     fetchRecipeSourceDocuments(id, viewerUserId),
   ]);
-  const canManageRecipe = authUser?.user_id === recipe.createdByUserId;
+  const canManageRecipe = authUser?.userId === recipe.createdByUserId;
   const recipeImages = (recipe.images ?? []).filter((image) => image.id > 0);
   const sourceImagesByDocumentId = new Map(
     (recipe.images ?? []).filter((image) => image.id < 0).map((image) => [Math.abs(image.id), image]),

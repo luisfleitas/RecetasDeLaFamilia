@@ -1,8 +1,8 @@
 import { AUTH_MESSAGE_CODES, AuthConflictError, AuthInvalidCredentialsError } from "@/lib/application/auth/errors";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { signAccessToken } from "@/lib/auth/jwt";
-import { UserRepository } from "@/lib/domain/user-repository";
-import { PublicUser } from "@/lib/domain/user";
+import type { UserRepository } from "@/lib/domain/user-repository";
+import type { PublicUser } from "@/lib/domain/user";
 
 type RegisterInput = {
   firstName: string;
@@ -71,6 +71,9 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
         email: input.email,
         username: input.username,
         passwordHash,
+        authProvider: "local",
+        authProviderUserId: null,
+        profileCompletedAt: new Date(),
       });
 
       return toPublicUser(user);
@@ -84,6 +87,10 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
           : await userRepository.getByUsername(lookup)) ??
         null;
       if (!user) {
+        throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.INVALID_CREDENTIALS);
+      }
+
+      if (!user.passwordHash) {
         throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.INVALID_CREDENTIALS);
       }
 
@@ -103,6 +110,10 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
     async changePassword(input: ChangePasswordInput) {
       const user = await userRepository.getById(input.userId);
       if (!user) {
+        throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.INVALID_CREDENTIALS);
+      }
+
+      if (!user.passwordHash) {
         throw new AuthInvalidCredentialsError(AUTH_MESSAGE_CODES.INVALID_CREDENTIALS);
       }
 

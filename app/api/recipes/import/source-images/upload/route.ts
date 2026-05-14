@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const authUser = getAuthUserFromRequest(request);
+    const authUser = await getAuthUserFromRequest(request);
     if (body.type === "blob.generate-client-token" && !authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
