@@ -75,6 +75,14 @@ async function loadRouteModule(relativePath: string): Promise<RouteModule> {
   return import(`${relativePath}?t=${Date.now()}-${Math.random()}`) as Promise<RouteModule>;
 }
 
+function signCompletedAccessToken(user: { id: number; username: string; profileCompletedAt: Date | null }) {
+  return signAccessToken({
+    userId: user.id,
+    username: user.username,
+    profileCompletedAt: user.profileCompletedAt ?? new Date("2026-05-13T12:00:00.000Z"),
+  });
+}
+
 test("import parse route persists session metadata for pasted recipe text", async () => {
   const { rootDir } = await setupIntegrationEnv();
 
@@ -90,7 +98,7 @@ test("import parse route persists session metadata for pasted recipe text", asyn
       },
     });
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const { POST } = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
     assert.ok(POST);
 
@@ -204,8 +212,8 @@ test("source document routes enforce recipe access control", async () => {
       },
     });
 
-    const ownerToken = signAccessToken({ userId: owner.id, username: owner.username });
-    const outsiderToken = signAccessToken({ userId: outsider.id, username: outsider.username });
+    const ownerToken = signCompletedAccessToken(owner);
+    const outsiderToken = signCompletedAccessToken(outsider);
     const listRoute = await loadRouteModule("../app/api/recipes/[id]/source-documents/route.ts");
     const fileRoute = await loadRouteModule("../app/api/recipes/[id]/source-documents/[docId]/file/route.ts");
 
@@ -263,7 +271,7 @@ test("recipe creation still works without import session", async () => {
       },
     });
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const { POST } = await loadRouteModule("../app/api/recipes/route.ts");
     assert.ok(POST);
 
@@ -336,7 +344,7 @@ test("import routes return 404 when recipe import feature flag is disabled", asy
       },
     });
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
     const sessionRoute = await loadRouteModule("../app/api/recipes/import/sessions/[sessionId]/route.ts");
 
@@ -382,7 +390,7 @@ test("file import can be edited, hydrated, and promoted on recipe create", async
       },
     });
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
     const sessionRoute = await loadRouteModule("../app/api/recipes/import/sessions/[sessionId]/route.ts");
     const recipesRoute = await loadRouteModule("../app/api/recipes/route.ts");
@@ -600,7 +608,7 @@ test("handwritten parse rejects uploads over the configured combined size before
       });
     }) as typeof fetch;
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
 
     const importFormData = new FormData();
@@ -668,7 +676,7 @@ test("handwritten multi-image parse preserves upload order and metadata", async 
       );
     }) as typeof fetch;
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
 
     const importFormData = new FormData();
@@ -810,7 +818,7 @@ test("handwritten parse accepts ordered staged source images without duplicating
       });
     }) as typeof fetch;
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const sourceRoute = await loadRouteModule("../app/api/recipes/import/source-images/route.ts");
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
     const uploadBatchId = "staged-batch-order";
@@ -918,8 +926,8 @@ test("handwritten staged parse rejects another user's staged source image", asyn
         },
       }),
     ]);
-    const ownerToken = signAccessToken({ userId: owner.id, username: owner.username });
-    const outsiderToken = signAccessToken({ userId: outsider.id, username: outsider.username });
+    const ownerToken = signCompletedAccessToken(owner);
+    const outsiderToken = signCompletedAccessToken(outsider);
     const sourceRoute = await loadRouteModule("../app/api/recipes/import/source-images/route.ts");
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
     const formData = new FormData();
@@ -1000,7 +1008,7 @@ test("handwritten parse adds weak-result review hints for sparse OCR output", as
       );
     }) as typeof fetch;
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
 
     const importFormData = new FormData();
@@ -1082,7 +1090,7 @@ test("handwritten parse falls back to a provisional draft when OCR text cannot p
       );
     }) as typeof fetch;
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
 
     const importFormData = new FormData();
@@ -1151,7 +1159,7 @@ test("document text-file parse keeps document metadata and avoids handwritten st
       },
     });
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const parseRoute = await loadRouteModule("../app/api/recipes/import/parse/route.ts");
 
     const importFormData = new FormData();
@@ -1345,7 +1353,7 @@ test("handwritten session GET and PATCH preserve metadata and update source-imag
       },
     });
 
-    const token = signAccessToken({ userId: user.id, username: user.username });
+    const token = signCompletedAccessToken(user);
     const sessionRoute = await loadRouteModule("../app/api/recipes/import/sessions/[sessionId]/route.ts");
 
     const getResponse = await sessionRoute.GET!(

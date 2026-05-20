@@ -1,5 +1,4 @@
 import { ACCESS_TOKEN_COOKIE } from "@/lib/auth/session-cookie";
-import { revokeCurrentClerkSession } from "@/lib/auth/clerk-provider";
 import { resolveAuthProviderName } from "@/lib/auth/provider-config";
 import { NextResponse } from "next/server";
 
@@ -7,6 +6,7 @@ export const runtime = "nodejs";
 
 export async function POST() {
   if (resolveAuthProviderName() === "clerk") {
+    const { revokeCurrentClerkSession } = await import("@/lib/auth/clerk-provider");
     await revokeCurrentClerkSession();
     return NextResponse.json({ ok: true });
   }
