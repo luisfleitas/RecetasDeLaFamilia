@@ -6,7 +6,13 @@ import {
 } from "../lib/application/auth/errors";
 import { verifyAccessToken } from "../lib/auth/jwt";
 import { makeAuthUseCases } from "../lib/application/auth/use-cases";
-import type { CreateUserInput, User } from "../lib/domain/user";
+import type {
+  CompleteUserProfileInput,
+  CreateExternalAuthUserInput,
+  CreateUserInput,
+  User,
+  UserAuthProvider,
+} from "../lib/domain/user";
 import type { UserRepository } from "../lib/domain/user-repository";
 
 const now = new Date("2026-05-13T00:00:00.000Z");
@@ -53,6 +59,66 @@ class FakeUserRepository implements UserRepository {
 
   async getByUsername(username: string): Promise<User | null> {
     return [...this.users.values()].find((user) => user.username === username) ?? null;
+  }
+
+  async getByAuthProviderIdentity(
+    provider: UserAuthProvider,
+    providerUserId: string,
+  ): Promise<User | null> {
+    return (
+      [...this.users.values()].find(
+        (user) => user.authProvider === provider && user.authProviderUserId === providerUserId,
+      ) ?? null
+    );
+  }
+
+  async attachAuthProviderIdentity(
+    userId: number,
+    provider: UserAuthProvider,
+    providerUserId: string,
+  ): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const updated = { ...user, authProvider: provider, authProviderUserId: providerUserId };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async createExternalAuthUser(input: CreateExternalAuthUserInput): Promise<User> {
+    const user: User = {
+      id: this.users.size + 1,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email,
+      username: input.username,
+      passwordHash: null,
+      authProvider: input.authProvider,
+      authProviderUserId: input.authProviderUserId,
+      profileCompletedAt: input.profileCompletedAt,
+      createdAt: now,
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  async completeProfile(userId: number, input: CompleteUserProfileInput): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const updated = {
+      ...user,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      username: input.username,
+      profileCompletedAt: now,
+    };
+    this.users.set(userId, updated);
+    return updated;
   }
 
   async updatePassword(id: number, passwordHash: string): Promise<void> {
