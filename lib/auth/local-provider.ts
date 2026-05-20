@@ -12,7 +12,9 @@ export function getLocalAuthUserFromToken(token: string | null | undefined): App
     return {
       userId: payload.user_id,
       username: payload.username,
-      profileCompletedAt: null,
+      profileCompletedAt: payload.profile_completed_at
+        ? new Date(payload.profile_completed_at)
+        : null,
     };
   } catch {
     return null;

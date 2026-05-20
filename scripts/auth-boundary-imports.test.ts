@@ -31,6 +31,25 @@ test("@clerk/nextjs imports stay inside provider-owned files", async () => {
   assert.deepEqual(offenders, []);
 });
 
+test("Clerk provider stays lazy-loaded outside the provider-owned module", async () => {
+  const offenders: string[] = [];
+  const files = await listSourceFiles(["app", "lib"]);
+
+  for (const path of files) {
+    const repoRelativePath = relative(process.cwd(), path);
+    if (repoRelativePath === "lib/auth/clerk-provider.ts") {
+      continue;
+    }
+
+    const contents = await readFile(path, "utf8");
+    if (contents.includes("from \"@/lib/auth/clerk-provider\"")) {
+      offenders.push(repoRelativePath);
+    }
+  }
+
+  assert.deepEqual(offenders, []);
+});
+
 async function listSourceFiles(paths: string[]): Promise<string[]> {
   const files: string[] = [];
 
