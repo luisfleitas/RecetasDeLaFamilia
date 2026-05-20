@@ -170,3 +170,14 @@ Run only after real Clerk environment variables are configured in the target env
 - `npx vercel curl /api/health --deployment https://recetas-6ren6162z-luisfleitas-1188s-projects.vercel.app` returned healthy checks after the migration.
 - `npx vercel curl / --deployment https://recetas-6ren6162z-luisfleitas-1188s-projects.vercel.app` rendered the home page after the migration.
 - `npx vercel logs https://recetas-6ren6162z-luisfleitas-1188s-projects.vercel.app --since 5m --level error --expand` showed no new Prisma `P2022` crashes; only the existing pg SSL-mode warning appeared.
+
+### Staging Logout Click Bugfix
+
+- User reported that clicking logout in staging appeared to do nothing.
+- Root cause traced to the shared client `LogoutButton`: it posted to `/api/auth/logout` but did not validate the response or navigate to a visible signed-out destination.
+- Added `scripts/logout-button-client.test.ts` and included it in `npm run test:auth`.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/logout-button-client.test.ts` passed.
+- `npm run test:auth` passed.
+- `npm run build` passed.
+- `npx vercel deploy -y` created Ready deployment `dpl_31oKCSHw2XTVyTty6bwqK2wjab5z` at `https://recetas-ady5h3dbb-luisfleitas-1188s-projects.vercel.app`.
+- `npx vercel alias set recetas-ady5h3dbb-luisfleitas-1188s-projects.vercel.app staging.recetasfamilia.app` succeeded.
