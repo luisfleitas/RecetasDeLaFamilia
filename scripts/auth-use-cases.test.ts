@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { beforeEach, test } from "node:test";
 import {
   AUTH_MESSAGE_CODES,
   AuthInvalidCredentialsError,
 } from "../lib/application/auth/errors";
+import { verifyAccessToken } from "../lib/auth/jwt";
 import { makeAuthUseCases } from "../lib/application/auth/use-cases";
 import type { CreateUserInput, User } from "../lib/domain/user";
 import type { UserRepository } from "../lib/domain/user-repository";
 
 const now = new Date("2026-05-13T00:00:00.000Z");
+
+beforeEach(() => {
+  process.env.JWT_SECRET = "auth-use-cases-test-secret";
+});
 
 class FakeUserRepository implements UserRepository {
   public createdInput: CreateUserInput | null = null;
@@ -90,6 +95,15 @@ test("local registration creates local password-backed complete users", async ()
   assert.equal(repository.createdInput?.authProviderUserId, null);
   assert.ok(repository.createdInput?.passwordHash);
   assert.ok(repository.createdInput?.profileCompletedAt instanceof Date);
+
+  const { accessToken } = await auth.login({
+    usernameOrEmail: "alice",
+    password: "Password123!",
+  });
+  assert.equal(
+    verifyAccessToken(accessToken).profile_completed_at,
+    repository.createdInput.profileCompletedAt?.toISOString(),
+  );
 });
 
 test("local login rejects users without a password hash", async () => {
