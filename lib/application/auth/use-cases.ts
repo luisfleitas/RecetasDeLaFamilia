@@ -102,6 +102,7 @@ export function makeAuthUseCases(userRepository: UserRepository): AuthUseCases {
       const accessToken = signAccessToken({
         userId: user.id,
         username: user.username,
+        profileCompletedAt: user.profileCompletedAt,
       });
 
       return { accessToken };

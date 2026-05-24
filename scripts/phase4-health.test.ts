@@ -82,6 +82,7 @@ test("provider helpers use the Neon integration database URL on branch previews"
     ...process.env,
     DATABASE_URL: "",
     DATABASE_PROVIDER: "",
+    VERCEL_ENV: "preview",
     recetas_DATABASE_URL: "postgresql://recetas:recetas@localhost:5432/branch_preview",
   };
 
@@ -97,6 +98,7 @@ test("provider helpers prefer branch preview Postgres URLs over committed sqlite
     ...process.env,
     DATABASE_URL: "file:./dev.db",
     DATABASE_PROVIDER: "",
+    VERCEL_ENV: "preview",
     recetas_POSTGRES_PRISMA_URL: "postgresql://recetas:recetas@localhost:5432/branch_preview",
   };
 

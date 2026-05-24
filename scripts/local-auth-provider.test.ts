@@ -42,6 +42,24 @@ test("local provider resolves a signed access token from an authorization bearer
   });
 });
 
+test("local provider preserves a completed profile timestamp from the signed access token", async () => {
+  const profileCompletedAt = new Date("2026-05-13T12:00:00.000Z");
+  const token = signAccessToken({ userId: 42, username: "alice", profileCompletedAt });
+  const request = new Request("http://localhost/api/auth/me", {
+    headers: {
+      cookie: `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}`,
+    },
+  });
+
+  const authUser = await getLocalAuthUserFromRequest(request);
+
+  assert.deepEqual(authUser, {
+    userId: 42,
+    username: "alice",
+    profileCompletedAt,
+  });
+});
+
 test("local provider rejects malformed tokens", async () => {
   const request = new Request("http://localhost/api/auth/me", {
     headers: {

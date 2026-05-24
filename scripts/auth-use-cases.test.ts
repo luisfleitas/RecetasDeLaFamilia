@@ -1,14 +1,25 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { beforeEach, test } from "node:test";
 import {
   AUTH_MESSAGE_CODES,
   AuthInvalidCredentialsError,
 } from "../lib/application/auth/errors";
+import { verifyAccessToken } from "../lib/auth/jwt";
 import { makeAuthUseCases } from "../lib/application/auth/use-cases";
-import type { CreateUserInput, User } from "../lib/domain/user";
+import type {
+  CompleteUserProfileInput,
+  CreateExternalAuthUserInput,
+  CreateUserInput,
+  User,
+  UserAuthProvider,
+} from "../lib/domain/user";
 import type { UserRepository } from "../lib/domain/user-repository";
 
 const now = new Date("2026-05-13T00:00:00.000Z");
+
+beforeEach(() => {
+  process.env.JWT_SECRET = "auth-use-cases-test-secret";
+});
 
 class FakeUserRepository implements UserRepository {
   public createdInput: CreateUserInput | null = null;
@@ -48,6 +59,66 @@ class FakeUserRepository implements UserRepository {
 
   async getByUsername(username: string): Promise<User | null> {
     return [...this.users.values()].find((user) => user.username === username) ?? null;
+  }
+
+  async getByAuthProviderIdentity(
+    provider: UserAuthProvider,
+    providerUserId: string,
+  ): Promise<User | null> {
+    return (
+      [...this.users.values()].find(
+        (user) => user.authProvider === provider && user.authProviderUserId === providerUserId,
+      ) ?? null
+    );
+  }
+
+  async attachAuthProviderIdentity(
+    userId: number,
+    provider: UserAuthProvider,
+    providerUserId: string,
+  ): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const updated = { ...user, authProvider: provider, authProviderUserId: providerUserId };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async createExternalAuthUser(input: CreateExternalAuthUserInput): Promise<User> {
+    const user: User = {
+      id: this.users.size + 1,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email,
+      username: input.username,
+      passwordHash: null,
+      authProvider: input.authProvider,
+      authProviderUserId: input.authProviderUserId,
+      profileCompletedAt: input.profileCompletedAt,
+      createdAt: now,
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
+  async completeProfile(userId: number, input: CompleteUserProfileInput): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const updated = {
+      ...user,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      username: input.username,
+      profileCompletedAt: now,
+    };
+    this.users.set(userId, updated);
+    return updated;
   }
 
   async updatePassword(id: number, passwordHash: string): Promise<void> {
@@ -90,6 +161,15 @@ test("local registration creates local password-backed complete users", async ()
   assert.equal(repository.createdInput?.authProviderUserId, null);
   assert.ok(repository.createdInput?.passwordHash);
   assert.ok(repository.createdInput?.profileCompletedAt instanceof Date);
+
+  const { accessToken } = await auth.login({
+    usernameOrEmail: "alice",
+    password: "Password123!",
+  });
+  assert.equal(
+    verifyAccessToken(accessToken).profile_completed_at,
+    repository.createdInput.profileCompletedAt?.toISOString(),
+  );
 });
 
 test("local login rejects users without a password hash", async () => {

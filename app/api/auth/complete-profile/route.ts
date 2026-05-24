@@ -3,7 +3,10 @@ import {
   AuthValidationError,
 } from "@/lib/application/auth/errors";
 import { parseCompleteProfileInput } from "@/lib/application/auth/validation";
+import { signAccessToken } from "@/lib/auth/jwt";
+import { resolveAuthProviderName } from "@/lib/auth/provider-config";
 import { getAuthUserFromRequest } from "@/lib/auth/request-auth";
+import { ACCESS_TOKEN_COOKIE, getAccessTokenCookieConfig } from "@/lib/auth/session-cookie";
 import {
   ProfileCompletionConflictError,
   completeUserProfileForAuthUser,
@@ -45,13 +48,27 @@ export async function POST(request: Request) {
       input,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       user: {
         user_id: completedAuthUser.userId,
         username: completedAuthUser.username,
       },
     });
+
+    if (resolveAuthProviderName() === "local") {
+      response.cookies.set(
+        ACCESS_TOKEN_COOKIE,
+        signAccessToken({
+          userId: completedAuthUser.userId,
+          username: completedAuthUser.username,
+          profileCompletedAt: completedAuthUser.profileCompletedAt,
+        }),
+        getAccessTokenCookieConfig(),
+      );
+    }
+
+    return response;
   } catch (error) {
     if (error instanceof ProfileCompletionConflictError) {
       return NextResponse.json({ errorCode: error.code }, { status: 409 });

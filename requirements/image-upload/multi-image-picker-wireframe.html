@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recipe Multi-Image Picker Wireframe</title>
+    <style>
+      :root {
+        --bg: #f7f3ec;
+        --surface: #fffaf3;
+        --surface-soft: #f4eadc;
+        --border: #d8c8b4;
+        --border-strong: #9b7657;
+        --text: #2f261f;
+        --muted: #756657;
+        --accent: #7f4f32;
+        --accent-soft: #ead4c2;
+        --success: #315c42;
+        --danger: #8a3a2d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      main {
+        display: grid;
+        gap: 32px;
+        margin: 0 auto;
+        max-width: 1180px;
+        padding: 32px;
+      }
+
+      .page-title {
+        display: grid;
+        gap: 8px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 30px;
+        font-weight: 750;
+      }
+
+      .lede {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.5;
+        max-width: 780px;
+      }
+
+      .stage {
+        display: grid;
+        gap: 18px;
+      }
+
+      .stage-title {
+        align-items: baseline;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .stage-title h2 {
+        font-size: 18px;
+      }
+
+      .viewport-label {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .form-shell {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        display: grid;
+        gap: 16px;
+        padding: 20px;
+      }
+
+      .section-card {
+        background: #fffdf8;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        display: grid;
+        gap: 16px;
+        padding: 18px;
+      }
+
+      .section-header {
+        align-items: start;
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .section-copy {
+        display: grid;
+        gap: 5px;
+      }
+
+      .section-title {
+        font-size: 17px;
+        font-weight: 720;
+      }
+
+      .section-description {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .count-pill {
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--muted);
+        flex: 0 0 auto;
+        font-size: 12px;
+        padding: 6px 10px;
+      }
+
+      .picker-panel {
+        border: 1px dashed var(--border-strong);
+        border-radius: 8px;
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .picker-panel.has-images {
+        border-style: solid;
+        background: #fff9f0;
+      }
+
+      .picker-main {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .picker-copy {
+        display: grid;
+        gap: 4px;
+      }
+
+      .picker-title {
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .picker-help {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .button-row {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .button {
+        align-items: center;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        display: inline-flex;
+        font-size: 13px;
+        font-weight: 700;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 14px;
+        white-space: nowrap;
+      }
+
+      .button.primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .button.secondary {
+        background: var(--surface);
+        border-color: var(--border);
+        color: var(--text);
+      }
+
+      .microcopy {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .one-photo-hint {
+        background: var(--accent-soft);
+        border: 1px solid #d9b99e;
+        border-radius: 8px;
+        color: #5f3b27;
+        font-size: 13px;
+        padding: 10px 12px;
+      }
+
+      .media-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .media-card {
+        background: #fffdf8;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        display: grid;
+        gap: 10px;
+        padding: 10px;
+      }
+
+      .thumb {
+        align-items: center;
+        aspect-ratio: 4 / 3;
+        background:
+          linear-gradient(135deg, rgba(127, 79, 50, 0.18), rgba(49, 92, 66, 0.12)),
+          var(--surface-soft);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--muted);
+        display: flex;
+        font-size: 12px;
+        justify-content: center;
+        overflow: hidden;
+        text-align: center;
+      }
+
+      .thumb.alt {
+        background:
+          linear-gradient(135deg, rgba(49, 92, 66, 0.22), rgba(127, 79, 50, 0.08)),
+          var(--surface-soft);
+      }
+
+      .thumb.third {
+        background:
+          linear-gradient(135deg, rgba(155, 118, 87, 0.18), rgba(138, 58, 45, 0.12)),
+          var(--surface-soft);
+      }
+
+      .file-name {
+        color: var(--muted);
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .card-actions {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .radio-label {
+        align-items: center;
+        color: var(--text);
+        display: inline-flex;
+        font-size: 12px;
+        gap: 6px;
+      }
+
+      .radio-dot {
+        border: 1px solid var(--border-strong);
+        border-radius: 999px;
+        height: 14px;
+        position: relative;
+        width: 14px;
+      }
+
+      .radio-dot.checked::after {
+        background: var(--accent);
+        border-radius: 999px;
+        content: "";
+        height: 8px;
+        left: 2px;
+        position: absolute;
+        top: 2px;
+        width: 8px;
+      }
+
+      .remove-link {
+        color: var(--danger);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .add-tile {
+        align-items: center;
+        background: #fffaf3;
+        border: 1px dashed var(--border-strong);
+        border-radius: 8px;
+        color: var(--accent);
+        display: grid;
+        font-size: 13px;
+        font-weight: 750;
+        gap: 4px;
+        justify-items: center;
+        min-height: 184px;
+        padding: 12px;
+        text-align: center;
+      }
+
+      .add-symbol {
+        align-items: center;
+        background: var(--accent-soft);
+        border-radius: 999px;
+        display: flex;
+        font-size: 22px;
+        height: 42px;
+        justify-content: center;
+        width: 42px;
+      }
+
+      .empty-state {
+        align-items: center;
+        display: grid;
+        gap: 14px;
+        justify-items: center;
+        min-height: 180px;
+        text-align: center;
+      }
+
+      .empty-illustration {
+        align-items: center;
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--muted);
+        display: grid;
+        height: 86px;
+        justify-items: center;
+        width: 132px;
+      }
+
+      .state-row {
+        border-top: 1px solid var(--border);
+        display: grid;
+        gap: 10px;
+        padding-top: 14px;
+      }
+
+      .state-note {
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.45;
+        padding: 10px 12px;
+      }
+
+      .state-note.error {
+        background: #fae9e4;
+        border: 1px solid #dfb2a7;
+        color: var(--danger);
+      }
+
+      .state-note.success {
+        background: #e8f1e9;
+        border: 1px solid #b8d0bd;
+        color: var(--success);
+      }
+
+      .mobile-frame {
+        background: #2b2b2b;
+        border-radius: 26px;
+        margin: 0 auto;
+        max-width: 390px;
+        padding: 14px;
+      }
+
+      .mobile-screen {
+        background: var(--bg);
+        border-radius: 18px;
+        padding: 14px;
+      }
+
+      .mobile-screen .form-shell {
+        padding: 12px;
+      }
+
+      .mobile-screen .section-card {
+        padding: 14px;
+      }
+
+      .mobile-screen .section-header,
+      .mobile-screen .picker-main {
+        display: grid;
+      }
+
+      .mobile-screen .count-pill {
+        justify-self: start;
+      }
+
+      .mobile-screen .button-row,
+      .mobile-screen .button {
+        width: 100%;
+      }
+
+      .mobile-screen .media-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .mobile-screen .add-tile {
+        min-height: 112px;
+      }
+
+      .annotation {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          padding: 18px;
+        }
+
+        .section-header,
+        .picker-main {
+          display: grid;
+        }
+
+        .media-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="page-title">
+        <h1>Recipe photo picker wireframe</h1>
+        <p class="lede">
+          Focused update for the add/edit recipe media section: make multi-image upload explicit,
+          keep the add-more action visible after the first selection, and show every selected file
+          as a preview card.
+        </p>
+      </header>
+
+      <section class="stage" aria-labelledby="desktop-empty-title">
+        <div class="stage-title">
+          <h2 id="desktop-empty-title">Desktop - empty state</h2>
+          <span class="viewport-label">Main recipe form section</span>
+        </div>
+
+        <div class="form-shell">
+          <section class="section-card">
+            <div class="section-header">
+              <div class="section-copy">
+                <p class="section-title">Media</p>
+                <p class="section-description">Add recipe photos and review imported source pages in one place.</p>
+              </div>
+              <span class="count-pill">0 of 8 photos</span>
+            </div>
+
+            <div class="picker-panel">
+              <div class="empty-state">
+                <div class="empty-illustration">
+                  <span>photo preview area</span>
+                </div>
+                <div class="picker-copy">
+                  <p class="picker-title">Add recipe photos</p>
+                  <p class="picker-help">Select multiple photos at once, or add more after the first photo.</p>
+                </div>
+                <div class="button-row">
+                  <span class="button primary">Add photos</span>
+                  <span class="microcopy">JPEG, PNG, or WEBP. 4 MB per photo.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="stage" aria-labelledby="desktop-selected-title">
+        <div class="stage-title">
+          <h2 id="desktop-selected-title">Desktop - after images are selected</h2>
+          <span class="viewport-label">Persistent add-more affordance</span>
+        </div>
+
+        <div class="form-shell">
+          <section class="section-card">
+            <div class="section-header">
+              <div class="section-copy">
+                <p class="section-title">Media</p>
+                <p class="section-description">Add recipe photos and review imported source pages in one place.</p>
+              </div>
+              <span class="count-pill">3 of 8 photos</span>
+            </div>
+
+            <div class="picker-panel has-images">
+              <div class="picker-main">
+                <div class="picker-copy">
+                  <p class="picker-title">Recipe photos</p>
+                  <p class="picker-help">These photos will be saved with the recipe. Choose one primary photo.</p>
+                </div>
+                <div class="button-row">
+                  <span class="button secondary">Add more photos</span>
+                  <span class="microcopy">Up to 5 more.</span>
+                </div>
+              </div>
+
+              <div class="media-grid">
+                <article class="media-card">
+                  <div class="thumb">arepas.jpg</div>
+                  <p class="file-name">arepas-family-table.jpg</p>
+                  <div class="card-actions">
+                    <span class="radio-label"><span class="radio-dot checked"></span> Primary</span>
+                    <span class="remove-link">Remove</span>
+                  </div>
+                </article>
+
+                <article class="media-card">
+                  <div class="thumb alt">prep-step.jpg</div>
+                  <p class="file-name">prep-step-masa.jpg</p>
+                  <div class="card-actions">
+                    <span class="radio-label"><span class="radio-dot"></span> Primary</span>
+                    <span class="remove-link">Remove</span>
+                  </div>
+                </article>
+
+                <article class="media-card">
+                  <div class="thumb third">finished.jpg</div>
+                  <p class="file-name">finished-plate.jpg</p>
+                  <div class="card-actions">
+                    <span class="radio-label"><span class="radio-dot"></span> Primary</span>
+                    <span class="remove-link">Remove</span>
+                  </div>
+                </article>
+
+                <div class="add-tile">
+                  <span class="add-symbol">+</span>
+                  <span>Add more photos</span>
+                  <span class="microcopy">5 remaining</span>
+                </div>
+              </div>
+
+              <div class="state-row">
+                <p class="state-note success">
+                  Suggested one-photo hint: when exactly one photo exists, show "You can add up to 7 more photos."
+                </p>
+                <p class="state-note error">
+                  Error placement: "You can upload up to 8 images. Remove one or choose fewer photos."
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="stage" aria-labelledby="mobile-title">
+        <div class="stage-title">
+          <h2 id="mobile-title">Mobile - stacked layout</h2>
+          <span class="viewport-label">Single-column cards and full-width action</span>
+        </div>
+
+        <div class="mobile-frame">
+          <div class="mobile-screen">
+            <div class="form-shell">
+              <section class="section-card">
+                <div class="section-header">
+                  <div class="section-copy">
+                    <p class="section-title">Media</p>
+                    <p class="section-description">Add recipe photos and review imported source pages in one place.</p>
+                  </div>
+                  <span class="count-pill">1 of 8 photos</span>
+                </div>
+
+                <div class="picker-panel has-images">
+                  <div class="picker-main">
+                    <div class="picker-copy">
+                      <p class="picker-title">Recipe photos</p>
+                      <p class="picker-help">Choose one primary photo.</p>
+                    </div>
+                    <div class="button-row">
+                      <span class="button secondary">Add more photos</span>
+                    </div>
+                  </div>
+
+                  <p class="one-photo-hint">You can add up to 7 more photos.</p>
+
+                  <div class="media-grid">
+                    <article class="media-card">
+                      <div class="thumb">arepas.jpg</div>
+                      <p class="file-name">arepas-family-table.jpg</p>
+                      <div class="card-actions">
+                        <span class="radio-label"><span class="radio-dot checked"></span> Primary</span>
+                        <span class="remove-link">Remove</span>
+                      </div>
+                    </article>
+
+                    <div class="add-tile">
+                      <span class="add-symbol">+</span>
+                      <span>Add more photos</span>
+                      <span class="microcopy">7 remaining</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <p class="annotation">
+          The native file input stays in the DOM for accessibility and browser behavior, but the visible
+          control becomes this consistent Recetas panel. The same component can be reused on create,
+          import review, and edit recipe forms.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

@@ -15,6 +15,7 @@
     "test:phase2": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase2-use-cases.test.ts scripts/recipe-family-link-sanitization.test.ts",
     "test:phase3": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase3-ops.test.ts scripts/family-deletion-workflow.test.ts",
     "test:phase4": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase4-health.test.ts scripts/page-recipe-list-loader.test.ts",
+    "test:recipe-media-picker": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/recipe-media-picker-ui.test.ts",
     "import:cleanup": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs scripts/import-session-cleanup.ts",
     "test:auth": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/auth-provider-config.test.ts scripts/auth-use-cases.test.ts scripts/auth-boundary-imports.test.ts scripts/clerk-auth-routes.test.ts scripts/clerk-user-linker.test.ts scripts/local-auth-provider.test.ts scripts/logout-button-client.test.ts scripts/profile-completion.test.ts scripts/user-repository-contract.test.ts"
   },

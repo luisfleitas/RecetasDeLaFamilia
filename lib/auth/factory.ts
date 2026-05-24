@@ -1,5 +1,4 @@
 import { makeAuthUseCases } from "@/lib/application/auth/use-cases";
-import { createClerkAuthProvider } from "@/lib/auth/clerk-provider";
 import { createLocalAuthProvider } from "@/lib/auth/local-provider";
 import { resolveAuthProviderName } from "@/lib/auth/provider-config";
 import type { RequestAuthProvider } from "@/lib/auth/types";
@@ -25,7 +24,12 @@ export function buildAuthProvider(): RequestAuthProvider {
     case "local":
       return createLocalAuthProvider();
     case "clerk":
-      return createClerkAuthProvider(new PrismaUserRepository());
+      return {
+        async getAuthUserFromRequest(request) {
+          const { createClerkAuthProvider } = await import("@/lib/auth/clerk-provider");
+          return createClerkAuthProvider(new PrismaUserRepository()).getAuthUserFromRequest(request);
+        },
+      };
     default:
       provider satisfies never;
       throw new Error(`Unsupported AUTH_PROVIDER: ${provider}`);
