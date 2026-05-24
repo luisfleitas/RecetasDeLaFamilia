@@ -9,7 +9,8 @@ test("global logout button validates the logout response before redirecting", ()
   assert.match(logoutButtonSource, /if\s*\(\s*!response\.ok\s*\)/);
 });
 
-test("global logout button sends the browser to the login page after logout", () => {
-  assert.match(logoutButtonSource, /router\.replace\("\/login"\)/);
-  assert.match(logoutButtonSource, /router\.refresh\(\)/);
+test("global logout button forces a document navigation to the public landing page after logout", () => {
+  assert.match(logoutButtonSource, /window\.location\.assign\("\/"\)/);
+  assert.doesNotMatch(logoutButtonSource, /window\.location\.assign\("\/login"\)/);
+  assert.doesNotMatch(logoutButtonSource, /router\.replace\("\/login"\)/);
 });

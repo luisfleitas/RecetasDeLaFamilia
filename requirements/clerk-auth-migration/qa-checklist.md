@@ -181,3 +181,31 @@ Run only after real Clerk environment variables are configured in the target env
 - `npm run build` passed.
 - `npx vercel deploy -y` created Ready deployment `dpl_31oKCSHw2XTVyTty6bwqK2wjab5z` at `https://recetas-ady5h3dbb-luisfleitas-1188s-projects.vercel.app`.
 - `npx vercel alias set recetas-ady5h3dbb-luisfleitas-1188s-projects.vercel.app staging.recetasfamilia.app` succeeded.
+
+### Staging Logout Hard-Navigation Follow-Up
+
+- User clarified that logout does end the session, but the visible signed-out state only appears after pressing F5.
+- Root cause traced to the shared client `LogoutButton` using App Router soft navigation after the successful `/api/auth/logout` POST; the client shell can continue showing stale signed-in state until a document reload.
+- Updated `scripts/logout-button-client.test.ts` so the regression requires a document navigation via `window.location.assign("/")` to the public landing page and rejects both `/login` hard navigation and `router.replace("/login")`.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/logout-button-client.test.ts` failed before the fix for the expected missing `window.location.assign("/login")`.
+- Updated `app/_components/logout-button.tsx` to keep response validation and use `window.location.assign("/")` after a successful logout.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/logout-button-client.test.ts` passed.
+- `npm run test:auth` passed.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Branch `codex/fix/logout-hard-navigation` was pushed and PR #37 was opened back to `pre-main`.
+- `npx vercel deploy -y` created Ready deployment `dpl_A7Fid81j4SsSddvcfq53qHrTg6Ge` at `https://recetas-j833blvxs-luisfleitas-1188s-projects.vercel.app`.
+- `npx vercel alias set recetas-j833blvxs-luisfleitas-1188s-projects.vercel.app staging.recetasfamilia.app` succeeded.
+- `npx vercel inspect https://staging.recetasfamilia.app` resolved to Ready deployment `dpl_A7Fid81j4SsSddvcfq53qHrTg6Ge`.
+- `npx vercel curl /api/health --deployment https://staging.recetasfamilia.app` returned healthy app and database checks.
+- User confirmed the hard-navigation version ended the session without F5, then requested landing on the public home page instead of `/login`.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/logout-button-client.test.ts` failed before the destination update because `LogoutButton` still used `window.location.assign("/login")`.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/logout-button-client.test.ts` passed after switching the destination to `window.location.assign("/")`.
+- `npm run test:auth` passed after the landing-page destination update.
+- `npm run build` passed after the landing-page destination update.
+- `git diff --check` passed after the landing-page destination update.
+- `npx vercel deploy -y` created Ready deployment `dpl_EncDNbUeuwqkNUKQSeCX18faENeC` at `https://recetas-ktx36bxhs-luisfleitas-1188s-projects.vercel.app`.
+- `npx vercel alias set recetas-ktx36bxhs-luisfleitas-1188s-projects.vercel.app staging.recetasfamilia.app` succeeded.
+- `npx vercel inspect https://staging.recetasfamilia.app` resolved to Ready deployment `dpl_EncDNbUeuwqkNUKQSeCX18faENeC`.
+- `npx vercel curl /api/health --deployment https://staging.recetasfamilia.app` returned healthy app and database checks.
+- Interactive browser verification that the logout click lands on the public home page as an unauthenticated user is still pending.

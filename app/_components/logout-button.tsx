@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMessages } from "@/app/_components/locale-provider";
 import { buttonClassName } from "@/app/_components/ui/button-styles";
@@ -13,7 +12,6 @@ type LogoutButtonProps = {
 };
 
 export default function LogoutButton({ buttonId = "global-logout-button", className, label, role }: LogoutButtonProps) {
-  const router = useRouter();
   const messages = useMessages();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +25,8 @@ export default function LogoutButton({ buttonId = "global-logout-button", classN
         throw new Error(`Logout failed with status ${response.status}`);
       }
 
-      router.replace("/login");
-      router.refresh();
+      // A document navigation forces the app shell and Clerk client state to re-read the signed-out session.
+      window.location.assign("/");
     } catch {
       setError(messages.auth.errors.unexpected_logout_error);
     } finally {
