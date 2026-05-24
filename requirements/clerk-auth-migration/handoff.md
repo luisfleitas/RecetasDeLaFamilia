@@ -6,7 +6,7 @@
 - Design: `requirements/clerk-auth-migration/design.md`
 - Implementation plan: `requirements/clerk-auth-migration/implementation-plan.md`
 - QA checklist: `requirements/clerk-auth-migration/qa-checklist.md`
-- Status: Tasks 1, 2, 3, and 4 complete; Task 5 is in progress. A feature-branch Vercel Preview now includes the Clerk migration branch code and resolves the Clerk auth routes; the staging alias has not been promoted to this preview.
+- Status: Tasks 1, 2, 3, and 4 complete; Task 5 is in progress. A staging logout click bugfix is deployed from `codex/feature/fix-staging-logout` to `https://staging.recetasfamilia.app`.
 
 ## Completed
 
@@ -18,6 +18,7 @@
 - Task 2 implemented nullable `passwordHash`, auth provider identity fields, profile completion timestamp, repository linking methods, local password null-hash guards, seed updates, migration SQL, Postgres schema assertions, and focused auth tests.
 - Task 3 installed `@clerk/nextjs`, added the Clerk provider/linker, transactional identity linking, Next.js 16 `proxy.ts`, Clerk-owned sign-in/sign-up/user-profile routes, route switching for `/login`, `/register`, and `/account/change-password`, provider-owned Clerk logout, import-boundary coverage, and focused auth tests.
 - Task 4 added centralized profile-completion helpers, `/account/complete-profile`, `/api/auth/complete-profile`, incomplete-profile guards for protected page/API flows, locked-email profile completion, and focused auth tests.
+- Staging logout click bugfix updates the shared `LogoutButton` to validate `/api/auth/logout`, visibly redirect to `/login`, refresh app state, and show a localized error if logout fails.
 
 ## In Progress
 
@@ -27,6 +28,7 @@
 - The Clerk route URL variables are not configured in Vercel yet.
 - Latest staging deployment inspected: `dpl_DYmiT1ZWqtksQKT7Q83nZR5QCAQW` / `https://recetas-bim34ew4r-luisfleitas-1188s-projects.vercel.app`, aliased to `https://staging.recetasfamilia.app`.
 - Feature-branch Preview deployed from the current working tree: `dpl_FyAsm3HBSJZXCPorgxZrX6SksA46` / `https://recetas-6ren6162z-luisfleitas-1188s-projects.vercel.app`.
+- Logout bugfix Preview deployed from `codex/feature/fix-staging-logout`: `dpl_31oKCSHw2XTVyTty6bwqK2wjab5z` / `https://recetas-ady5h3dbb-luisfleitas-1188s-projects.vercel.app`, aliased to `https://staging.recetasfamilia.app`.
 - The feature Preview returns healthy `/api/health`, renders Clerk-backed `/sign-in` and `/sign-up` pages, and redirects `/login` to `/sign-in` plus `/register` to `/sign-up`.
 - A post-signup crash on the feature Preview was traced to hosted Postgres schema drift: Prisma error `P2022`, digest `543091922`, because `users.auth_provider` did not exist.
 - The Preview database auth migration was applied on 2026-05-13 via a temporary token-gated Preview endpoint that was removed afterward; the temporary deployment was also removed.
@@ -41,11 +43,12 @@
 ## Known Issues
 
 - Clerk key variable names exist in Vercel Preview and Production, but their sensitive values and test/live prefixes are not visible through the CLI.
-- `AUTH_PROVIDER` now exists in Vercel Preview. The feature Preview serves Clerk auth routes; the verified staging alias still points at the earlier non-Clerk deployment unless it is explicitly promoted.
+- `AUTH_PROVIDER` now exists in Vercel Preview. The staging alias now points at the logout bugfix deployment from `codex/feature/fix-staging-logout`.
 - Clerk route URL variables are still missing in Vercel.
 - Existing SQLite databases need `prisma/migrations/20260513120000_add_auth_provider_identity/migration.sql`; hosted Postgres databases need `prisma/migrations/20260513120000_add_auth_provider_identity/postgres.sql`.
 - Full Clerk hosted browser validation still needs the Clerk key split confirmed and missing Vercel vars added if needed.
 - Clerk logout must use Clerk's supported sign-out mechanism through the provider boundary; do not manually clear Clerk cookies.
+- The shared logout UI must keep redirecting after successful provider-owned logout; otherwise staging can appear to do nothing after the click even when the POST path is called.
 
 ## Verification Already Run
 
@@ -98,6 +101,11 @@
 - `npx vercel curl /api/health --deployment https://recetas-6ren6162z-luisfleitas-1188s-projects.vercel.app` returned healthy checks after the migration.
 - `npx vercel curl / --deployment https://recetas-6ren6162z-luisfleitas-1188s-projects.vercel.app` rendered the home page after the migration.
 - `npx vercel logs https://recetas-6ren6162z-luisfleitas-1188s-projects.vercel.app --since 5m --level error --expand` showed no new Prisma `P2022` crashes; only existing pg SSL-mode warnings appeared.
+- `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/logout-button-client.test.ts` passed on `codex/feature/fix-staging-logout`.
+- `npm run test:auth` passed with the logout client regression included.
+- `npm run build` passed on `codex/feature/fix-staging-logout`.
+- `npx vercel deploy -y` created Ready deployment `dpl_31oKCSHw2XTVyTty6bwqK2wjab5z` at `https://recetas-ady5h3dbb-luisfleitas-1188s-projects.vercel.app`.
+- `npx vercel alias set recetas-ady5h3dbb-luisfleitas-1188s-projects.vercel.app staging.recetasfamilia.app` succeeded.
 
 ## Manual Testing Status
 
