@@ -1,4 +1,5 @@
 import { getPrisma } from "@/lib/prisma";
+import { usesBlobImageStorage } from "@/lib/infrastructure/images/storage-factory";
 
 type HealthStatus = "healthy" | "degraded";
 type HealthCheckStatus = HealthStatus | "not_applicable";
@@ -24,17 +25,13 @@ type HealthDependencies = {
   now?: () => Date;
 };
 
-const BLOB_DRIVERS = new Set(["blob", "vercel-blob"]);
-
 async function checkDatabaseConnectivity(): Promise<void> {
   const prisma = await getPrisma();
   await prisma.$queryRaw`SELECT 1`;
 }
 
 function checkBlobConfiguration(env: Record<string, string | undefined>): DeploymentHealthCheck {
-  const driver = env.IMAGE_STORAGE_DRIVER ?? "local";
-
-  if (!BLOB_DRIVERS.has(driver)) {
+  if (!usesBlobImageStorage(env)) {
     return {
       status: "not_applicable",
       message: "Blob storage is not selected for this environment.",

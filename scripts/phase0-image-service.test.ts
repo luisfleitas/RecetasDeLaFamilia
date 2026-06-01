@@ -12,6 +12,15 @@ import { buildImageStorageProvider } from "../lib/infrastructure/images/storage-
 import { LocalFileStorageProvider } from "../lib/infrastructure/images/local-file-storage-provider";
 import { VercelBlobStorageProvider } from "../lib/infrastructure/images/vercel-blob-storage-provider";
 
+function restoreEnv(name: string, value: string | undefined) {
+  if (value == null) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}
+
 test("storage factory returns local provider when IMAGE_STORAGE_DRIVER=local", () => {
   const previousDriver = process.env.IMAGE_STORAGE_DRIVER;
   process.env.IMAGE_STORAGE_DRIVER = "local";
@@ -20,7 +29,7 @@ test("storage factory returns local provider when IMAGE_STORAGE_DRIVER=local", (
 
   assert.ok(provider instanceof LocalFileStorageProvider);
 
-  process.env.IMAGE_STORAGE_DRIVER = previousDriver;
+  restoreEnv("IMAGE_STORAGE_DRIVER", previousDriver);
 });
 
 test("storage factory returns Vercel Blob provider when IMAGE_STORAGE_DRIVER=vercel-blob", () => {
@@ -33,8 +42,8 @@ test("storage factory returns Vercel Blob provider when IMAGE_STORAGE_DRIVER=ver
 
   assert.ok(provider instanceof VercelBlobStorageProvider);
 
-  process.env.IMAGE_STORAGE_DRIVER = previousDriver;
-  process.env.BLOB_READ_WRITE_TOKEN = previousToken;
+  restoreEnv("IMAGE_STORAGE_DRIVER", previousDriver);
+  restoreEnv("BLOB_READ_WRITE_TOKEN", previousToken);
 });
 
 test("storage factory returns Vercel Blob provider when IMAGE_STORAGE_DRIVER=blob alias", () => {
@@ -47,8 +56,25 @@ test("storage factory returns Vercel Blob provider when IMAGE_STORAGE_DRIVER=blo
 
   assert.ok(provider instanceof VercelBlobStorageProvider);
 
-  process.env.IMAGE_STORAGE_DRIVER = previousDriver;
-  process.env.BLOB_READ_WRITE_TOKEN = previousToken;
+  restoreEnv("IMAGE_STORAGE_DRIVER", previousDriver);
+  restoreEnv("BLOB_READ_WRITE_TOKEN", previousToken);
+});
+
+test("storage factory defaults Vercel runtime uploads to Vercel Blob", () => {
+  const previousDriver = process.env.IMAGE_STORAGE_DRIVER;
+  const previousVercel = process.env.VERCEL;
+  const previousToken = process.env.BLOB_READ_WRITE_TOKEN;
+  delete process.env.IMAGE_STORAGE_DRIVER;
+  process.env.VERCEL = "1";
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_test";
+
+  const provider = buildImageStorageProvider();
+
+  assert.ok(provider instanceof VercelBlobStorageProvider);
+
+  restoreEnv("IMAGE_STORAGE_DRIVER", previousDriver);
+  restoreEnv("VERCEL", previousVercel);
+  restoreEnv("BLOB_READ_WRITE_TOKEN", previousToken);
 });
 
 test("Vercel Blob provider applies object prefix while keeping logical public URLs stable", () => {

@@ -47,6 +47,16 @@ Rule: Track execution for the handwritten recipe import feature against the appr
 - OCR source image limits are separate from saved recipe gallery photos: max 6 images, max 10MB per image, max 20MB combined batch, and accepted JPG/PNG/WEBP/TIFF/BMP source types.
 - OCR source images are not resized or compressed before recognition; original bytes are preserved for OCR and source-document review.
 
+## Hosted Upload Fallback Fix (2026-06-01)
+- Staging reported `ENOENT: no such file or directory, mkdir '/var/task/uploads/imports/staging/...'` while parsing handwritten recipes, which showed the hosted flow had fallen back to local filesystem uploads.
+- Image storage driver resolution now defaults omitted `IMAGE_STORAGE_DRIVER` to `vercel-blob` when running in a Vercel runtime, while keeping local development on `local` unless configured otherwise.
+- `/recipes/import`, `/recipes/add`, and `/api/health` now share the same storage-driver resolver, so handwritten source images use Blob client uploads in hosted runtimes and health reports the same Blob expectation.
+- Verification run for this fix:
+  - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase0-image-service.test.ts`
+  - `node --experimental-strip-types --loader ./scripts/alias-loader.mjs --test scripts/phase4-health.test.ts`
+  - `npm run test:import`
+  - `npm run build`
+
 ## 1. Workflow And Documentation Alignment
 - [x] Research pack created in `requirements/recipe-import/handwritten-ui-research-pack.md`.
 - [x] Approved implementation plan created in `requirements/recipe-import/handwritten-ui-option-b-implementation-plan.md`.

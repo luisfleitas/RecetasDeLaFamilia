@@ -6,8 +6,26 @@ import { VercelBlobStorageProvider } from "./vercel-blob-storage-provider";
 const DEFAULT_DRIVER = "local";
 const BLOB_DRIVERS = new Set(["blob", "vercel-blob"]);
 
+export function resolveImageStorageDriver(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
+): string {
+  const configuredDriver = env.IMAGE_STORAGE_DRIVER?.trim();
+  if (configuredDriver) {
+    return configuredDriver;
+  }
+
+  // Vercel function bundles are immutable, so hosted uploads must not fall back to process.cwd()/uploads.
+  return env.VERCEL ? "vercel-blob" : DEFAULT_DRIVER;
+}
+
+export function usesBlobImageStorage(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
+): boolean {
+  return BLOB_DRIVERS.has(resolveImageStorageDriver(env));
+}
+
 export function buildImageStorageProvider(): ImageStorageProvider {
-  const driver = process.env.IMAGE_STORAGE_DRIVER ?? DEFAULT_DRIVER;
+  const driver = resolveImageStorageDriver();
 
   if (BLOB_DRIVERS.has(driver)) {
     return new VercelBlobStorageProvider({
