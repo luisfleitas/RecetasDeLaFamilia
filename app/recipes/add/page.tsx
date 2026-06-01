@@ -10,13 +10,11 @@ import {
   isRecipeImportHandwrittenEnabled,
 } from "@/lib/application/recipes/import-config";
 import { getRequestMessages } from "@/lib/i18n/server";
+import { usesBlobImageStorage } from "@/lib/infrastructure/images/storage-factory";
 
 export default async function AddRecipePage() {
   const authUser = await requireAuthPage();
   const { locale, messages } = await getRequestMessages();
-
-  const imageDriver = process.env.IMAGE_STORAGE_DRIVER ?? "local";
-  const usesBlobUploads = imageDriver === "vercel-blob" || imageDriver === "blob";
 
   return (
     <RecipeWorkspaceFrame
@@ -32,7 +30,7 @@ export default async function AddRecipePage() {
         handwrittenMaxImageBytes={getRecipeImportHandwrittenMaxImageBytes()}
         handwrittenMaxImageCount={getRecipeImportHandwrittenMaxImageCount()}
         handwrittenMaxUploadBytes={getRecipeImportHandwrittenMaxUploadBytes()}
-        handwrittenSourceUploadMode={usesBlobUploads ? "blob" : "server"}
+        handwrittenSourceUploadMode={usesBlobImageStorage() ? "blob" : "server"}
         isRecipeImportEnabled={isRecipeImportEnabled()}
       />
     </RecipeWorkspaceFrame>

@@ -131,6 +131,7 @@ Environment variables:
 - `IMAGE_STORAGE_DRIVER`:
   - `local` (default, implemented)
   - `vercel-blob` or `blob` (implemented for Vercel Blob)
+  - when omitted in a Vercel runtime, the app defaults to `vercel-blob` so uploads do not write into the immutable function bundle
 - `IMAGE_STORAGE_LOCAL_ROOT`:
   - local filesystem root for image objects
   - defaults to `<repo>/uploads`

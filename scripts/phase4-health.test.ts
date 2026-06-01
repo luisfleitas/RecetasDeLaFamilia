@@ -45,6 +45,19 @@ test("deployment health requires Blob token only when Blob storage is selected",
   assert.equal(report.checks.blob.message, "Blob storage is selected but BLOB_READ_WRITE_TOKEN is not configured.");
 });
 
+test("deployment health treats Vercel runtime uploads as Blob when driver is omitted", async () => {
+  const report = await getDeploymentHealthReport({
+    env: {
+      VERCEL: "1",
+      BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_sensitive_token",
+    },
+    checkDatabase: async () => undefined,
+  });
+
+  assert.equal(report.status, "healthy");
+  assert.equal(report.checks.blob.status, "healthy");
+});
+
 test("deployment health does not expose configured Blob token value", async () => {
   const report = await getDeploymentHealthReport({
     env: {
